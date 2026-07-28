@@ -20,9 +20,10 @@ web/app/.git/
 .vscode/
 *.swp
 __pycache__/
+node_modules/
 
 # Runtime / logs
 *.log
-
+web/server/data/
 # Local machine overrides (private bind IPs, etc.) — do not publish
 stack/docker-compose.override.yml

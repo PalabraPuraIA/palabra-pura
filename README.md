@@ -27,15 +27,17 @@ optional n8n workflows, and optional Cloudflare Tunnel for HTTPS demos.
 ```bash
 cd stack
 cp .env.example .env
-docker compose up -d
+docker compose up -d --build
 ```
 
 Default ports (change in `docker-compose.yml` if needed):
 
-- Web: http://localhost:8088/
+- Chat: http://localhost:8088/
+- Dashboard: http://localhost:8088/dashboard/
 - n8n: http://localhost:5688/
 - Postgres: localhost:5488
 
+Each chat question is logged locally (JSON in a Docker volume) and summarized on the dashboard.
 Import schema (and your own data file if you have one):
 
 ```bash

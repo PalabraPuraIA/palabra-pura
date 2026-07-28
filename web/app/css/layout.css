@@ -46,6 +46,9 @@
   transition: border-color var(--transition), color var(--transition);
 }
 .status-pill:hover { border-color: var(--c-blue); color: var(--c-blue); }
+.status-pill--link { text-decoration: none; }
+.topbar { gap: 8px; }
+.topbar { flex-wrap: wrap; }
 
 .status-pill__dot {
   width: 7px; height: 7px;

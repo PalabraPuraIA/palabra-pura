@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Palabra Pura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <link rel="stylesheet" href="./dashboard.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="bar">
+      <div>
+        <p class="eyebrow">Palabra Pura Blaze</p>
+        <h1>Dashboard de consultas</h1>
+      </div>
+      <div class="bar__actions">
+        <button class="btn" type="button" data-refresh>Actualizar</button>
+        <a class="btn btn--primary" href="/">Ir al chat</a>
+      </div>
+    </header>
+
+    <p class="sub">Resumen de lo que la gente pregunta en el chatbot. Se actualiza con cada consulta nueva.</p>
+
+    <section class="stats" data-stats>
+      <article class="stat">
+        <p class="stat__label">Preguntas totales</p>
+        <p class="stat__value" data-total>—</p>
+      </article>
+      <article class="stat">
+        <p class="stat__label">Últimas 24 horas</p>
+        <p class="stat__value" data-day>—</p>
+      </article>
+      <article class="stat">
+        <p class="stat__label">Temas activos</p>
+        <p class="stat__value" data-topics-n>—</p>
+      </article>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Temas más preguntados</h2>
+        <p class="card__hint">Conteo aproximado por palabras clave de cada pregunta</p>
+        <div class="bars" data-topic-bars></div>
+        <p class="empty" data-topics-empty hidden>Aún no hay suficientes consultas para mostrar temas.</p>
+      </section>
+
+      <section class="card">
+        <h2>Palabras más frecuentes</h2>
+        <p class="card__hint">Promedio de aparición en el historial reciente</p>
+        <ul class="chips" data-terms></ul>
+        <p class="empty" data-terms-empty hidden>Sin datos todavía.</p>
+      </section>
+    </div>
+
+    <section class="card card--wide">
+      <h2>Últimas consultas</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cuándo</th>
+              <th>Pregunta</th>
+              <th>Temas</th>
+            </tr>
+          </thead>
+          <tbody data-recent></tbody>
+        </table>
+      </div>
+      <p class="empty" data-recent-empty hidden>Todavía no hay consultas registradas. Prueba el chat y vuelve aquí.</p>
+    </section>
+
+    <p class="foot" data-generated></p>
+  </div>
+
+  <script type="module" src="./dashboard.js"></script>
+</body>
+</html>
