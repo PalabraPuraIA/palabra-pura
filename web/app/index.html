@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Palabra Pura Blaze — Pregúntale a la Palabra</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <link rel="stylesheet" href="./css/base.css" />
+  <link rel="stylesheet" href="./css/layout.css" />
+  <link rel="stylesheet" href="./css/chat.css" />
+  <link rel="stylesheet" href="./css/modal.css" />
+</head>
+<body>
+
+  <div class="wrap">
+
+    <header class="topbar">
+      <div class="brand">
+        <p class="brand__eyebrow">Iglesia</p>
+        <p class="brand__name">Palabra Pura <span>Blaze</span></p>
+      </div>
+
+      <button class="status-pill" data-connect-open type="button" title="Conectar tu chatbot">
+        <span class="status-pill__dot" data-connect-dot></span>
+        <span data-connect-label>Demo · Conectar</span>
+      </button>
+    </header>
+
+    <section class="hero">
+      <h1>Pregúntale a la <em>Palabra</em></h1>
+      <p>Un espacio para quienes empiezan a caminar en la fe. Escribe tu pregunta y recibe una respuesta basada en las enseñanzas del ministerio, con el video y el pasaje bíblico para que tú también lo busques.</p>
+    </section>
+
+    <main class="chat" aria-label="Conversación con el chatbot">
+      <div class="chat__head">
+        <p class="chat__title">Guía de la Palabra</p>
+        <p class="chat__status"><span class="chat__status-dot"></span> Aquí para acompañarte</p>
+      </div>
+
+      <div class="chat__scroll" data-messages role="log" aria-live="polite"></div>
+
+      <div class="examples" data-examples>
+        <p class="examples__label">Prueba con una pregunta</p>
+        <div class="examples__chips" data-chips></div>
+      </div>
+
+      <form class="composer" data-composer>
+        <textarea
+          data-input
+          rows="1"
+          placeholder="Escribe tu pregunta con tus propias palabras…"
+          aria-label="Tu pregunta"></textarea>
+        <button class="composer__send" data-send type="submit" aria-label="Enviar pregunta">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M4 12h13M11 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </form>
+    </main>
+
+    <section class="player" data-player aria-label="Reproductor de la enseñanza">
+      <div class="player__head">
+        <p class="player__label">Enseñanza en video</p>
+        <p class="player__hint">Se abre aquí cuando la respuesta cita un video</p>
+      </div>
+
+      <div class="player__empty" data-player-empty>
+        <p class="player__empty-title">El video aparecerá aquí</p>
+        <p class="player__empty-text">Cuando la respuesta cite una enseñanza, podrás verla en este espacio desde el minuto exacto.</p>
+      </div>
+
+      <div class="player__stage" data-player-stage hidden>
+        <div class="player__frame-wrap">
+          <iframe
+            data-player-frame
+            class="player__frame"
+            title="Video de la enseñanza"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+        <div class="player__meta" data-player-meta></div>
+      </div>
+    </section>
+
+    <section class="articles" data-articles aria-label="Artículos relacionados">
+      <div class="articles__head">
+        <p class="articles__label">Para seguir leyendo</p>
+        <a class="articles__hub" href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
+          Ver todos los artículos
+        </a>
+      </div>
+      <p class="articles__status" data-articles-status hidden></p>
+      <div class="articles__list" data-articles-list></div>
+      <div class="articles__empty" data-articles-empty>
+        <p class="articles__empty-title">Artículos relacionados</p>
+        <p class="articles__empty-text">
+          Cuando preguntes, te sugeriremos lecturas de
+          <a href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
+            la sección de artículos
+          </a>
+          de Iglesia Palabra Pura.
+        </p>
+      </div>
+    </section>
+
+    <div class="panels">
+      <section class="panel">
+        <h2>Cómo usar</h2>
+        <p class="panel__sub">Tres pasos, sin complicaciones.</p>
+
+        <div class="step">
+          <span class="step__n">1</span>
+          <div>
+            <strong>Escribe tu pregunta</strong>
+            <span>Con tus palabras, como se la harías a un hermano de confianza. No necesitas saber de la Biblia.</span>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step__n">2</span>
+          <div>
+            <strong>Recibe una respuesta</strong>
+            <span>Tomada de las enseñanzas del ministerio, acompañada del pasaje bíblico que la sostiene.</span>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step__n">3</span>
+          <div>
+            <strong>Ve y compruébalo</strong>
+            <span>Abre el video en el minuto exacto y busca el pasaje en tu Biblia. La Palabra siempre se confirma en la Palabra.</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Preguntas frecuentes</h2>
+        <p class="panel__sub">Para quienes recién comienzan.</p>
+
+        <details class="faq">
+          <summary>¿Necesito saber de la Biblia para usar esto?</summary>
+          <p>Para nada. Este espacio es justamente para quienes están empezando. Pregunta con naturalidad y la respuesta te guiará, incluyendo dónde leer en tu Biblia.</p>
+        </details>
+        <details class="faq">
+          <summary>¿De dónde salen las respuestas?</summary>
+          <p>De las enseñanzas compartidas en los videos del ministerio, junto con los pasajes de la Biblia que allí se citan.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Esto reemplaza a mi pastor o a la iglesia?</summary>
+          <p>No. Es una ayuda para tu caminar personal, un punto de partida. La comunidad, tu pastor y la oración siguen siendo el corazón de la vida en la fe.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Puedo confiar en lo que me responde?</summary>
+          <p>Cada respuesta viene con el video y el pasaje de referencia para que tú mismo lo verifiques. Te animamos siempre a leer el texto completo en tu Biblia.</p>
+        </details>
+        <details class="faq">
+          <summary>¿Qué hago si no entiendo la respuesta?</summary>
+          <p>Vuelve a preguntar de otra forma, o pide que te lo explique más sencillo. También puedes ver el video completo desde el minuto que te indica.</p>
+        </details>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <p>Un proyecto para <span class="footer__name">Palabra Pura Blaze</span></p>
+      <p class="footer__note">Las respuestas se acompañan del video y del pasaje bíblico de referencia.</p>
+    </footer>
+  </div>
+
+  <div class="modal" data-modal role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal__card">
+      <h3 id="modalTitle">Conectar tu chatbot</h3>
+      <p>Pega aquí la URL de tu Edge Function. Mientras esté vacío, la página funciona en modo demostración.</p>
+      <input
+        data-modal-input
+        type="url"
+        placeholder="https://tu-proyecto.supabase.co/functions/v1/chat" />
+      <div class="modal__actions">
+        <button class="btn" data-modal-cancel type="button">Cancelar</button>
+        <button class="btn btn--primary" data-modal-save type="button">Conectar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

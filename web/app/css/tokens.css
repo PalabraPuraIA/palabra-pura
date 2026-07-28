@@ -1,0 +1,45 @@
+/* ============================================================
+   TOKENS — identidad visual de Palabra Pura Blaze.
+   Única fuente de verdad. Cambia un color aquí y cambia en todo.
+   ============================================================ */
+:root {
+  /* --- Paleta de la iglesia --- */
+  --c-blue:       #2B2FA8;  /* azul índigo — color primario */
+  --c-blue-deep:  #22258A;  /* hover / profundidad */
+  --c-blue-tint:  #EEEFFA;  /* fondo suave azulado */
+
+  --c-orange:     #F07C22;  /* naranja — acento cálido */
+  --c-orange-soft:#FDEEE0;
+
+  --c-red:        #E1352C;  /* rojo — enlaces y llamados */
+
+  /* --- Neutros --- */
+  --c-white:      #FFFFFF;
+  --c-bg:         #FFFFFF;
+  --c-bg-soft:    #F5F6F9;  /* gris muy claro */
+  --c-line:       #E4E6EC;  /* bordes */
+
+  --c-ink:        #1C1D2B;  /* texto principal (casi negro azulado) */
+  --c-ink-soft:   #5C6070;  /* texto secundario */
+
+  /* --- Tipografía --- */
+  --f-body: "Poppins", system-ui, -apple-system, sans-serif;
+
+  /* --- Formas --- */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-pill: 999px;
+
+  --shadow-soft: 0 2px 8px rgba(28, 29, 43, .04);
+  --shadow-lift: 0 18px 50px -30px rgba(43, 47, 168, .30);
+
+  /* --- Ritmo --- */
+  --sp-1: 6px;
+  --sp-2: 12px;
+  --sp-3: 18px;
+  --sp-4: 26px;
+  --sp-5: 40px;
+
+  --transition: .15s ease;
+}

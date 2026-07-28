@@ -1,0 +1,180 @@
+/* ============================================================
+   LAYOUT — contenedor, barra, hero, paneles, footer
+   ============================================================ */
+.wrap {
+  width: min(1040px, 92vw);
+  margin-inline: auto;
+}
+
+/* ---------- Barra superior ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26px 0 10px;
+}
+
+/* Solo el nombre, sin logotipo. */
+.brand__name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: .01em;
+  color: var(--c-ink);
+  line-height: 1.2;
+}
+.brand__name span { color: var(--c-orange); }
+
+.brand__eyebrow {
+  font-size: .62rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+  font-weight: 600;
+}
+
+.status-pill {
+  display: flex; align-items: center; gap: 7px;
+  font-size: .68rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--c-ink-soft);
+  background: var(--c-white);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-pill);
+  padding: 7px 13px;
+  transition: border-color var(--transition), color var(--transition);
+}
+.status-pill:hover { border-color: var(--c-blue); color: var(--c-blue); }
+
+.status-pill__dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--c-line);
+  transition: background var(--transition);
+}
+.status-pill__dot--live { background: var(--c-orange); }
+
+/* ---------- Hero ---------- */
+.hero { text-align: center; padding: 48px 0 30px; }
+
+.hero h1 {
+  font-weight: 700;
+  font-size: clamp(1.9rem, 4.6vw, 2.9rem);
+  line-height: 1.15;
+  letter-spacing: -.01em;
+  text-transform: uppercase;
+  color: var(--c-ink);
+  max-width: 18ch;
+  margin-inline: auto;
+}
+.hero h1 em { font-style: normal; color: var(--c-blue); }
+
+.hero p {
+  margin: var(--sp-3) auto 0;
+  max-width: 54ch;
+  color: var(--c-ink-soft);
+  font-size: 1.02rem;
+  font-weight: 400;
+}
+
+/* ---------- Paneles inferiores ---------- */
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-5);
+  margin: 56px 0 10px;
+}
+
+@media (max-width: 760px) {
+  .panels { grid-template-columns: 1fr; gap: 36px; }
+}
+
+.panel h2 {
+  font-weight: 700;
+  font-size: 1.15rem;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--c-ink);
+  margin-bottom: 4px;
+}
+
+.panel__sub {
+  color: var(--c-ink-soft);
+  font-size: .92rem;
+  margin-bottom: var(--sp-3);
+}
+
+.step {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--c-line);
+}
+.step:first-of-type { border-top: none; }
+
+.step__n {
+  flex: none;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--c-blue-tint);
+  color: var(--c-blue);
+  font-size: .78rem;
+  font-weight: 700;
+}
+
+.step strong {
+  display: block;
+  color: var(--c-ink);
+  font-weight: 600;
+  font-size: .95rem;
+  margin-bottom: 2px;
+}
+.step span { color: var(--c-ink-soft); font-size: .92rem; }
+
+/* ---------- FAQ ---------- */
+.faq { border-top: 1px solid var(--c-line); }
+.faq:first-of-type { border-top: none; }
+
+.faq summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 16px 34px 16px 0;
+  position: relative;
+  font-weight: 600;
+  font-size: .95rem;
+  color: var(--c-ink);
+  transition: color var(--transition);
+}
+.faq summary:hover { color: var(--c-blue); }
+.faq summary::-webkit-details-marker { display: none; }
+
+.faq summary::after {
+  content: "+";
+  position: absolute;
+  right: 4px; top: 13px;
+  font-size: 1.25rem;
+  color: var(--c-orange);
+  font-weight: 400;
+  transition: transform .2s ease;
+}
+.faq[open] summary::after { transform: rotate(45deg); }
+
+.faq p {
+  color: var(--c-ink-soft);
+  font-size: .92rem;
+  padding: 0 4px 18px 0;
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  text-align: center;
+  padding: var(--sp-5) 0 36px;
+  margin-top: 40px;
+  border-top: 1px solid var(--c-line);
+  color: var(--c-ink-soft);
+  font-size: .85rem;
+}
+.footer__name { color: var(--c-ink); font-weight: 600; }
+.footer__note { margin-top: var(--sp-1); font-size: .8rem; }

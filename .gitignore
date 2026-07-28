@@ -1,0 +1,28 @@
+# Secrets / local env
+.env
+.env.*
+!.env.example
+
+# Huge DB dump (GitHub max file ~100MB). Keep schema only in git.
+db/data.sql
+
+# Supabase CLI local linkage (may contain connection hints)
+supabase/.temp/
+supabase/.branches/
+supabase/.temp/**
+
+# Nested clone metadata
+web/app/.git/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+__pycache__/
+
+# Runtime / logs
+*.log
+
+# Local machine overrides (private bind IPs, etc.) — do not publish
+stack/docker-compose.override.yml

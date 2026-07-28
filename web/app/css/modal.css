@@ -1,0 +1,75 @@
+/* ============================================================
+   MODAL — panel de conexión del endpoint
+   ============================================================ */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  padding: 20px;
+  align-items: center;
+  justify-content: center;
+  background: rgba(28, 29, 43, .45);
+  backdrop-filter: blur(3px);
+}
+.modal--open { display: flex; animation: rise .2s ease both; }
+
+.modal__card {
+  width: min(440px, 100%);
+  padding: var(--sp-4);
+  background: var(--c-white);
+  border-radius: var(--r-lg);
+  box-shadow: 0 30px 70px -30px rgba(28, 29, 43, .4);
+}
+
+.modal__card h3 {
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--c-ink);
+  margin-bottom: var(--sp-1);
+}
+
+.modal__card p {
+  color: var(--c-ink-soft);
+  font-size: .88rem;
+  margin-bottom: 16px;
+}
+
+.modal__card input {
+  width: 100%;
+  font-size: .92rem;
+  padding: 12px 14px;
+  color: var(--c-ink);
+  background: var(--c-bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-md);
+}
+.modal__card input:focus { outline: none; border-color: var(--c-blue); background: var(--c-white); }
+
+.modal__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: var(--sp-3);
+}
+
+.btn {
+  flex: 1;
+  font-weight: 600;
+  font-size: .9rem;
+  padding: 11px 18px;
+  color: var(--c-ink-soft);
+  background: var(--c-white);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-md);
+  transition: border-color var(--transition), color var(--transition), background var(--transition);
+}
+.btn:hover { border-color: var(--c-ink-soft); color: var(--c-ink); }
+
+.btn--primary {
+  color: var(--c-white);
+  background: var(--c-blue);
+  border-color: var(--c-blue);
+}
+.btn--primary:hover { background: var(--c-blue-deep); border-color: var(--c-blue-deep); }
