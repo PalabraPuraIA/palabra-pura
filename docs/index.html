@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>Enciclopedia de Palabra Pura</title>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; background: #f5f6f9; color: #1c1d2b; }
+    .bar { display:flex; justify-content:space-between; gap:12px; align-items:center; padding:10px 14px; background:#fff; border-bottom:1px solid #e4e6ec; font-size:13px; }
+    .wrap { height: calc(100% - 46px); position: relative; }
+    iframe { border:0; width:100%; height:100%; background:#fff; }
+    .msg { position:absolute; inset:0; display:grid; place-items:center; padding:24px; text-align:center; }
+    .msg p { max-width:46ch; line-height:1.5; color:#5c6070; }
+    .hidden { display:none !important; }
+    a { color:#2b2fa8; font-weight:600; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div><strong>Enciclopedia de Palabra Pura</strong> · Chat</div>
+    <div><a href="./dashboard.html">Dashboard</a></div>
+  </div>
+  <div class="wrap">
+    <div class="msg" id="status"><div>
+      <h1 style="margin:0 0 8px;font-size:1.15rem">Cargando…</h1>
+      <p id="statusText">Buscando el servidor público actual. Esta página fija no cambia.</p>
+    </div></div>
+    <iframe id="app" class="hidden" title="Chat"></iframe>
+  </div>
+  <script>
+    const PATH = "/";
+    const STATUS_URL = "https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/enciclopedia?format=json";
+    async function refresh() {
+      try {
+        const res = await fetch(STATUS_URL + "&_=" + Date.now(), { cache: "no-store" });
+        const data = await res.json();
+        const base = String(data.baseUrl || "").replace(/\/+$/, "");
+        if (!base) throw new Error(data.error || "sin URL pública");
+        const next = base + PATH;
+        const frame = document.getElementById("app");
+        if (frame.getAttribute("src") !== next) frame.setAttribute("src", next);
+        frame.classList.remove("hidden");
+        document.getElementById("status").classList.add("hidden");
+      } catch (err) {
+        document.getElementById("status").classList.remove("hidden");
+        document.getElementById("app").classList.add("hidden");
+        document.getElementById("statusText").textContent =
+          "No hay túnel activo ahora. Reintentando… (" + err.message + ")";
+      }
+    }
+    refresh();
+    setInterval(refresh, 30000);
+  </script>
+</body>
+</html>

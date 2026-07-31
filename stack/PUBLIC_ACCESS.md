@@ -1,17 +1,26 @@
-# Optional public HTTPS (Cloudflare quick tunnel)
+# Public access — stable links
 
-This Compose service publishes **only** the `web` container through Cloudflare.
+Quick Cloudflare tunnels (`*.trycloudflare.com`) change hostname on restart.
+**Do not bookmark** those temporary hostnames — reload will fail there.
 
-```bash
-cd stack
-docker compose up -d tunnel
-docker logs -f palabra-pura-tunnel
-```
+## Permanent links (bookmark / share these)
 
-Look for a `https://*.trycloudflare.com` URL in the logs.
+- **Chat:** https://erickcherry.github.io/palabra-pura-stack/
+- **Dashboard:** https://erickcherry.github.io/palabra-pura-stack/dashboard.html
 
-Notes:
+These GitHub Pages never change. They load the current tunnel inside the page,
+so when Cloudflare rotates the tunnel hostname the stable link still works after refresh.
 
-- Quick tunnels are for demos; the URL can change after restart.
-- For a stable hostname, use a Cloudflare named tunnel and your own domain.
-- Point public traffic at the web UI only — not the database or n8n admin UI.
+Aliases (302 → same pages):
+
+- https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/enciclopedia
+- https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/enciclopedia/dashboard
+
+## Ops
+
+`stack/scripts/tunnel-watchdog.sh` (cron every 2 minutes on the host):
+
+1. Checks LAN web + public tunnel
+2. Restarts tunnel if the public URL is down
+3. Publishes `public_base_url` to Supabase `app_settings` for the status API
+EOF
