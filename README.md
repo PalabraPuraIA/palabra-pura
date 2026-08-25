@@ -1,28 +1,31 @@
 # Palabra Pura — chatbot stack
 
-Docker Compose project for the **Palabra Pura** chatbot: web UI, Postgres (pgvector),
-optional n8n workflows, and optional Cloudflare Tunnel for HTTPS demos.
+Stack del chatbot de la **Iglesia Palabra Pura**: front web, Postgres (pgvector),
+workflows n8n opcionales y tunnel Cloudflare para demos.
 
-## What's in this repo
+> **Cuentas:** GitHub [`PalabraPuraIA`](https://github.com/PalabraPuraIA) · Supabase `roxbekpxdgvqbosepmdd`  
+> Detalle de conexión: [CONEXION.md](./CONEXION.md)
 
-| Path | Contents |
-|------|----------|
-| `web/app/` | Chatbot frontend (answers, embedded YouTube, related articles) |
-| `stack/` | `docker-compose.yml` and helpers |
-| `db/` | SQL schema (`schema.sql` / `schema.clean.sql`). No large data dump |
-| `n8n-workflows/` | Sample / redacted workflow JSON exports |
+## Qué hay en este repo
 
-## Not included
+| Path | Contenido |
+|------|-----------|
+| `web/app/` | Frontend del chat (respuestas, YouTube, artículos) + dashboard |
+| `stack/` | `docker-compose.yml` y helpers |
+| `db/` | Schema SQL (sin dump grande de datos) |
+| `supabase/functions/` | Edge Functions (chatbot, create-fragment, enciclopedia) |
+| `n8n-workflows/` | Exports de ejemplo (redactados) |
 
-- Database data dump (`db/data.sql`)
-- Real secrets (use `stack/.env.example`)
-- Deployment targets or private infrastructure details
+## Origen del contenido
 
-## Requirements
+- **Backend / datos:** proyecto Supabase del compañero (`roxbekpxdgvqbosepmdd`) — videos, fragmentos, bible chunks, embeddings.
+- **Frontend / extras:** este repo — UI, dashboard, artículos WordPress, Docker, `enciclopedia`.
+
+## Requisitos
 
 - Docker + Docker Compose
 
-## Quick start
+## Arranque rápido
 
 ```bash
 cd stack
@@ -30,36 +33,35 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Default ports (change in `docker-compose.yml` if needed):
+Puertos por defecto:
 
 - Chat: http://localhost:8088/
 - Dashboard: http://localhost:8088/dashboard/
 - n8n: http://localhost:5688/
 - Postgres: localhost:5488
 
-Each chat question is logged locally (JSON in a Docker volume) and summarized on the dashboard.
-Import schema (and your own data file if you have one):
+Importar schema (y tu `data.sql` si lo tienes):
 
 ```bash
 ./import-db.sh
 ```
 
-Optional public HTTPS demo via Cloudflare quick tunnel:
+Demo HTTPS opcional:
 
 ```bash
 docker compose up -d tunnel
 docker logs -f palabra-pura-tunnel
 ```
 
-See `stack/PUBLIC_ACCESS.md`.
+Ver `stack/PUBLIC_ACCESS.md`.
 
-## Frontend notes
+## Frontend ↔ Supabase
 
-- Backend URL: `web/app/js/config.js` or the in-page Connect button
-- YouTube embed when the API returns `youtube_id`
-- Related articles via the public WordPress REST API of [iglesiapalabrapura.com](https://iglesiapalabrapura.com/site/articulos/)
+- Endpoint y publishable key: `web/app/js/config.js`
+- El chat envía header `apikey` (obligatorio en el gateway nuevo)
+- Artículos vía WordPress público de [iglesiapalabrapura.com](https://iglesiapalabrapura.com/site/articulos/)
 
-Frontend originally based on [miliverso/palabra-pura-chatbot](https://github.com/miliverso/palabra-pura-chatbot).
+Base del UI: [miliverso/palabra-pura-chatbot](https://github.com/miliverso/palabra-pura-chatbot).
 
 ## License
 

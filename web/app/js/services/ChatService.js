@@ -33,7 +33,10 @@ export class ChatService {
     try {
       const response = await fetch(config.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          apikey: config.publishableKey,
+        },
         body: JSON.stringify({ question }),
       });
 

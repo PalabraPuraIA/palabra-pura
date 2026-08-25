@@ -65,10 +65,13 @@ services:
       PORT: "80"
       PUBLIC_DIR: /srv/public
       DATA_DIR: /data
+      PUBLIC_URL_FILE: /data/public-url.json
     volumes:
       # Live UI updates without rebuild (optional in prod)
       - ../web/app:/srv/public:ro
       - pp_web_data:/data
+      # Current public tunnel URL (written by tunnel-watchdog on the host)
+      - ./runtime/public-url.json:/data/public-url.json:ro
     ports:
       - "8088:80"
     networks:
@@ -80,7 +83,7 @@ services:
       retries: 5
 
   tunnel:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.7.1
     container_name: palabra-pura-tunnel
     restart: unless-stopped
     command:
@@ -89,7 +92,8 @@ services:
       - --url
       - http://web:80
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     networks:
       - pp_net
 

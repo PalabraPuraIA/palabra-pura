@@ -1,26 +1,22 @@
-# Public access — stable links
+# Acceso público — enlaces estables
 
-Quick Cloudflare tunnels (`*.trycloudflare.com`) change hostname on restart.
-**Do not bookmark** those temporary hostnames — reload will fail there.
+Los tunnels rápidos de Cloudflare (`*.trycloudflare.com`) cambian de hostname al reiniciar.
+**No los uses como bookmark.**
 
-## Permanent links (bookmark / share these)
+## Enlaces permanentes (cuando GitHub Pages esté activo)
 
-- **Chat:** https://erickcherry.github.io/palabra-pura-stack/
-- **Dashboard:** https://erickcherry.github.io/palabra-pura-stack/dashboard.html
+- **Chat:** https://palabrapuraia.github.io/palabra-pura/
+- **Dashboard:** https://palabrapuraia.github.io/palabra-pura/dashboard.html
 
-These GitHub Pages never change. They load the current tunnel inside the page,
-so when Cloudflare rotates the tunnel hostname the stable link still works after refresh.
+Aliases vía Edge Function (302 / JSON de estado):
 
-Aliases (302 → same pages):
-
-- https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/enciclopedia
-- https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/enciclopedia/dashboard
+- https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/enciclopedia
+- https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/enciclopedia/dashboard
 
 ## Ops
 
-`stack/scripts/tunnel-watchdog.sh` (cron every 2 minutes on the host):
+`stack/scripts/tunnel-watchdog.sh` (cron cada 2 minutos en el host):
 
-1. Checks LAN web + public tunnel
-2. Restarts tunnel if the public URL is down
-3. Publishes `public_base_url` to Supabase `app_settings` for the status API
-EOF
+1. Revisa LAN web + tunnel público
+2. Reinicia el tunnel si la URL pública cae
+3. Publica `public_base_url` en Supabase `app_settings` para el status API

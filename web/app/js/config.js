@@ -7,9 +7,12 @@
  */
 
 export const config = {
-  /** URL de tu Edge Function de Supabase. Ej:
-   *  "https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/bright-action" */
-  endpoint: "https://oxlmqzheogkharxpqjwp.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
+  /** URL de tu Edge Function de Supabase. */
+  endpoint:
+    "https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
+
+  /** Publishable key (pública, frontend). Requerida por las Edge Functions nuevas. */
+  publishableKey: "sb_publishable_be42gEb2YMLen6FWYrUbZg_rwhKDd65",
 
   /** Preguntas de ejemplo que se muestran bajo el chat. */
   exampleQuestions: [
@@ -28,10 +31,11 @@ export const config = {
   demoDelayMs: 800,
 
   /**
-   * Artículos públicos de la iglesia (WordPress REST, solo lectura).
-   * Misma información publicada en /site/articulos/
+   * Artículos públicos de la iglesia.
+   * Preferimos el proxy same-origin (/api/articles) para evitar CORS y
+   * búsquedas vacías de WordPress con varias palabras.
    */
-  articlesApiUrl: "https://iglesiapalabrapura.com/site/wp-json/wp/v2/posts",
+  articlesApiUrl: "/api/articles",
   articlesHubUrl: "https://iglesiapalabrapura.com/site/articulos/",
   articlesLimit: 3,
 };

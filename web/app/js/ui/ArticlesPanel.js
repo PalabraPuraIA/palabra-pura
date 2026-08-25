@@ -86,7 +86,7 @@ export class ArticlesPanel {
         <a href="${escapeHtml(config.articlesHubUrl)}" target="_blank" rel="noopener">
           la sección de artículos
         </a>
-        de Iglesia Palabra Pura.
+        de la Enciclopedia de Palabra Pura.
       </p>`;
     this.#root.hidden = false;
   }

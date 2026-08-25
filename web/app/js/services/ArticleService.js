@@ -1,8 +1,9 @@
 /**
  * ArticleService.js — Busca artículos públicos en el WordPress de la iglesia.
  *
- * Solo LECTURA de contenido ya publicado (misma info que /site/articulos/).
- * No autentica, no escribe, no modifica nada en el sitio.
+ * Usa el proxy local `/api/articles` (mismo origen). El servidor consulta WP
+ * con términos sueltos (WP trata varias palabras como AND y a menudo
+ * devuelve []).
  */
 
 import { config } from "../config.js";
@@ -19,15 +20,6 @@ const STOPWORDS = new Set([
   "significa", "puedo", "puede", "hacer", "tengo", "tiene", "ser", "son",
 ]);
 
-/** Quita HTML y entidades básicas de títulos/extractos de WordPress. */
-function stripHtml(value) {
-  const raw = String(value ?? "");
-  const withoutTags = raw.replace(/<[^>]+>/g, " ");
-  const textarea = document.createElement("textarea");
-  textarea.innerHTML = withoutTags;
-  return textarea.value.replace(/\s+/g, " ").trim();
-}
-
 /** Extrae términos útiles para la búsqueda WP. */
 export function extractSearchTerms(question, maxTerms = 5) {
   const tokens = String(question ?? "")
@@ -38,7 +30,6 @@ export function extractSearchTerms(question, maxTerms = 5) {
     .split(/\s+/)
     .filter((t) => t.length > 2 && !STOPWORDS.has(t));
 
-  // Preferir términos más largos / distintivos
   const unique = [...new Set(tokens)];
   unique.sort((a, b) => b.length - a.length);
   return unique.slice(0, maxTerms);
@@ -47,11 +38,19 @@ export function extractSearchTerms(question, maxTerms = 5) {
 function normalizePost(post) {
   return {
     id: post.id,
-    title: stripHtml(post.title?.rendered ?? post.title ?? "Artículo"),
-    excerpt: stripHtml(post.excerpt?.rendered ?? post.excerpt ?? ""),
+    title: String(post.title ?? "Artículo").trim(),
+    excerpt: String(post.excerpt ?? "").trim(),
     link: post.link,
     date: post.date ? String(post.date).slice(0, 10) : "",
   };
+}
+
+function isUsefulArticle(article) {
+  const title = String(article.title || "").trim().toLowerCase();
+  if (!title || !article.link) return false;
+  // Muchos posts de la categoría son "TESTIMONIOS" genéricos.
+  if (title === "testimonios" || /^testimonios\s*\d*$/i.test(title)) return false;
+  return true;
 }
 
 export class ArticleService {
@@ -65,27 +64,27 @@ export class ArticleService {
    */
   async recommend(question, { limit = config.articlesLimit ?? 3 } = {}) {
     const terms = extractSearchTerms(question);
-    const query = terms.slice(0, 3).join(" ") || String(question ?? "").trim();
-    if (!query) return [];
+    const q = terms.slice(0, 4).join(" ") || String(question ?? "").trim();
+    if (!q) return [];
 
-    const cacheKey = `${query}|${limit}`;
+    const cacheKey = `${q}|${limit}`;
     if (this.#cache.has(cacheKey)) return this.#cache.get(cacheKey);
 
     try {
-      const url = new URL(config.articlesApiUrl);
-      url.searchParams.set("search", query);
-      url.searchParams.set("per_page", String(Math.max(limit, 3)));
-      url.searchParams.set("_fields", "id,date,title,link,excerpt");
+      const url = new URL(config.articlesApiUrl, window.location.origin);
+      url.searchParams.set("q", q);
+      url.searchParams.set("limit", String(limit));
 
       const response = await fetch(url.toString(), {
         headers: { Accept: "application/json" },
+        cache: "no-store",
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const data = await response.json();
-      const articles = (Array.isArray(data) ? data : [])
+      const articles = (Array.isArray(data?.articles) ? data.articles : Array.isArray(data) ? data : [])
         .map(normalizePost)
-        .filter((a) => a.link && a.title)
+        .filter(isUsefulArticle)
         .slice(0, limit);
 
       this.#cache.set(cacheKey, articles);

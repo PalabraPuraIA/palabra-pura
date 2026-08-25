@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Palabra Pura Blaze — Pregúntale a la Palabra</title>
+  <title>Enciclopedia de Palabra Pura — Pregúntale a la Palabra</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/tokens.css" />
-  <link rel="stylesheet" href="./css/base.css" />
-  <link rel="stylesheet" href="./css/layout.css" />
-  <link rel="stylesheet" href="./css/chat.css" />
-  <link rel="stylesheet" href="./css/modal.css" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/css/base.css" />
+  <link rel="stylesheet" href="/css/layout.css" />
+  <link rel="stylesheet" href="/css/chat.css" />
+  <link rel="stylesheet" href="/css/modal.css" />
 </head>
 <body>
 
@@ -21,17 +21,19 @@
 
     <header class="topbar">
       <div class="brand">
-        <p class="brand__eyebrow">Iglesia</p>
-        <p class="brand__name">Palabra Pura <span>Blaze</span></p>
+        <p class="brand__eyebrow">Enciclopedia</p>
+        <p class="brand__name">de Palabra Pura</p>
       </div>
 
-      <button class="status-pill" data-connect-open type="button" title="Conectar tu chatbot">
-        <span class="status-pill__dot" data-connect-dot></span>
-        <span data-connect-label>Demo · Conectar</span>
-      </button>
-      <a class="status-pill status-pill--link" href="/dashboard/" title="Ver dashboard de consultas">
-        Dashboard
-      </a>
+      <div class="topbar__actions">
+        <button class="status-pill" data-connect-open type="button" title="Conectar tu chatbot">
+          <span class="status-pill__dot" data-connect-dot></span>
+          <span data-connect-label>Demo · Conectar</span>
+        </button>
+        <a class="status-pill status-pill--link" href="/dashboard/" title="Ver dashboard de consultas">
+          Dashboard
+        </a>
+      </div>
     </header>
 
     <section class="hero">
@@ -108,7 +110,7 @@
           <a href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
             la sección de artículos
           </a>
-          de Iglesia Palabra Pura.
+          de la Enciclopedia de Palabra Pura.
         </p>
       </div>
     </section>
@@ -169,7 +171,7 @@
     </div>
 
     <footer class="footer">
-      <p>Un proyecto para <span class="footer__name">Palabra Pura Blaze</span></p>
+      <p>Un proyecto de la <span class="footer__name">Enciclopedia de Palabra Pura</span></p>
       <p class="footer__note">Las respuestas se acompañan del video y del pasaje bíblico de referencia.</p>
     </footer>
   </div>
@@ -189,6 +191,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>

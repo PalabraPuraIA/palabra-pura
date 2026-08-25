@@ -18,8 +18,8 @@ SYNC_ENV="${SYNC_ENV:-$RUNTIME_DIR/supabase-sync.env}"
 LOCK_FILE="${LOCK_FILE:-/tmp/palabra-pura-tunnel-watchdog.lock}"
 LOG_TAG="[pp-tunnel-watchdog]"
 
-STABLE_CHAT="${STABLE_CHAT_URL:-https://erickcherry.github.io/palabra-pura-stack/}"
-STABLE_DASH="${STABLE_DASH_URL:-https://erickcherry.github.io/palabra-pura-stack/dashboard.html}"
+STABLE_CHAT="${STABLE_CHAT_URL:-https://palabrapuraia.github.io/palabra-pura/}"
+STABLE_DASH="${STABLE_DASH_URL:-https://palabrapuraia.github.io/palabra-pura/dashboard.html}"
 
 mkdir -p "$RUNTIME_DIR"
 

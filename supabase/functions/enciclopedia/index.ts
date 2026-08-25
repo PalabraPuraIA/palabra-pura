@@ -18,8 +18,8 @@ const cors = {
   "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
 };
 
-const STORAGE_CHAT = "https://erickcherry.github.io/palabra-pura-stack/";
-const STORAGE_DASH = "https://erickcherry.github.io/palabra-pura-stack/dashboard.html";
+const STORAGE_CHAT = "https://palabrapuraia.github.io/palabra-pura/";
+const STORAGE_DASH = "https://palabrapuraia.github.io/palabra-pura/dashboard.html";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

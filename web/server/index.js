@@ -13,6 +13,7 @@ const PORT = Number(process.env.PORT || 80);
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(__dirname, "public");
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const DATA_FILE = path.join(DATA_DIR, "analytics.json");
+const PUBLIC_URL_FILE = process.env.PUBLIC_URL_FILE || path.join(DATA_DIR, "public-url.json");
 
 const STOPWORDS = new Set([
   "a", "al", "algo", "como", "con", "de", "del", "el", "en", "es", "esta", "este",
@@ -134,10 +135,170 @@ function buildSummary(store) {
 
 const app = express();
 app.disable("x-powered-by");
+app.set("trust proxy", true);
 app.use(express.json({ limit: "32kb" }));
 
+// Allow stable entry page(s) to embed this UI in an iframe.
+app.use((_req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    [
+      "frame-ancestors",
+      "'self'",
+      "https://*.supabase.co",
+      "https://roxbekpxdgvqbosepmdd.supabase.co",
+      "https://palabrapuraia.github.io",
+    ].join(" "),
+  );
+  res.removeHeader("X-Frame-Options");
+  next();
+});
+
+const WP_POSTS_URL = process.env.WP_POSTS_URL
+  || "https://iglesiapalabrapura.com/site/wp-json/wp/v2/posts";
+const WP_CATEGORY = process.env.WP_ARTICLES_CATEGORY || "50";
+
+function stripHtml(value) {
+  return String(value ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#8211;/g, "–")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isUsefulArticleTitle(title) {
+  const t = String(title || "").trim().toLowerCase();
+  if (!t) return false;
+  if (t === "testimonios" || /^testimonios\s*\d*$/i.test(t)) return false;
+  return true;
+}
+
+function extractTerms(question, maxTerms = 5) {
+  const stop = STOPWORDS;
+  const tokens = String(question || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !stop.has(t));
+  const unique = [...new Set(tokens)];
+  unique.sort((a, b) => b.length - a.length);
+  return unique.slice(0, maxTerms);
+}
+
+async function fetchWpPosts(search, perPage = 6) {
+  const url = new URL(WP_POSTS_URL);
+  url.searchParams.set("search", search);
+  url.searchParams.set("per_page", String(perPage));
+  url.searchParams.set("categories", WP_CATEGORY);
+  url.searchParams.set("_fields", "id,date,title,link,excerpt");
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(12000),
+  });
+  if (!response.ok) throw new Error(`WP HTTP ${response.status}`);
+  const data = await response.json();
+  if (!Array.isArray(data)) return [];
+  return data.map((post) => ({
+    id: post.id,
+    title: stripHtml(post.title?.rendered ?? post.title ?? "Artículo"),
+    excerpt: stripHtml(post.excerpt?.rendered ?? post.excerpt ?? ""),
+    link: post.link,
+    date: post.date ? String(post.date).slice(0, 10) : "",
+  }));
+}
+
+/** Sinónimos / variantes frecuentes (WP no busca por stemming). */
+const TERM_SYNONYMS = {
+  orar: ["oracion", "oración", "orar"],
+  oracion: ["oracion", "oración", "orar"],
+  miedo: ["miedo", "temor", "confianza", "fe"],
+  temor: ["temor", "miedo", "fe"],
+  fe: ["fe", "confianza", "creer"],
+  nacer: ["nacer", "nuevo", "salvacion"],
+  dones: ["dones", "espiritu", "carisma"],
+  sanidad: ["sanidad", "sanar", "milagro"],
+};
+
+/**
+ * WordPress trata varias palabras como AND → a menudo [].
+ * Buscamos término a término (con sinónimos) y unimos resultados.
+ */
+async function recommendArticles(question, limit = 3) {
+  const terms = extractTerms(question);
+  const base = terms.length ? terms.slice(0, 4) : [String(question || "").trim()].filter(Boolean);
+  const queries = [];
+  for (const term of base) {
+    const extras = TERM_SYNONYMS[term] || [term];
+    for (const q of extras) {
+      if (!queries.includes(q)) queries.push(q);
+    }
+  }
+  const byId = new Map();
+
+  for (const term of queries) {
+    try {
+      const posts = await fetchWpPosts(term, Math.max(limit + 3, 6));
+      for (const post of posts) {
+        if (!post.link || !isUsefulArticleTitle(post.title)) continue;
+        if (!byId.has(post.id)) byId.set(post.id, post);
+      }
+      if (byId.size >= limit) break;
+    } catch (err) {
+      console.warn("[articles]", term, err.message);
+    }
+  }
+
+  return [...byId.values()].slice(0, limit);
+}
+
 app.get("/api/health", (_req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
+  res.set("Cache-Control", "no-store");
   res.json({ ok: true });
+});
+
+/** Current public Cloudflare quick-tunnel URLs (updated by tunnel-watchdog). */
+app.get("/api/public-url", (_req, res) => {
+  try {
+    if (!fs.existsSync(PUBLIC_URL_FILE)) {
+      return res.json({
+        ok: false,
+        status: "unknown",
+        chatUrl: null,
+        dashboardUrl: null,
+        note: "Aún no hay URL pública registrada. El watchdog la escribirá al recuperar el túnel.",
+        updatedAt: null,
+      });
+    }
+    const data = JSON.parse(fs.readFileSync(PUBLIC_URL_FILE, "utf8"));
+    res.set("Cache-Control", "no-store");
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ ok: false, status: "error", error: String(err.message || err) });
+  }
+});
+
+app.get("/api/articles", async (req, res) => {
+  const q = String(req.query.q || req.query.search || "").trim();
+  const limit = Math.min(8, Math.max(1, Number(req.query.limit) || 3));
+  if (!q || q.length < 2) {
+    return res.status(400).json({ error: "q required", articles: [] });
+  }
+  try {
+    const articles = await recommendArticles(q, limit);
+    res.set("Cache-Control", "public, max-age=60");
+    res.json({ ok: true, q, articles });
+  } catch (err) {
+    console.error("[articles]", err);
+    res.status(502).json({ ok: false, error: "articles unavailable", articles: [] });
+  }
 });
 
 app.post("/api/analytics/event", (req, res) => {
@@ -168,10 +329,21 @@ app.get("/api/analytics/summary", (_req, res) => {
   res.json(buildSummary(readStore()));
 });
 
-app.use(express.static(PUBLIC_DIR, { extensions: ["html"] }));
+app.use(express.static(PUBLIC_DIR, {
+  extensions: ["html"],
+  setHeaders(res, filePath) {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-cache");
+    }
+  },
+}));
 
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) return next();
+  // No convertir assets faltantes en index.html (rompe módulos ES).
+  if (/\.[a-z0-9]+$/i.test(req.path)) {
+    return res.status(404).type("text").send("Not found");
+  }
   const index = path.join(PUBLIC_DIR, "index.html");
   if (fs.existsSync(index)) return res.sendFile(index);
   res.status(404).send("Not found");

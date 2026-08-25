@@ -11,6 +11,9 @@ supabase/.temp/
 supabase/.branches/
 supabase/.temp/**
 
+# Edge function compiled bundles (binary); keep extracted index.ts
+supabase/functions/**/*.bundle
+
 # Nested clone metadata
 web/app/.git/
 
@@ -25,5 +28,7 @@ node_modules/
 # Runtime / logs
 *.log
 web/server/data/
+stack/runtime/
+!stack/runtime/.gitkeep
 # Local machine overrides (private bind IPs, etc.) — do not publish
 stack/docker-compose.override.yml
