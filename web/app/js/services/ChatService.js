@@ -6,11 +6,12 @@
  *
  * Contrato con la Edge Function:
  *   envía →  { "question": "..." }
- *   recibe → { "answer": "...",
- *              "passage": { "reference": "Juan 3:16", "text": "..." },
- *              "video":   { "title": "...", "episode": 12,
- *                           "youtube_id": "abc123XYZ_1", "start_second": 123 } }
- *   (passage y video son opcionales)
+ *   recibe → { "answer": "...",                 // explicación de la IA
+ *              "excerpt": "...",                // recorte de audio/transcripción (opcional)
+ *              "passage": { "reference", "text", "bible_version?" },
+ *              "video":   { "title", "episode", "youtube_id", "start_second" },
+ *              "source":  "video" | "biblia" }
+ *   (passage, video, excerpt son opcionales)
  */
 
 import { config, isConnected } from "../config.js";
@@ -62,8 +63,10 @@ export class ChatService {
 
     return {
       answer: data.answer ?? data.text ?? "",
+      excerpt: data.excerpt ?? undefined,
       passage: data.passage ?? undefined,
       video: data.video ?? undefined,
+      source: data.source ?? undefined,
     };
   }
 }

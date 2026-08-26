@@ -29,18 +29,25 @@ export class ChatView {
   }
 
   /**
-   * Añade una respuesta del asistente, con su tarjeta de fuente.
-   * @param {{ answer: string, passage?: object, video?: object }} response
+   * Añade una respuesta del asistente.
+   * Separado: explicación de la IA + cuadritos de fuente (audio / pasaje / video).
+   * @param {{ answer: string, passage?: object, video?: object, excerpt?: string, source?: string }} response
    * @returns {HTMLElement} El nodo del mensaje (para enganchar acciones).
    */
   addBotMessage(response) {
+    const hasAnswer = Boolean(response.answer?.trim());
+    const sources = renderSourceCard(response);
+    const showLabel = Boolean(sources);
+    const answerBlock = hasAnswer
+      ? `<div class="msg__bubble msg__bubble--answer">
+           ${showLabel ? `<p class="msg__label">Explicación</p>` : ""}
+           <p class="msg__answer">${escapeHtml(response.answer)}</p>
+         </div>`
+      : "";
+
     const el = createEl("div", {
       className: "msg msg--bot",
-      html: `
-        <div class="msg__bubble">
-          ${escapeHtml(response.answer)}
-          ${renderSourceCard(response)}
-        </div>`,
+      html: `${answerBlock}${sources}`,
     });
 
     this.#append(el);

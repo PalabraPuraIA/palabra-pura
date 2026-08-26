@@ -164,9 +164,16 @@ Deno.serve(async (req)=>{
       if (vid.found) {
         const passage = await resolvePassage(vid.reference);
         const top = fragMatches[0];
+        // Recorte del fragmento de audio/transcripción que alimentó la respuesta.
+        const raw = String(top.content ?? "").replace(/\s+/g, " ").trim();
+        const excerpt = raw.length > 320 ? `${raw.slice(0, 317).trim()}…` : raw || undefined;
         return json({
           answer: vid.answer ?? "",
-          passage: passage ?? undefined,
+          passage: passage ? {
+            ...passage,
+            bible_version: "Reina-Valera Antigua"
+          } : undefined,
+          excerpt,
           video: {
             title: top.title,
             episode: top.episode,
@@ -200,7 +207,10 @@ Deno.serve(async (req)=>{
     const passage = await resolvePassage(bib.reference);
     return json({
       answer: bib.answer ?? "",
-      passage: passage ?? undefined,
+      passage: passage ? {
+        ...passage,
+        bible_version: "Reina-Valera Antigua"
+      } : undefined,
       source: "biblia"
     });
   } catch (e) {

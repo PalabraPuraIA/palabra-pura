@@ -95,36 +95,74 @@
 .typing span:nth-child(2) { animation-delay: .2s; }
 .typing span:nth-child(3) { animation-delay: .4s; }
 
-/* ---------- Tarjeta de fuente (versículo + video) ---------- */
+/* ---------- Burbuja: explicación de la IA (separada de fuentes) ---------- */
+.msg__bubble--answer {
+  margin-bottom: 10px;
+}
+
+.msg__label {
+  margin: 0 0 6px;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+}
+
+.msg__answer {
+  margin: 0;
+  line-height: 1.55;
+}
+
+/* ---------- Tarjeta de fuente (enseñanza + versículo + video) ---------- */
 .source {
-  margin-top: 14px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.source__origin {
+  margin: 0 2px;
+  font-size: .72rem;
+  color: var(--c-ink-soft);
+}
+
+.source__block {
   border: 1px solid var(--c-line);
   border-radius: var(--r-md);
   background: var(--c-white);
   overflow: hidden;
+  padding: 12px 14px;
+}
+
+.source__label {
+  margin: 0 0 8px;
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+}
+
+.source__excerpt {
+  background: var(--c-bg-soft);
+  border-left: 3px solid var(--c-blue);
 }
 
 .source__verse {
   position: relative;
-  padding: 14px 16px 14px 18px;
-}
-.source__verse::before {
-  content: "";
-  position: absolute;
-  left: 0; top: 14px; bottom: 14px;
-  width: 3px;
-  border-radius: 3px;
-  background: var(--c-orange);
+  border-left: 3px solid var(--c-orange);
 }
 
 .source__ref {
-  display: flex; align-items: center; gap: 8px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   font-weight: 700;
   font-size: .72rem;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--c-orange);
-  margin-bottom: 6px;
+  margin: 0 0 6px;
 }
 
 .source__badge {
@@ -133,22 +171,24 @@
   font-weight: 600;
   text-transform: uppercase;
   color: var(--c-ink-soft);
-  background: var(--c-bg-soft);
+  background: var(--c-orange-soft);
   border-radius: var(--r-pill);
   padding: 2px 7px;
 }
 
 .source__text {
-  font-size: .94rem;
+  margin: 0;
+  font-size: .92rem;
   line-height: 1.55;
   color: var(--c-ink);
 }
 
 .source__video {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--c-line);
   background: var(--c-bg-soft);
+}
+
+.source__video-row {
+  display: flex; align-items: center; gap: 12px;
 }
 
 .source__thumb {
@@ -220,7 +260,7 @@
 }
 
 @media (max-width: 640px) {
-  .source__video {
+  .source__video-row {
     flex-wrap: wrap;
   }
   .source__actions {
