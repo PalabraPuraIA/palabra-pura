@@ -1,3 +1,8 @@
+# palabra-pura-chatbot
+Cuando empezamos a conocer y buscar a Dios, las preguntas nos acompañan a diario. Con esta herramienta podemos acercarnos a las respuestas a esas inquietudes en el momento y lugar que se requieran, incluso si no estás cerca de una sede de la iglesia o de un maestro a quien preguntarle. Esta enciclopedia responde con las enseñanzas del ministerio y el pasaje bíblico correspondiente, para que tú mismo lo busques en tu Biblia y lo compruebes.
+
+
+
 # Palabra Pura — chatbot stack
 
 Stack del chatbot de la **Iglesia Palabra Pura**: front web, Postgres (pgvector),
