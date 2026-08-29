@@ -83,6 +83,24 @@ cd /home/fintek-1/palabra-pura
 ./stack/scripts/deploy-local.sh
 ```
 
+## 3b. Git en el servidor
+
+El repo del proyecto es **privado**: `PalabraPuraIA/palabra-pura`.
+El servidor lo lee con una deploy key de **solo lectura**, así que ahí funciona
+`git pull` pero **no** `git push`:
+
+```bash
+cd /home/fintek-1/palabra-pura
+git pull                      # traer la última versión
+./stack/scripts/deploy-local.sh
+```
+
+Para **subir** cambios hay que hacerlo desde una máquina con la cuenta
+`PalabraPuraIA` autenticada (`gh auth login`), no desde el servidor.
+
+El remoto `origin-erick` (`ErickCherry/palabra-pura-stack`) es el repo viejo y
+queda solo como referencia histórica.
+
 ## 4. Autorizar otro equipo más adelante
 
 En el equipo nuevo:

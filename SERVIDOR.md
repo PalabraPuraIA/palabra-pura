@@ -71,20 +71,33 @@ Respuesta: `answer` (IA), `excerpt` (recorte del audio), `passage` (versículo),
 
 ## Actualizar el servidor con la última versión
 
-Desde el Mac, con el repo en `~/Documents/palabra-pura-migrate`:
+El servidor está conectado al repo privado
+[`PalabraPuraIA/palabra-pura`](https://github.com/PalabraPuraIA/palabra-pura)
+mediante una **deploy key de solo lectura** (`~/.ssh/id_ed25519_palabra_deploy`),
+configurada solo para este repo:
 
 ```bash
-rsync -az --delete \
-  --exclude='.git/' --exclude='node_modules/' --exclude='db/data.sql' \
-  --exclude='stack/.env' --exclude='stack/runtime/' \
-  -e "ssh -i ~/.ssh/id_ed25519_fintek" \
-  ./ fintek-1@10.45.178.129:/home/fintek-1/palabra-pura/
-
-ssh -i ~/.ssh/id_ed25519_fintek fintek-1@10.45.178.129 \
-  'cd /home/fintek-1/palabra-pura/stack && docker compose build web && docker compose up -d web'
+git config core.sshCommand "ssh -i ~/.ssh/id_ed25519_palabra_deploy -o IdentitiesOnly=yes"
 ```
 
-`stack/.env` y los volúmenes de datos no se tocan.
+Actualizar es entonces, dentro del servidor:
+
+```bash
+cd /home/fintek-1/palabra-pura
+git pull
+./stack/scripts/deploy-local.sh
+```
+
+El servidor **no puede hacer push** (es solo lectura, a propósito). Los cambios se
+suben desde una máquina de desarrollo con la cuenta `PalabraPuraIA`.
+
+`stack/.env`, `db/data.sql` y los volúmenes de datos están en `.gitignore`,
+así que un `git pull` nunca los toca.
+
+### Remoto antiguo
+
+`origin-erick` apunta al repo viejo `ErickCherry/palabra-pura-stack`, que quedó
+como referencia histórica. El repo vigente es `origin`.
 
 ## Diagnóstico rápido
 
