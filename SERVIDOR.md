@@ -71,10 +71,10 @@ Respuesta: `answer` (IA), `excerpt` (recorte del audio), `passage` (versículo),
 
 ## Actualizar el servidor con la última versión
 
-El servidor está conectado al repo privado
+El servidor está conectado **únicamente** al repo privado
 [`PalabraPuraIA/palabra-pura`](https://github.com/PalabraPuraIA/palabra-pura)
-mediante una **deploy key de solo lectura** (`~/.ssh/id_ed25519_palabra_deploy`),
-configurada solo para este repo:
+mediante una **deploy key con permiso de lectura y escritura**
+(`~/.ssh/id_ed25519_palabra_deploy`), configurada solo para este repo:
 
 ```bash
 git config core.sshCommand "ssh -i ~/.ssh/id_ed25519_palabra_deploy -o IdentitiesOnly=yes"
@@ -88,16 +88,22 @@ git pull
 ./stack/scripts/deploy-local.sh
 ```
 
-El servidor **no puede hacer push** (es solo lectura, a propósito). Los cambios se
-suben desde una máquina de desarrollo con la cuenta `PalabraPuraIA`.
+Y si se editó algo en el servidor, también se puede subir desde ahí:
+
+```bash
+git add -A && git commit -m "Descripción del cambio" && git push
+```
+
+La deploy key da acceso **solo a este repositorio**, no a la cuenta completa.
 
 `stack/.env`, `db/data.sql` y los volúmenes de datos están en `.gitignore`,
 así que un `git pull` nunca los toca.
 
-### Remoto antiguo
+### Un solo remoto
 
-`origin-erick` apunta al repo viejo `ErickCherry/palabra-pura-stack`, que quedó
-como referencia histórica. El repo vigente es `origin`.
+`origin` es el único remoto, y apunta a `PalabraPuraIA/palabra-pura`.
+El repo anterior (de una cuenta personal) quedó desconectado por completo:
+este proyecto no comparte cuentas con ningún otro.
 
 ## Diagnóstico rápido
 

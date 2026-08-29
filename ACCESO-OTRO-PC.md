@@ -86,20 +86,36 @@ cd /home/fintek-1/palabra-pura
 ## 3b. Git en el servidor
 
 El repo del proyecto es **privado**: `PalabraPuraIA/palabra-pura`.
-El servidor lo lee con una deploy key de **solo lectura**, así que ahí funciona
-`git pull` pero **no** `git push`:
+Al ser privado, abrirlo en el navegador sin estar en la cuenta `palabrapuraia@gmail.com`
+da 404. Eso es normal, no significa que no exista.
+
+El servidor ya está autenticado con una **deploy key** propia
+(`~/.ssh/id_ed25519_palabra_deploy`) que permite **leer y escribir** ese repo.
+No hace falta `gh auth login` ni contraseñas: desde el servidor, git ya funciona.
+
+Ciclo de trabajo completo, dentro del servidor:
 
 ```bash
 cd /home/fintek-1/palabra-pura
-git pull                      # traer la última versión
-./stack/scripts/deploy-local.sh
+
+git pull                                  # traer lo último
+# ...editar archivos...
+./stack/scripts/deploy-local.sh           # solo si tocaste web/server, Dockerfile o compose
+git add -A
+git commit -m "Descripción del cambio"
+git push
 ```
 
-Para **subir** cambios hay que hacerlo desde una máquina con la cuenta
-`PalabraPuraIA` autenticada (`gh auth login`), no desde el servidor.
+`origin` es el único remoto. El repo viejo, que estaba en una cuenta personal,
+quedó desconectado: este proyecto vive solo en la cuenta de Palabra Pura.
 
-El remoto `origin-erick` (`ErickCherry/palabra-pura-stack`) es el repo viejo y
-queda solo como referencia histórica.
+### Qué no se debe tocar
+
+| Ruta | Motivo |
+|---|---|
+| `stack/.env` | Claves y contraseñas del servidor. Fuera de git a propósito. |
+| `db/data.sql` | 505 MB de contenido. Fuera de git. |
+| Volúmenes Docker | `palabra-pura-pgdata` guarda la base viva. No borrar. |
 
 ## 4. Autorizar otro equipo más adelante
 
