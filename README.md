@@ -9,7 +9,7 @@ Stack del chatbot de la **Iglesia Palabra Pura**: front web, Postgres (pgvector)
 workflows n8n opcionales y tunnel Cloudflare para demos.
 
 > **Cuentas:** GitHub [`PalabraPuraIA`](https://github.com/PalabraPuraIA) · Supabase `roxbekpxdgvqbosepmdd`  
-> Detalle de conexión: [CONEXION.md](./CONEXION.md)
+> Conexión y credenciales: [CONEXION.md](./CONEXION.md) · Despliegue propio: [SERVIDOR.md](./SERVIDOR.md)
 
 ## Qué hay en este repo
 
@@ -60,11 +60,18 @@ docker logs -f palabra-pura-tunnel
 
 Ver `stack/PUBLIC_ACCESS.md`.
 
-## Frontend ↔ Supabase
+## Cómo responde el chat
 
-- Endpoint y publishable key: `web/app/js/config.js`
-- El chat envía header `apikey` (obligatorio en el gateway nuevo)
-- Artículos vía WordPress público de [iglesiapalabrapura.com](https://iglesiapalabrapura.com/site/articulos/)
+El contenedor `web` sirve la página **y** el cerebro del chat en `/api/chat`:
+
+- `CHAT_MODE=local` → responde con la base propia (pgvector + Gemini + OpenRouter)
+- `CHAT_MODE=proxy` → reenvía a la Edge Function de Supabase
+- `CHAT_MODE=auto` → local si hay claves; si no, proxy
+
+El front llama a `/api/chat` (same-origin) y, si no existe, cae a la Edge Function.
+Detalle en [SERVIDOR.md](./SERVIDOR.md).
+
+Artículos vía WordPress público de [iglesiapalabrapura.com](https://iglesiapalabrapura.com/site/articulos/).
 
 Base del UI: [miliverso/palabra-pura-chatbot](https://github.com/miliverso/palabra-pura-chatbot).
 
