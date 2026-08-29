@@ -30,8 +30,8 @@ export const config = {
 
   /** Mensaje inicial del asistente. */
   welcomeMessage:
-    "La paz sea contigo. Estoy aquí para acompañarte a entender la Palabra. " +
-    "Puedes preguntarme lo que quieras, o empezar con uno de los ejemplos de abajo.",
+    "Hola, soy Grace. Bienvenidos a la Escuela Bíblica de Palabra Pura. " +
+    "Indícame qué pregunta tienes hoy, ¿cómo puedo guiarte?",
 
   /** Retardo simulado del modo demo, en milisegundos. */
   demoDelayMs: 800,

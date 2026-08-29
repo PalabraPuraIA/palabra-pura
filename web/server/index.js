@@ -198,7 +198,8 @@ async function fetchWpPosts(search, perPage = 6) {
   url.searchParams.set("search", search);
   url.searchParams.set("per_page", String(perPage));
   url.searchParams.set("categories", WP_CATEGORY);
-  url.searchParams.set("_fields", "id,date,title,link,excerpt");
+  url.searchParams.set("orderby", "relevance");
+  url.searchParams.set("_fields", "id,date,title,link,excerpt,content");
 
   const response = await fetch(url.toString(), {
     headers: { Accept: "application/json" },
@@ -211,10 +212,15 @@ async function fetchWpPosts(search, perPage = 6) {
     id: post.id,
     title: stripHtml(post.title?.rendered ?? post.title ?? "Artículo"),
     excerpt: stripHtml(post.excerpt?.rendered ?? post.excerpt ?? ""),
+    // Solo para puntuar; no se envía al navegador.
+    body: stripHtml(post.content?.rendered ?? post.content ?? "").slice(0, 6000),
     link: post.link,
     date: post.date ? String(post.date).slice(0, 10) : "",
   }));
 }
+
+/** Debajo de esta puntuación el artículo se considera no relacionado. */
+const MIN_ARTICLE_SCORE = 5;
 
 /** Sinónimos / variantes frecuentes (WP no busca por stemming). */
 const TERM_SYNONYMS = {
@@ -228,9 +234,48 @@ const TERM_SYNONYMS = {
   sanidad: ["sanidad", "sanar", "milagro"],
 };
 
+function normalizeText(value) {
+  return String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Un término cuenta si aparece como palabra o como raíz (dones ⊂ donaciones). */
+function countTerm(haystack, term) {
+  if (term.length < 3) return 0;
+  const root = term.length > 5 ? term.slice(0, -1) : term;
+  const matches = haystack.match(new RegExp(`\\b${root}`, "g"));
+  return matches ? matches.length : 0;
+}
+
+/**
+ * Puntúa un artículo frente a la pregunta. El título pesa más que el resumen,
+ * los sinónimos aportan menos que las palabras que la persona escribió, y el
+ * término con el que WordPress encontró el artículo suma porque indica
+ * coincidencia en el cuerpo completo, que aquí no se descarga.
+ */
+function scoreArticle(post, terms, matchedQueries) {
+  const title = normalizeText(post.title);
+  const body = normalizeText(`${post.excerpt} ${post.body ?? ""}`);
+  let score = 0;
+
+  for (const term of terms) {
+    if (countTerm(title, term)) score += 5;
+    score += Math.min(countTerm(body, term), 4);
+  }
+  for (const query of matchedQueries) {
+    if (terms.includes(query)) continue;
+    if (countTerm(title, query)) score += 3;
+    score += Math.min(countTerm(body, query), 2);
+  }
+  return score;
+}
+
 /**
  * WordPress trata varias palabras como AND → a menudo [].
- * Buscamos término a término (con sinónimos) y unimos resultados.
+ * Buscamos término a término (con sinónimos), unimos los resultados y
+ * devolvemos solo los que realmente hablan de lo que se preguntó.
  */
 async function recommendArticles(question, limit = 3) {
   const terms = extractTerms(question);
@@ -249,15 +294,29 @@ async function recommendArticles(question, limit = 3) {
       const posts = await fetchWpPosts(term, Math.max(limit + 3, 6));
       for (const post of posts) {
         if (!post.link || !isUsefulArticleTitle(post.title)) continue;
-        if (!byId.has(post.id)) byId.set(post.id, post);
+        const known = byId.get(post.id);
+        if (known) known.matched.add(normalizeText(term));
+        else byId.set(post.id, { post, matched: new Set([normalizeText(term)]) });
       }
-      if (byId.size >= limit) break;
     } catch (err) {
       console.warn("[articles]", term, err.message);
     }
   }
 
-  return [...byId.values()].slice(0, limit);
+  const normalizedTerms = base.map(normalizeText);
+
+  const ranked = [...byId.values()]
+    .map(({ post, matched }) => ({ post, score: scoreArticle(post, normalizedTerms, matched) }))
+    .filter((entry) => entry.score >= MIN_ARTICLE_SCORE)
+    .sort((a, b) => b.score - a.score || String(b.post.date).localeCompare(String(a.post.date)));
+
+  return ranked.slice(0, limit).map(({ post }) => ({
+    id: post.id,
+    title: post.title,
+    excerpt: post.excerpt,
+    link: post.link,
+    date: post.date,
+  }));
 }
 
 app.get("/api/health", (_req, res) => {
