@@ -5,7 +5,7 @@ WORKDIR /srv
 COPY server/package.json ./
 RUN npm install --omit=dev
 
-COPY server/index.js ./
+COPY server/index.js server/chat.js ./
 COPY app/ ./public/
 
 ENV PORT=80

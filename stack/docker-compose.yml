@@ -66,6 +66,18 @@ services:
       PUBLIC_DIR: /srv/public
       DATA_DIR: /data
       PUBLIC_URL_FILE: /data/public-url.json
+      # Cerebro del chat: local (Postgres propio) | proxy (Edge Function) | auto
+      CHAT_MODE: ${CHAT_MODE:-auto}
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: palabra_pura
+      PGUSER: palabra
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      SUPABASE_CHAT_URL: ${SUPABASE_CHAT_URL:-https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/chatbot-iglesia-palabra-pura}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
     volumes:
       # Live UI updates without rebuild (optional in prod)
       - ../web/app:/srv/public:ro
@@ -74,6 +86,9 @@ services:
       - ./runtime/public-url.json:/data/public-url.json:ro
     ports:
       - "8088:80"
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - pp_net
     healthcheck:

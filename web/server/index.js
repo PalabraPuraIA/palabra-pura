@@ -8,6 +8,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { chatMode, handleChat, handleChatStatus } from "./chat.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 80);
 const PUBLIC_DIR = process.env.PUBLIC_DIR || path.join(__dirname, "public");
@@ -261,8 +263,12 @@ async function recommendArticles(question, limit = 3) {
 app.get("/api/health", (_req, res) => {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Cache-Control", "no-store");
-  res.json({ ok: true });
+  res.json({ ok: true, chatMode: chatMode() });
 });
+
+// Cerebro del chat en el mismo contenedor que la página.
+app.post("/api/chat", handleChat);
+app.get("/api/chat/status", handleChatStatus);
 
 /** Current public Cloudflare quick-tunnel URLs (updated by tunnel-watchdog). */
 app.get("/api/public-url", (_req, res) => {
@@ -353,4 +359,5 @@ ensureStore();
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`palabra-pura-web listening on :${PORT}`);
   console.log(`public=${PUBLIC_DIR} data=${DATA_FILE}`);
+  console.log(`chat mode=${chatMode()}`);
 });

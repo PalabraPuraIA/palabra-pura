@@ -32,23 +32,38 @@ export class ChatService {
     if (!isConnected()) return this.#askDemo(question);
 
     try {
-      const response = await fetch(config.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: config.publishableKey,
-        },
-        body: JSON.stringify({ question }),
-      });
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const data = await response.json();
-      return this.#normalize(data);
+      return this.#normalize(await this.#post(config.endpoint, question));
     } catch (error) {
       console.error("[ChatService]", error);
+
+      // Hosting estático o backend propio sin configurar: probamos la Edge Function.
+      const fallback = config.fallbackEndpoint;
+      if (fallback && fallback !== config.endpoint) {
+        try {
+          return this.#normalize(await this.#post(fallback, question));
+        } catch (fallbackError) {
+          console.error("[ChatService] fallback", fallbackError);
+        }
+      }
       return { answer: NETWORK_ERROR_MESSAGE };
     }
+  }
+
+  /** Un POST al backend. Solo manda la apikey si el destino es Supabase. */
+  async #post(endpoint, question) {
+    const headers = { "Content-Type": "application/json" };
+    if (/supabase\.co/.test(endpoint) && config.publishableKey) {
+      headers.apikey = config.publishableKey;
+    }
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ question }),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
   }
 
   /** Modo demostración: respuestas de ejemplo, sin backend. */

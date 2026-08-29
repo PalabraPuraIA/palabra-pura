@@ -7,11 +7,17 @@
  */
 
 export const config = {
-  /** URL de tu Edge Function de Supabase. */
-  endpoint:
+  /**
+   * Endpoint del chat. Por defecto same-origin: el mismo contenedor que sirve
+   * la página responde en /api/chat (modo local con Postgres, o proxy).
+   */
+  endpoint: "/api/chat",
+
+  /** Si /api/chat no existe (hosting estático), se usa la Edge Function. */
+  fallbackEndpoint:
     "https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
 
-  /** Publishable key (pública, frontend). Requerida por las Edge Functions nuevas. */
+  /** Publishable key (pública). Solo se usa con el fallback a Supabase. */
   publishableKey: "sb_publishable_be42gEb2YMLen6FWYrUbZg_rwhKDd65",
 
   /** Preguntas de ejemplo que se muestran bajo el chat. */
