@@ -3,6 +3,12 @@
 .env.*
 !.env.example
 
+# Llaves SSH: nunca subir claves privadas al repo
+id_ed25519*
+id_rsa*
+*.pem
+*.key
+
 # Huge DB dump (GitHub max file ~100MB). Keep schema only in git.
 db/data.sql
 
