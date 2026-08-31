@@ -1,19 +1,22 @@
 /**
  * chat.js — Cerebro del chatbot dentro del mismo contenedor que la página.
  *
- * Dos modos (CHAT_MODE):
- *   local → Postgres propio (pgvector) + Gemini embeddings + OpenRouter
- *   proxy → reenvía a la Edge Function de Supabase (no requiere claves aquí)
- *   auto  → local si hay claves + base; si no, proxy
+ * Modos (CHAT_MODE):
+ *   local    → Postgres propio (pgvector) + Gemini embeddings + modelo de texto
+ *   asistida → busca por texto en la base y un modelo redacta (sin embeddings)
+ *   proxy    → reenvía a la Edge Function de Supabase (no requiere claves aquí)
+ *   busqueda → sin modelo: busca la enseñanza por texto en la base propia
+ *   auto     → el primero que esté disponible, en ese mismo orden
  */
 
 import pg from "pg";
 
+import { answerBySearch } from "./chat-search.js";
+import { answerWithSearch, askAnyLLM, hasWriter } from "./chat-llm.js";
+
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
 const EMBED_MODEL = "gemini-embedding-001";
-const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
-
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 
@@ -66,13 +69,19 @@ function getPool() {
 /** Modo efectivo según configuración disponible. */
 export function chatMode() {
   const wanted = (process.env.CHAT_MODE || "auto").toLowerCase();
-  const canLocal = Boolean(getPool() && GEMINI_API_KEY && OPENROUTER_API_KEY);
+  const canSearch = Boolean(getPool());
+  const canLocal = Boolean(canSearch && GEMINI_API_KEY && hasWriter());
+  const canAssisted = Boolean(canSearch && hasWriter());
   const canProxy = Boolean(SUPABASE_CHAT_URL);
 
   if (wanted === "local") return canLocal ? "local" : "unconfigured";
+  if (wanted === "asistida") return canAssisted ? "asistida" : "unconfigured";
   if (wanted === "proxy") return canProxy ? "proxy" : "unconfigured";
+  if (wanted === "busqueda") return canSearch ? "busqueda" : "unconfigured";
   if (canLocal) return "local";
+  if (canAssisted) return "asistida";
   if (canProxy) return "proxy";
+  if (canSearch) return "busqueda";
   return "unconfigured";
 }
 
@@ -157,32 +166,11 @@ async function embedQuery(question) {
   return data.embedding.values;
 }
 
+/** Redacta con el primer proveedor disponible de la cadena. */
 async function askLLM(system, userContent) {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      temperature: 0.3,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: userContent },
-      ],
-    }),
-    signal: AbortSignal.timeout(45000),
-  });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  const content = data?.choices?.[0]?.message?.content ?? "";
-  try {
-    return JSON.parse(content);
-  } catch {
-    return { answer: content };
-  }
+  const reply = await askAnyLLM(system, userContent);
+  if (!reply) throw new Error("ningun modelo de texto respondio");
+  return reply;
 }
 
 function buildExcerpt(content) {
@@ -284,6 +272,48 @@ async function answerProxy(question) {
   return res.json();
 }
 
+const UPSTREAM_FAILED = /tuve un problema para responder/i;
+
+const NOT_FOUND = {
+  answer:
+    "Todavía no encuentro material sobre eso en las enseñanzas. Prueba preguntarlo con otras palabras.",
+};
+
+function answerFor(mode, question) {
+  if (mode === "local") return answerLocal(question);
+  if (mode === "asistida") return answerAssisted(question);
+  if (mode === "busqueda") return searchOrNothing(question);
+  return answerProxy(question);
+}
+
+/**
+ * El modelo explica lo que encontró la búsqueda.
+ *
+ * Si el modelo revisó el material y dijo que no responde la pregunta, se
+ * respeta: repetir la búsqueda cruda solo devolvería el mismo video que él ya
+ * descartó. El respaldo sin IA queda para cuando ningún proveedor contestó.
+ */
+async function answerAssisted(question) {
+  const written = await answerWithSearch(getPool(), question, resolvePassage);
+  if (written?.notFound) return NOT_FOUND;
+  return written ?? (await searchOrNothing(question));
+}
+
+async function searchOrNothing(question) {
+  const found = await searchFallback(question);
+  return found ?? NOT_FOUND;
+}
+
+/** Respaldo sin modelo: nunca lanza, para no tapar el error original. */
+async function searchFallback(question) {
+  try {
+    return await answerBySearch(getPool(), question, resolvePassage);
+  } catch (err) {
+    console.error("[chat] busqueda", err.message);
+    return null;
+  }
+}
+
 /** Handler de Express para POST /api/chat. */
 export async function handleChat(req, res) {
   const question = String(req.body?.question ?? "").trim();
@@ -302,12 +332,24 @@ export async function handleChat(req, res) {
     });
   }
 
+  res.set("Cache-Control", "no-store");
+
   try {
-    const payload = mode === "local" ? await answerLocal(question) : await answerProxy(question);
-    res.set("Cache-Control", "no-store");
+    const payload = await answerFor(mode, question);
+
+    // La Edge Function contesta 200 con su propio texto de error: no sirve.
+    if (mode === "proxy" && UPSTREAM_FAILED.test(payload?.answer ?? "")) {
+      const rescued = await searchFallback(question);
+      return res.json(rescued ? { ...rescued, mode: "busqueda" } : { ...NOT_FOUND, mode: "busqueda" });
+    }
+
     res.json({ ...payload, mode });
   } catch (err) {
     console.error("[chat]", mode, err.message);
+
+    const rescued = await searchFallback(question);
+    if (rescued) return res.json({ ...rescued, mode: "busqueda" });
+
     res.status(502).json({
       answer: "Tuve un problema para responder ahora mismo. Intenta de nuevo en un momento.",
     });
@@ -321,6 +363,7 @@ export async function handleChatStatus(_req, res) {
     mode,
     hasDb: Boolean(dbConfig()),
     hasGeminiKey: Boolean(GEMINI_API_KEY),
+    hasGroqKey: Boolean(process.env.GROQ_API_KEY),
     hasOpenRouterKey: Boolean(OPENROUTER_API_KEY),
     proxyUrl: SUPABASE_CHAT_URL || null,
   };
