@@ -1,0 +1,131 @@
+# Palabra Pura — Docker Compose
+name: palabra-pura
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: palabra-pura-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: palabra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: palabra_pura
+    volumes:
+      - pp_pgdata:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+      - ../db/schema.clean.sql:/import/schema.clean.sql:ro
+      - ../db/data.sql:/import/data.sql:ro
+    ports:
+      - "5488:5432"
+    networks:
+      - pp_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U palabra -d palabra_pura"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  n8n:
+    image: n8nio/n8n:1.109.1
+    container_name: palabra-pura-n8n
+    restart: unless-stopped
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5688/}
+      GENERIC_TIMEZONE: America/Bogota
+      TZ: America/Bogota
+      N8N_SECURE_COOKIE: "false"
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: db
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: palabra
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+    volumes:
+      - pp_n8n_data:/home/node/.n8n
+      - ../n8n-workflows:/workflows:ro
+    ports:
+      - "5688:5678"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - pp_net
+
+  web:
+    build:
+      context: ../web
+      dockerfile: Dockerfile
+    image: palabra-pura-web:local
+    container_name: palabra-pura-web
+    restart: unless-stopped
+    environment:
+      PORT: "80"
+      PUBLIC_DIR: /srv/public
+      DATA_DIR: /data
+      PUBLIC_URL_FILE: /data/public-url.json
+      # Cerebro del chat: local (Postgres propio) | proxy (Edge Function) | auto
+      CHAT_MODE: ${CHAT_MODE:-auto}
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: palabra_pura
+      PGUSER: palabra
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      DOLA_API_KEY: ${DOLA_API_KEY:-}
+      BYTEPLUS_API_KEY: ${BYTEPLUS_API_KEY:-}
+      DOLA_MODEL: ${DOLA_MODEL:-}
+      CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
+      SUPABASE_CHAT_URL: ${SUPABASE_CHAT_URL:-https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/chatbot-iglesia-palabra-pura}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
+    volumes:
+      # Live UI updates without rebuild (optional in prod)
+      - ../web/app:/srv/public:ro
+      - pp_web_data:/data
+      # Current public tunnel URL (written by tunnel-watchdog on the host)
+      - ./runtime/public-url.json:/data/public-url.json:ro
+    ports:
+      - "8088:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - pp_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  tunnel:
+    image: cloudflare/cloudflared:2026.7.1
+    container_name: palabra-pura-tunnel
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://web:80
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - pp_net
+
+networks:
+  pp_net:
+    name: palabra-pura-net
+    driver: bridge
+
+volumes:
+  pp_pgdata:
+    name: palabra-pura-pgdata
+  pp_n8n_data:
+    name: palabra-pura-n8n-data
+  pp_web_data:
+    name: palabra-pura-web-data

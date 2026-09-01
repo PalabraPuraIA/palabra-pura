@@ -1,0 +1,71 @@
+{
+  "name": "MCP - N8N",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "a961ff10-ef8e-4fce-9027-261bfeb2c6dd"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpTrigger",
+      "typeVersion": 2,
+      "position": [
+        -352,
+        -128
+      ],
+      "id": "3c24751e-1f03-415f-931b-a95d9bf32ed0",
+      "name": "MCP Server Trigger",
+      "webhookId": "a961ff10-ef8e-4fce-9027-261bfeb2c6dd"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "MkDTU2SwUA0geySY",
+          "mode": "list",
+          "cachedResultName": "My Sub-Workflow 1",
+          "cachedResultUrl": "/workflow/MkDTU2SwUA0geySY"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        48,
+        0
+      ],
+      "id": "9a271043-6148-4c1c-ba5e-1dadbc245266",
+      "name": "Call 'My Sub-Workflow 1'"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Call 'My Sub-Workflow 1'": {
+      "ai_tool": [
+        [
+          {
+            "node": "MCP Server Trigger",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7034d3c4-b328-410b-80a1-a61ce1ff66dd",
+  "meta": {
+    "instanceId": "da9ef7788c5985ccfafbbb8400d90f6da7cf6cce249d29d8f925a23e7eb51b32"
+  },
+  "id": "BXggyuc9oH4gUI5H",
+  "tags": []
+}
