@@ -12,7 +12,7 @@
 import pg from "pg";
 
 import { answerBySearch, relatedVerses } from "./chat-search.js";
-import { answerWithSearch, askAnyLLM, hasWriter } from "./chat-llm.js";
+import { answerWithSearch, askAnyLLM, hasWriter, explainFromTranscript } from "./chat-llm.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
@@ -342,10 +342,30 @@ async function enrichWithRelatedPassages(payload, question) {
   };
 }
 
-/** Respaldo sin modelo: nunca lanza, para no tapar el error original. */
+/** Respaldo sin modelo: si hay IA disponible, redacta explicacion intuitiva del audio. */
 async function searchFallback(question) {
   try {
-    return await answerBySearch(getPool(), question, resolvePassage);
+    const found = await answerBySearch(getPool(), question, resolvePassage);
+    if (!found?.video) return found;
+
+    const generic =
+      /encontr[eé] esta ense[nñ]anza del ministerio/i.test(found.answer ?? "") ||
+      /te dejo el fragmento/i.test(found.answer ?? "");
+
+    if (!generic || !hasWriter()) return found;
+
+    const explained = await explainFromTranscript(
+      question,
+      found.transcript || found.excerpt,
+      found.video?.title,
+    );
+    if (!explained?.answer) return found;
+
+    return {
+      ...found,
+      answer: explained.answer,
+      passage: (await resolvePassage(explained.reference)) ?? found.passage,
+    };
   } catch (err) {
     console.error("[chat] busqueda", err.message);
     return null;
@@ -384,6 +404,7 @@ export async function handleChat(req, res) {
     }
 
     payload = await enrichWithRelatedPassages(payload, question);
+    if (payload?.transcript) delete payload.transcript;
     res.json(payload);
   } catch (err) {
     console.error("[chat]", mode, err.message);
@@ -391,6 +412,7 @@ export async function handleChat(req, res) {
     const rescued = await searchFallback(question);
     if (rescued) {
       const enriched = await enrichWithRelatedPassages({ ...rescued, mode: "busqueda" }, question);
+      if (enriched?.transcript) delete enriched.transcript;
       return res.json(enriched);
     }
 

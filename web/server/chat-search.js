@@ -58,7 +58,7 @@ function prefixQuery(terms) {
  * Los fragmentos se cortan por duración, así que suelen empezar a media frase.
  * Si la primera oración viene partida, arrancamos en la siguiente.
  */
-function buildExcerpt(content, limit = 420) {
+export function buildExcerpt(content, limit = 420) {
   let raw = String(content ?? "").replace(/\s+/g, " ").trim();
   if (!raw) return undefined;
 
@@ -237,7 +237,8 @@ export async function answerBySearch(db, question, resolvePassage) {
     return {
       answer:
         "Encontré esta enseñanza del ministerio que habla de tu pregunta. Te dejo el fragmento y el video para que lo escuches desde el minuto exacto.",
-      excerpt: buildExcerpt(fragment.content),
+      excerpt: buildExcerpt(fragment.content, 650),
+      transcript: buildExcerpt(fragment.content, 1800),
       passage: passage ?? undefined,
       video: {
         title: fragment.title,

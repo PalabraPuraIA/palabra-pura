@@ -9,16 +9,21 @@
  * que ya enseñó el ministerio, nunca inventa doctrina.
  */
 
-import { contextFragments } from "./chat-search.js";
+import { contextFragments, buildExcerpt } from "./chat-search.js";
 
-const SYSTEM = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
-Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
-Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
-Si SI puedes responder con base en los videos, responde con:
-{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica principal si en el contexto se menciona un pasaje, o cadena vacia"}
+const SYSTEM = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
+Tu tarea es responder la pregunta del usuario de forma clara, intuitiva y directa, usando UNICAMENTE las transcripciones de audio de los videos que se te entregan.
+
+Reglas:
+- Responde lo que la persona pregunto, con palabras sencillas, como si la acompanaras paso a paso.
+- NO digas frases vacias como "encontre una ensenanza" o "te dejo el fragmento". Explica el contenido.
+- Basa cada idea en lo que el pastor enseno en el audio. No inventes doctrina ni versiculos.
+- Si el audio no alcanza para responder la pregunta, responde EXACTAMENTE con: {"found": false}
+- Si SI puedes responder, responde con:
+{"found": true, "answer": "tu explicacion en 3 a 5 frases, concretas y utiles", "reference": "referencia biblica principal si se menciona en el audio, o cadena vacia"}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
-Tono: sencillo, calido y respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
+Tono: cercano, respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 /** Proveedores en orden de preferencia. Dola primero si hay clave. */
 const PROVIDERS = [
@@ -70,7 +75,7 @@ async function callProvider(provider, system, userContent) {
     },
     body: JSON.stringify({
       model: provider.model(),
-      temperature: 0.3,
+      temperature: 0.45,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
@@ -104,10 +109,18 @@ export async function askAnyLLM(system, userContent) {
   return null;
 }
 
-function buildExcerpt(content, limit = 320) {
-  const raw = String(content ?? "").replace(/\s+/g, " ").trim();
-  if (!raw) return undefined;
-  return raw.length > limit ? `${raw.slice(0, limit - 1).trim()}…` : raw;
+/** Pide al modelo que explique un fragmento de transcripcion para la pregunta. */
+export async function explainFromTranscript(question, transcript, videoTitle = "") {
+  if (!transcript?.trim()) return null;
+
+  const title = videoTitle ? ` del video "${videoTitle}"` : "";
+  const reply = await askAnyLLM(
+    SYSTEM,
+    `Transcripcion de audio${title}:\n${String(transcript).slice(0, 1800)}\n\nPregunta del usuario: ${question}`,
+  );
+
+  if (!reply || reply.found === false || !reply.answer) return null;
+  return reply;
 }
 
 /**
@@ -138,7 +151,7 @@ export async function answerWithSearch(db, question, resolvePassage) {
   return {
     answer: reply.answer,
     passage: (await resolvePassage(reply.reference)) ?? undefined,
-    excerpt: buildExcerpt(top.content),
+    excerpt: buildExcerpt(top.content, 650),
     video: {
       title: top.title,
       episode: top.episode,

@@ -22,7 +22,7 @@ function renderExcerpt(excerpt) {
 
   return `
     <div class="source__block source__excerpt">
-      <p class="source__label">En la enseñanza</p>
+      <p class="source__label">Transcripción del audio</p>
       <p class="source__text">“${escapeHtml(excerpt)}”</p>
     </div>`;
 }
