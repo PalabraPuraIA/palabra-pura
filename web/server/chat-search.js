@@ -177,6 +177,42 @@ export async function contextFragments(db, question, limit = 5) {
   return rows;
 }
 
+
+/**
+ * Versículos de la Biblia relacionados con la pregunta (hasta `limit`).
+ * @returns {Promise<object[]>}
+ */
+export async function relatedVerses(db, question, limit = 3) {
+  if (!db) return [];
+  const terms = searchTerms(question);
+  if (!terms.length) return [];
+
+  const { rows } = await db.query(
+    `WITH q AS (SELECT to_tsquery('spanish', $1) AS tsq),
+          cand AS (
+            SELECT b.name AS book, v.chapter, v.verse, v.text,
+                   ts_rank_cd(to_tsvector('spanish', v.text), q.tsq) AS score
+              FROM verses v
+              JOIN books b ON b.id = v.book_id, q
+             WHERE to_tsvector('spanish', v.text) @@ q.tsq
+             ORDER BY score DESC
+             LIMIT 120
+          ),
+          scored AS (
+            SELECT c.*,
+                   (SELECT count(*) FROM unnest($2::text[]) AS t
+                     WHERE to_tsvector('spanish', c.text) @@ to_tsquery('spanish', t || ':*')) AS hits
+              FROM cand c
+          )
+     SELECT * FROM scored
+      WHERE hits >= $3
+      ORDER BY hits DESC, score DESC
+      LIMIT $4`,
+    [prefixQuery(terms), terms, Math.max(1, minHits(terms) - 1), limit],
+  );
+  return rows;
+}
+
 /**
  * Busca una respuesta en la base sin usar ningún modelo.
  * @param {import("pg").Pool} db

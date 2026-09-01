@@ -1,7 +1,7 @@
 /**
  * SourceCard.js — Bloques separados de fuente:
  *  1) Recorte de la enseñanza (audio / transcripción)
- *  2) Pasaje bíblico (Reina-Valera Antigua)
+ *  2) Pasaje(s) bíblico(s) (Reina-Valera Antigua)
  *  3) Video en el minuto exacto
  */
 
@@ -27,7 +27,7 @@ function renderExcerpt(excerpt) {
     </div>`;
 }
 
-function renderPassage(passage, demo) {
+function renderPassage(passage, demo, label = "Pasaje bíblico") {
   if (!passage?.reference) return "";
 
   const version = passage.bible_version || "Reina-Valera Antigua";
@@ -40,10 +40,30 @@ function renderPassage(passage, demo) {
 
   return `
     <div class="source__block source__verse">
-      <p class="source__label">Pasaje bíblico</p>
+      <p class="source__label">${escapeHtml(label)}</p>
       <p class="source__ref">${escapeHtml(passage.reference)}${badge}</p>
       ${text}
     </div>`;
+}
+
+function renderPassages(passage, passages, demo) {
+  const list = Array.isArray(passages) && passages.length
+    ? passages
+    : passage?.reference
+      ? [passage]
+      : [];
+
+  if (!list.length) return "";
+
+  return list
+    .map((p, i) =>
+      renderPassage(
+        p,
+        demo,
+        list.length > 1 ? `Versículo relacionado ${i + 1}` : "Pasaje bíblico",
+      ),
+    )
+    .join("");
 }
 
 function renderVideo(video) {
@@ -89,12 +109,12 @@ function renderVideo(video) {
 }
 
 /**
- * @param {{ passage?: object, video?: object, excerpt?: string, source?: string }} response
+ * @param {{ passage?: object, passages?: object[], video?: object, excerpt?: string, source?: string }} response
  */
-export function renderSourceCard({ passage, video, excerpt, source } = {}) {
+export function renderSourceCard({ passage, passages, video, excerpt, source } = {}) {
   const demo = isDemoVideo(video);
   const inner =
-    renderExcerpt(excerpt) + renderPassage(passage, demo) + renderVideo(video);
+    renderExcerpt(excerpt) + renderPassages(passage, passages, demo) + renderVideo(video);
 
   if (!inner) return "";
 

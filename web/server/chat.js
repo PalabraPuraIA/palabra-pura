@@ -11,7 +11,7 @@
 
 import pg from "pg";
 
-import { answerBySearch } from "./chat-search.js";
+import { answerBySearch, relatedVerses } from "./chat-search.js";
 import { answerWithSearch, askAnyLLM, hasWriter } from "./chat-llm.js";
 
 const MAX_PARENTS = 2;
@@ -40,6 +40,7 @@ NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
 
 const BIBLE_VERSION = "Reina-Valera Antigua";
+const RELATED_VERSE_LIMIT = 3;
 
 let pool = null;
 let booksCache = null;
@@ -304,6 +305,43 @@ async function searchOrNothing(question) {
   return found ?? NOT_FOUND;
 }
 
+/** Agrega versículos relacionados desde la Biblia (por defecto en cada respuesta). */
+async function enrichWithRelatedPassages(payload, question) {
+  if (!payload?.answer || payload.notFound) return payload;
+
+  const db = getPool();
+  if (!db) return payload;
+
+  const hits = await relatedVerses(db, question, RELATED_VERSE_LIMIT);
+  if (!hits.length) return payload;
+
+  const seen = new Set();
+  const passages = [];
+
+  if (payload.passage?.reference) {
+    seen.add(payload.passage.reference);
+    passages.push(payload.passage);
+  }
+
+  for (const row of hits) {
+    const ref = `${row.book} ${row.chapter}:${row.verse}`;
+    if (seen.has(ref)) continue;
+    const resolved = await resolvePassage(ref);
+    if (!resolved) continue;
+    seen.add(resolved.reference);
+    passages.push(resolved);
+    if (passages.length >= RELATED_VERSE_LIMIT) break;
+  }
+
+  if (!passages.length) return payload;
+
+  return {
+    ...payload,
+    passage: passages[0],
+    passages,
+  };
+}
+
 /** Respaldo sin modelo: nunca lanza, para no tapar el error original. */
 async function searchFallback(question) {
   try {
@@ -335,20 +373,26 @@ export async function handleChat(req, res) {
   res.set("Cache-Control", "no-store");
 
   try {
-    const payload = await answerFor(mode, question);
+    let payload = await answerFor(mode, question);
 
     // La Edge Function contesta 200 con su propio texto de error: no sirve.
     if (mode === "proxy" && UPSTREAM_FAILED.test(payload?.answer ?? "")) {
       const rescued = await searchFallback(question);
-      return res.json(rescued ? { ...rescued, mode: "busqueda" } : { ...NOT_FOUND, mode: "busqueda" });
+      payload = rescued ? { ...rescued, mode: "busqueda" } : { ...NOT_FOUND, mode: "busqueda" };
+    } else {
+      payload = { ...payload, mode };
     }
 
-    res.json({ ...payload, mode });
+    payload = await enrichWithRelatedPassages(payload, question);
+    res.json(payload);
   } catch (err) {
     console.error("[chat]", mode, err.message);
 
     const rescued = await searchFallback(question);
-    if (rescued) return res.json({ ...rescued, mode: "busqueda" });
+    if (rescued) {
+      const enriched = await enrichWithRelatedPassages({ ...rescued, mode: "busqueda" }, question);
+      return res.json(enriched);
+    }
 
     res.status(502).json({
       answer: "Tuve un problema para responder ahora mismo. Intenta de nuevo en un momento.",
@@ -364,6 +408,7 @@ export async function handleChatStatus(_req, res) {
     hasDb: Boolean(dbConfig()),
     hasGeminiKey: Boolean(GEMINI_API_KEY),
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
+    hasDolaKey: Boolean(process.env.DOLA_API_KEY || process.env.BYTEPLUS_API_KEY),
     hasOpenRouterKey: Boolean(OPENROUTER_API_KEY),
     proxyUrl: SUPABASE_CHAT_URL || null,
   };

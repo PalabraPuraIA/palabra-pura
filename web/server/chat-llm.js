@@ -15,13 +15,21 @@ const SYSTEM = `Eres una guia calida de la Iglesia Palabra Pura que acompana a p
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
 Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
-{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia"}
+{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica principal si en el contexto se menciona un pasaje, o cadena vacia"}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 Tono: sencillo, calido y respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
-/** Proveedores en orden de preferencia: rápido y con cuota amplia primero. */
+/** Proveedores en orden de preferencia. Dola primero si hay clave. */
 const PROVIDERS = [
+  {
+    name: "dola",
+    key: () => process.env.DOLA_API_KEY || process.env.BYTEPLUS_API_KEY,
+    url:
+      process.env.DOLA_API_URL ||
+      "https://ark.ap-southeast.bytepluses.com/api/v3/chat/completions",
+    model: () => process.env.DOLA_MODEL || "dola-seed-2-1-turbo-260628",
+  },
   {
     name: "groq",
     key: () => process.env.GROQ_API_KEY,
@@ -113,8 +121,6 @@ export async function answerWithSearch(db, question, resolvePassage) {
   const fragments = await contextFragments(db, question, 3);
   if (!fragments.length) return { notFound: true };
 
-  // La capa gratuita limita tokens por minuto: se recorta cada fragmento para
-  // que una consulta no consuma la cuota entera.
   const context = fragments
     .map(
       (f, i) =>
