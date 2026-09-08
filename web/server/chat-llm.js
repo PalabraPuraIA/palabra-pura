@@ -245,11 +245,12 @@ export async function answerWithSearch(db, question, resolvePassage) {
     const citeText =
       (await citationTextForVideo(db, top.video_id, 80)) ||
       fragments.map((f) => f.content).join("\n");
-    const spokenRefs = findReferences(citeText).map((r) => r.toLowerCase());
+    const spokenRefs = findReferences(citeText);
     const modelRef = reply.reference?.trim() || "";
+    const spokenLower = spokenRefs.map((r) => r.toLowerCase());
     const modelOk =
       modelRef &&
-      spokenRefs.some(
+      spokenLower.some(
         (r) =>
           r.includes(modelRef.toLowerCase()) ||
           modelRef.toLowerCase().includes(r.replace(/\s+/g, " ").slice(0, 12)),
@@ -259,7 +260,7 @@ export async function answerWithSearch(db, question, resolvePassage) {
       answer: reply.answer,
       passage: modelOk ? (await resolvePassage(modelRef)) ?? undefined : undefined,
       excerpt: trimRelevantExcerpt(top.content, question, 320),
-      transcript: citeText.slice(0, 12000),
+      spokenRefs,
       video: {
         title: top.title,
         episode: top.episode,
@@ -320,7 +321,7 @@ export async function answerWithSearch(db, question, resolvePassage) {
           answer: reply.answer,
           passage: undefined,
           excerpt: trimRelevantExcerpt(topVideo.content, question, 320),
-          transcript: citeText.slice(0, 12000),
+          spokenRefs: findReferences(citeText),
           video: {
             title: topVideo.title,
             episode: topVideo.episode,

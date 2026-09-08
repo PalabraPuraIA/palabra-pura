@@ -470,21 +470,25 @@ async function enrichWithRelatedPassages(payload, question) {
   // --- Respuesta desde VIDEO: solo versículos que salen del audio ---
   if (payload.source === "video") {
     const transcriptBlob = [payload.transcript, payload.excerpt].filter(Boolean).join("\n");
-    const spoken = findReferences(transcriptBlob);
+    const spoken = [
+      ...(Array.isArray(payload.spokenRefs) ? payload.spokenRefs : []),
+      ...findReferences(transcriptBlob),
+    ].filter(Boolean);
+    const uniqueSpoken = [...new Set(spoken)];
 
     // Preferir citas del audio que también encajen con la pregunta.
-    for (const ref of spoken) {
+    for (const ref of uniqueSpoken) {
       await pushResolved(ref, { requireRelevant: true });
     }
     // Si ninguna pasó el filtro de relevancia, al menos las dichas en el audio.
     if (!passages.length) {
-      for (const ref of spoken) {
+      for (const ref of uniqueSpoken) {
         await pushResolved(ref);
       }
     }
 
     // Referencia del modelo / answer solo si también está en el audio.
-    const spokenNorm = spoken.map((r) => r.toLowerCase().replace(/\s+/g, " "));
+    const spokenNorm = uniqueSpoken.map((r) => r.toLowerCase().replace(/\s+/g, " "));
     const candidates = [
       ...(payload.passages || []),
       ...(payload.passage ? [payload.passage] : []),
@@ -503,12 +507,13 @@ async function enrichWithRelatedPassages(payload, question) {
     }
 
     if (!passages.length) {
-      const { passage, passages: _drop, ...rest } = payload;
+      const { passage, passages: _drop, spokenRefs, transcript, ...rest } = payload;
       return rest;
     }
 
+    const { spokenRefs, transcript, ...rest } = payload;
     return {
-      ...payload,
+      ...rest,
       passage: passages[0],
       passages: passages.slice(0, RELATED_VERSE_LIMIT),
     };
@@ -686,6 +691,7 @@ export async function handleChat(req, res) {
     }
     payload = await enrichWithRelatedPassages(payload, question);
     if (payload?.transcript) delete payload.transcript;
+    if (payload?.spokenRefs) delete payload.spokenRefs;
     // Conservamos excerpt: pedazo curado de la transcripción para mostrar aparte.
     if (payload?.matchedByTitle) delete payload.matchedByTitle;
     if (payload?.answer) payload.answer = sanitizeAnswer(payload.answer);
