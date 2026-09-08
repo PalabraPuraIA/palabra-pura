@@ -30,6 +30,9 @@ const VULGAR_RE =
 const PASTORS_FAQ_RE =
   /\b((como|qu[eé]|cual(es)?)\s+(se\s+)?(llama|llaman|nombre|nombres).{0,40}(pastor|pastores)|(pastor|pastores).{0,40}(llama|llaman|nombre|nombres|qui[eé]n(es)?\s+son)|qui[eé]n(es)?\s+(es|son)\s+(el|la|los|las)?\s*pastor)/;
 
+const GREETING_RE =
+  /^(hola+|holi|buenas|buen(os|as)?\s+(dias|tardes|noches)|hey|hi|hello|saludos|que tal|como estas)(\s[!?.¡¿]*)*$/;
+
 function norm(text) {
   return String(text ?? "")
     .toLowerCase()
@@ -44,6 +47,10 @@ function isPastorsFaq(n) {
   return PASTORS_FAQ_RE.test(n);
 }
 
+function isGreeting(n) {
+  return GREETING_RE.test(n);
+}
+
 function isRude(n) {
   return INSULT_RE.test(n) || VULGAR_RE.test(n);
 }
@@ -54,6 +61,7 @@ function isRude(n) {
  */
 function isOffTopic(n) {
   if (!n || FAITH_RE.test(n)) return false;
+  if (isGreeting(n)) return false;
   if (NONSENSE_RE.test(n)) return true;
 
   const words = n.split(" ").filter(Boolean);
@@ -78,6 +86,9 @@ function isOffTopic(n) {
 export function guardQuestion(question) {
   const n = norm(question);
   if (!n) return null;
+
+  // Los saludos los atiende el cerebro del chat (Grace + promesa).
+  if (isGreeting(n)) return null;
 
   if (isPastorsFaq(n)) {
     return {
