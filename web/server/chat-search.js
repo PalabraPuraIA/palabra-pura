@@ -353,14 +353,22 @@ export async function suggestTopics(db, question, limit = 6) {
 /** Referencias bíblicas citadas en el fragmento, en orden de aparición. */
 export function findReferences(text) {
   const refs = [];
+  const push = (book, chapter, verse, end) => {
+    const b = String(book || "").trim();
+    // Evita basura tipo "el 1:3" o "en 2:8"
+    if (b.length < 3) return;
+    if (/^(el|la|los|las|en|de|del|un|una|al|y|o|si|no|por|con|cap)$/i.test(b)) return;
+    const suffix = end ? `-${end}` : "";
+    refs.push(`${b} ${chapter}:${verse}${suffix}`);
+  };
+
   for (const m of String(text).matchAll(REF_PATTERN)) {
-    const end = m[4] ? `-${m[4]}` : "";
-    refs.push(`${m[1].trim()} ${m[2]}:${m[3]}${end}`);
+    push(m[1], m[2], m[3], m[4]);
   }
   for (const m of String(text).matchAll(SPOKEN_REF_PATTERN)) {
-    refs.push(`${m[1].trim()} ${m[2]}:${m[3]}`);
+    push(m[1], m[2], m[3]);
   }
-  return refs;
+  return [...new Set(refs)];
 }
 
 /**

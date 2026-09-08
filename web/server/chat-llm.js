@@ -218,19 +218,87 @@ export async function explainFromTranscript(question, transcript, videoTitle = "
 /**
  * Busca las enseñanzas por texto y pide al modelo que las explique.
  *
- * Si la pregunta coincide con el título de una serie (p. ej. "mapa financiero"),
- * prioriza el audio de ESA enseñanza y resume lo que el pastor dijo allí —
- * no una definición genérica.
+ * Prioridad: fragmentos de transcripción (minuto exacto + citas del audio).
+ * Si no hay fragmentos, cae a coincidencia por título de serie.
  */
 export async function answerWithSearch(db, question, resolvePassage) {
+  const fragments = await contextFragments(db, question, 3);
+  if (fragments.length) {
+    const context = fragments
+      .map(
+        (f, i) =>
+          `Fragmento ${i + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${String(
+            f.content,
+          ).slice(0, 1400)}`,
+      )
+      .join("\n\n");
+
+    const reply = await askAnyLLM(
+      SYSTEM,
+      `Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
+    );
+    if (!reply) return null;
+    if (reply.off_topic) return { notFound: "off_topic", off_topic: true };
+    if (reply.found === false || !reply.answer) return { notFound: true };
+
+    const top = fragments[0];
+    const citeText =
+      (await citationTextForVideo(db, top.video_id, 80)) ||
+      fragments.map((f) => f.content).join("\n");
+    const spokenRefs = findReferences(citeText).map((r) => r.toLowerCase());
+    const modelRef = reply.reference?.trim() || "";
+    const modelOk =
+      modelRef &&
+      spokenRefs.some(
+        (r) =>
+          r.includes(modelRef.toLowerCase()) ||
+          modelRef.toLowerCase().includes(r.replace(/\s+/g, " ").slice(0, 12)),
+      );
+
+    return {
+      answer: reply.answer,
+      passage: modelOk ? (await resolvePassage(modelRef)) ?? undefined : undefined,
+      excerpt: trimRelevantExcerpt(top.content, question, 320),
+      transcript: citeText.slice(0, 12000),
+      video: {
+        title: top.title,
+        episode: top.episode,
+        youtube_id: top.youtube_id,
+        start_second: top.start_second ?? 0,
+      },
+      source: "video",
+    };
+  }
+
   const titled = await searchVideosByTitle(db, question, 5);
   if (titled.length) {
     const videoIds = titled.map((v) => v.id);
-    const fromTitle = await fragmentsForVideos(db, videoIds, 10);
+    const fromTitle = await fragmentsForVideos(db, videoIds, 40);
 
     if (fromTitle.length) {
-      const topVideo = fromTitle[0];
+      // Mejor fragmento por palabras de la pregunta, no el minuto 0.
+      const terms = String(question)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .split(/\s+/)
+        .filter((w) => w.length >= 4);
+      let topVideo = fromTitle[0];
+      let bestHits = -1;
+      for (const f of fromTitle) {
+        const norm = String(f.content)
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+        const hits = terms.reduce((n, t) => n + (norm.includes(t) ? 1 : 0), 0);
+        if (hits > bestHits) {
+          bestHits = hits;
+          topVideo = f;
+        }
+      }
+
       const context = fromTitle
+        .slice(0, 8)
         .map(
           (f, i) =>
             `Fragmento ${i + 1} — "${f.title}" (min ${Math.floor((f.start_second ?? 0) / 60)}):\n${String(
@@ -245,12 +313,14 @@ export async function answerWithSearch(db, question, resolvePassage) {
       );
 
       if (reply?.found !== false && reply?.answer) {
-        const citeText = fromTitle.map((f) => f.content).join("\n");
+        const citeText =
+          (await citationTextForVideo(db, topVideo.video_id || videoIds[0], 80)) ||
+          fromTitle.map((f) => f.content).join("\n");
         return {
           answer: reply.answer,
           passage: undefined,
-          excerpt: trimRelevantExcerpt(citeText, question, 320),
-          transcript: citeText.slice(0, 6000),
+          excerpt: trimRelevantExcerpt(topVideo.content, question, 320),
+          transcript: citeText.slice(0, 12000),
           video: {
             title: topVideo.title,
             episode: topVideo.episode,
@@ -262,7 +332,6 @@ export async function answerWithSearch(db, question, resolvePassage) {
       }
     }
 
-    // Título coincide pero aún no hay transcripción: no inventar definición.
     const context = titled
       .map(
         (v, i) =>
@@ -292,55 +361,6 @@ export async function answerWithSearch(db, question, resolvePassage) {
       },
       source: "video",
       matchedByTitle: true,
-    };
-  }
-
-  const fragments = await contextFragments(db, question, 3);
-  if (fragments.length) {
-    const context = fragments
-      .map(
-        (f, i) =>
-          `Fragmento ${i + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${String(
-            f.content,
-          ).slice(0, 1400)}`,
-      )
-      .join("\n\n");
-
-    const reply = await askAnyLLM(
-      SYSTEM,
-      `Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
-    );
-    if (!reply) return null;
-    if (reply.off_topic) return { notFound: "off_topic", off_topic: true };
-    if (reply.found === false || !reply.answer) return { notFound: true };
-
-    const top = fragments[0];
-    const citeText =
-      (await citationTextForVideo(db, top.video_id, 80)) ||
-      fragments.map((f) => f.content).join("\n");
-    // Solo aceptamos referencia del modelo si también aparece en el audio.
-    const spokenRefs = findReferences(citeText).map((r) => r.toLowerCase());
-    const modelRef = reply.reference?.trim() || "";
-    const modelOk =
-      modelRef &&
-      spokenRefs.some(
-        (r) =>
-          r.includes(modelRef.toLowerCase()) ||
-          modelRef.toLowerCase().includes(r.replace(/\s+/g, " ").slice(0, 12)),
-      );
-
-    return {
-      answer: reply.answer,
-      passage: modelOk ? (await resolvePassage(modelRef)) ?? undefined : undefined,
-      excerpt: trimRelevantExcerpt(top.content, question, 320),
-      transcript: citeText.slice(0, 12000),
-      video: {
-        title: top.title,
-        episode: top.episode,
-        youtube_id: top.youtube_id,
-        start_second: top.start_second ?? 0,
-      },
-      source: "video",
     };
   }
 
