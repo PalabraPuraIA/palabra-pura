@@ -9,21 +9,74 @@
  * que ya enseñó el ministerio, nunca inventa doctrina.
  */
 
-import { contextFragments, buildExcerpt } from "./chat-search.js";
+import {
+  contextFragments,
+  buildExcerpt,
+  bibleVersesForQuestion,
+  graceBibleVerses,
+  ministryGraceFragments,
+  searchVideosByTitle,
+  answerByTitleSearch,
+  fragmentsForVideos,
+} from "./chat-search.js";
+
+/** Marco doctrinal que toda respuesta debe respetar. */
+const GRACE_LENS = `
+Marco doctrinal obligatorio — dispensacion de la gracia:
+- La Escuela Biblica de Palabra Pura ensena bajo la dispensacion de la gracia, NO bajo la ley ni el Antiguo Pacto como norma para el creyente hoy.
+- Cristo cumplio la ley; la justicia es por fe en lo que El hizo, no por obras de la ley ni por meritos propios.
+- NUNCA condenes, clasifiques pecado ni des veredictos morales usando la ley de Moises, Mateo 19, Marcos 10, carta de divorcio o adulterio como regla para la Iglesia.
+- Si la pregunta es etica (divorcio, volver a casarse, pecado, matrimonio), responde desde gracia: identidad en Cristo, no condenacion, justicia recibida, perdon, nueva criatura — NO desde legalismo.
+- Divide correctamente la Palabra: no apliques mandatos del Antiguo Testamento sin la luz del Nuevo y de la gracia.
+- Cada respuesta debe sonar a evangelio de la gracia, no a ministerio de condenacion de la ley.`;
 
 const SYSTEM = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
 Tu tarea es responder la pregunta del usuario de forma clara, intuitiva y directa, usando UNICAMENTE las transcripciones de audio de los videos que se te entregan.
+${GRACE_LENS}
 
 Reglas:
 - Responde lo que la persona pregunto, con palabras sencillas, como si la acompanaras paso a paso.
+- NUNCA uses groserias, insultos, palabras soeces ni tono agresivo. Habla siempre con respeto.
 - NO digas frases vacias como "encontre una ensenanza" o "te dejo el fragmento". Explica el contenido.
 - Basa cada idea en lo que el pastor enseno en el audio. No inventes doctrina ni versiculos.
+- Si preguntan "que es X" y X es el titulo de una ensenanza, RESUME lo que el pastor enseno en ese audio; NO des una definicion de diccionario ni otra explicacion ajena a la transcripcion.
+- Si la pregunta es una bobada, broma, groseria o algo SIN relacion con la Escuela Biblica, la fe, la Biblia o las ensenanzas del ministerio, responde EXACTAMENTE con: {"found": false, "off_topic": true}
+- Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 - Si el audio no alcanza para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 - Si SI puedes responder, responde con:
-{"found": true, "answer": "tu explicacion en 3 a 5 frases, concretas y utiles", "reference": "referencia biblica principal si se menciona en el audio, o cadena vacia"}
+{"found": true, "answer": "tu resumen/explicacion en 3 a 5 frases bajo la dispensacion de la gracia", "reference": "referencia biblica principal si se menciona en el audio, o cadena vacia"}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 Tono: cercano, respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
+
+/** Cuando la pregunta coincide con el titulo de una serie: resumen del audio. */
+const SYSTEM_TEACHING = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
+La persona pregunto por el titulo (o tema) de una ensenanza concreta. Tienes la transcripcion de ESE audio.
+${GRACE_LENS}
+
+Tu unica tarea: dar un RESUMEN intuitivo de lo que el pastor enseno en esa ensenanza.
+Reglas estrictas:
+- Resume SOLO con lo que dice la transcripcion. No inventes, no completes con conocimiento general.
+- NO des una definicion de diccionario distinta a lo que se enseño en el audio.
+- Explica con claridad, en 3 a 6 frases, que ensena esa parte y para que sirve segun el pastor.
+- Si en el audio hay ejemplos o pasos concretos, mencionalos de forma breve.
+- Si la transcripcion no alcanza, responde EXACTAMENTE con: {"found": false}
+- Si SI puedes resumir, responde con:
+{"found": true, "answer": "tu resumen en 3 a 6 frases", "reference": "referencia biblica si se menciona en el audio, o cadena vacia"}
+Responde SOLO con el objeto JSON, sin texto adicional.`;
+
+const SYSTEM_TITLE = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
+SOLO tienes el TITULO de videos del ministerio (aun no hay transcripcion indexada de ese audio).
+${GRACE_LENS}
+
+Reglas estrictas:
+- NO inventes lo que enseno el pastor; solo puedes decir que existe una serie con ese titulo.
+- NO des una definicion inventada del tema.
+- Menciona el nombre de la serie segun el titulo y acompaña a la persona a escuchar el video.
+- Responde en 2 a 4 frases, calido y claro, bajo la dispensacion de la gracia.
+Responde con:
+{"found": true, "answer": "tu respuesta", "reference": ""}
+Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 /** Proveedores en orden de preferencia. Dola primero si hay clave. */
 const PROVIDERS = [
@@ -109,6 +162,40 @@ export async function askAnyLLM(system, userContent) {
   return null;
 }
 
+const SYSTEM_GRACE = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
+Responde la pregunta del usuario UNICAMENTE bajo la dispensacion de la gracia.
+${GRACE_LENS}
+
+Reglas de respuesta:
+- PROHIBIDO: decir "es pecado/adulterio" como conclusion legal tomada de Mateo 19, Marcos 10, Moises o la ley.
+- PROHIBIDO: responder como fariseo o bajo ministerio de condenacion de la ley.
+- OBLIGATORIO: explicar desde gracia — no condenacion, justicia por fe, identidad en Cristo, perdon, lo que la gracia provee.
+- Usa las transcripciones del ministerio (si hay) y los pasajes biblicos de gracia entregados.
+- Si la pregunta es sobre divorcio o volver a casarse: acompaña en gracia; explica que no vivimos bajo la ley sino bajo gracia; NO des veredicto legalista.
+Responde en 3 a 5 frases, claro y pastoral.
+Responde con:
+{"found": true, "answer": "tu explicacion bajo gracia", "reference": "referencia biblica de gracia si aplica, o cadena vacia"}
+Responde found:false SOLO si no hay ningun material util.
+Responde SOLO con el objeto JSON, sin texto adicional.`;
+
+const SYSTEM_BIBLE = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
+Responde la pregunta del usuario con base en los pasajes biblicos que se te entregan (Reina-Valera Antigua).
+${GRACE_LENS}
+Responde de forma clara, intuitiva y directa, en 3 a 5 frases bajo la dispensacion de la gracia. No uses frases vacias.
+Si los pasajes hablan del tema aunque sea en parte, explica lo que dicen con humildad desde gracia, no desde ley.
+Responde found:false SOLO si ningun pasaje tiene relacion con la pregunta.
+Si puedes responder, responde con:
+{"found": true, "answer": "tu explicacion bajo gracia", "reference": "referencia principal Libro Capitulo:Versiculo"}
+NUNCA inventes texto biblico; solo explicas con base en lo entregado.
+Responde SOLO con el objeto JSON, sin texto adicional.`;
+
+/** Preguntas eticas donde la ley suele confundir: priorizar gracia. */
+function prefersGraceContext(question) {
+  return /divorc|repud|adulter|matrimon|cas(a|o|ar|arse|arme)|pecad|fornic|conden/i.test(
+    String(question),
+  );
+}
+
 /** Pide al modelo que explique un fragmento de transcripcion para la pregunta. */
 export async function explainFromTranscript(question, transcript, videoTitle = "") {
   if (!transcript?.trim()) return null;
@@ -119,45 +206,195 @@ export async function explainFromTranscript(question, transcript, videoTitle = "
     `Transcripcion de audio${title}:\n${String(transcript).slice(0, 1800)}\n\nPregunta del usuario: ${question}`,
   );
 
-  if (!reply || reply.found === false || !reply.answer) return null;
+  if (!reply || reply.off_topic || reply.found === false || !reply.answer) return null;
   return reply;
 }
 
 /**
  * Busca las enseñanzas por texto y pide al modelo que las explique.
  *
- * @returns {Promise<object|null>} La respuesta redactada; `{ notFound: true }`
- * cuando el modelo leyó el material y dijo que no responde la pregunta; `null`
- * cuando ningún modelo contestó y hay que recurrir al respaldo sin IA.
+ * Si la pregunta coincide con el título de una serie (p. ej. "mapa financiero"),
+ * prioriza el audio de ESA enseñanza y resume lo que el pastor dijo allí —
+ * no una definición genérica.
  */
 export async function answerWithSearch(db, question, resolvePassage) {
+  const titled = await searchVideosByTitle(db, question, 5);
+  if (titled.length) {
+    const videoIds = titled.map((v) => v.id);
+    const fromTitle = await fragmentsForVideos(db, videoIds, 10);
+
+    if (fromTitle.length) {
+      const topVideo = fromTitle[0];
+      const context = fromTitle
+        .map(
+          (f, i) =>
+            `Fragmento ${i + 1} — "${f.title}" (min ${Math.floor((f.start_second ?? 0) / 60)}):\n${String(
+              f.content,
+            ).slice(0, 1200)}`,
+        )
+        .join("\n\n");
+
+      const reply = await askAnyLLM(
+        SYSTEM_TEACHING,
+        `Enseñanza coincidente por título:\n${context}\n\nPregunta del usuario: ${question}`,
+      );
+
+      if (reply?.found !== false && reply?.answer) {
+        return {
+          answer: reply.answer,
+          passage: (await resolvePassage(reply.reference)) ?? undefined,
+          excerpt: buildExcerpt(fromTitle.map((f) => f.content).join(" "), 650),
+          video: {
+            title: topVideo.title,
+            episode: topVideo.episode,
+            youtube_id: topVideo.youtube_id,
+            start_second: topVideo.start_second ?? 0,
+          },
+          source: "video",
+        };
+      }
+    }
+
+    // Título coincide pero aún no hay transcripción: no inventar definición.
+    const context = titled
+      .map(
+        (v, i) =>
+          `Video ${i + 1} — titulo: "${v.title}", episodio ${v.episode ?? "?"}`,
+      )
+      .join("\n");
+
+    const reply = await askAnyLLM(
+      SYSTEM_TITLE,
+      `Series disponibles en la biblioteca del ministerio:\n${context}\n\nPregunta: ${question}`,
+    );
+
+    const top = titled[0];
+    const fallback = await answerByTitleSearch(db, question);
+
+    if (!reply || reply.found === false || !reply.answer) {
+      return fallback ?? { notFound: true };
+    }
+
+    return {
+      answer: reply.answer,
+      video: {
+        title: top.title,
+        episode: top.episode,
+        youtube_id: top.youtube_id,
+        start_second: 0,
+      },
+      source: "video",
+      matchedByTitle: true,
+    };
+  }
+
   const fragments = await contextFragments(db, question, 3);
-  if (!fragments.length) return { notFound: true };
+  if (fragments.length) {
+    const context = fragments
+      .map(
+        (f, i) =>
+          `Fragmento ${i + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${String(
+            f.content,
+          ).slice(0, 1400)}`,
+      )
+      .join("\n\n");
 
-  const context = fragments
-    .map(
-      (f, i) =>
-        `Fragmento ${i + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${String(
-          f.content,
-        ).slice(0, 1400)}`,
-    )
-    .join("\n\n");
+    const reply = await askAnyLLM(
+      SYSTEM,
+      `Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
+    );
+    if (!reply) return null;
+    if (reply.off_topic) return { notFound: "off_topic", off_topic: true };
+    if (reply.found === false || !reply.answer) return { notFound: true };
 
-  const reply = await askAnyLLM(SYSTEM, `Contexto de los videos:\n${context}\n\nPregunta: ${question}`);
-  if (!reply) return null;
-  if (reply.found === false || !reply.answer) return { notFound: true };
+    const top = fragments[0];
+    return {
+      answer: reply.answer,
+      passage: (await resolvePassage(reply.reference)) ?? undefined,
+      excerpt: buildExcerpt(top.content, 650),
+      video: {
+        title: top.title,
+        episode: top.episode,
+        youtube_id: top.youtube_id,
+        start_second: top.start_second ?? 0,
+      },
+      source: "video",
+    };
+  }
 
-  const top = fragments[0];
-  return {
+  return { notFound: true };
+}
+
+/**
+ * Respaldo bajo gracia: enseñanza del ministerio sobre gracia + pasajes de gracia.
+ * Evita pasajes de divorcio/adulterio que llevan a respuestas legalistas.
+ */
+export async function answerFromBible(db, question, resolvePassage) {
+  if (!db || !hasWriter()) return null;
+
+  const useGrace = prefersGraceContext(question);
+  const ministry = useGrace ? await ministryGraceFragments(db, 3) : [];
+  const verses = useGrace
+    ? await graceBibleVerses(db, 5)
+    : await bibleVersesForQuestion(db, question, 5);
+
+  if (!ministry.length && !verses.length) return null;
+
+  const parts = [];
+  if (ministry.length) {
+    parts.push(
+      "Enseñanzas del ministerio sobre gracia y dispensacion:\n" +
+        ministry
+          .map(
+            (f, i) =>
+              `Fragmento ${i + 1} — "${f.title}":\n${String(f.content).slice(0, 900)}`,
+          )
+          .join("\n\n"),
+    );
+  }
+  if (verses.length) {
+    parts.push(
+      "Pasajes biblicos (gracia / justicia / no condenacion):\n" +
+        verses
+          .slice(0, 4)
+          .map((v) => `${v.book} ${v.chapter}:${v.verse} — ${v.text}`)
+          .join("\n"),
+    );
+  }
+
+  const system = useGrace ? SYSTEM_GRACE : SYSTEM_BIBLE;
+  const reply = await askAnyLLM(
+    system,
+    `${parts.join("\n\n")}\n\nPregunta del usuario: ${question}`,
+  );
+  if (!reply || reply.found === false || !reply.answer) return null;
+
+  const passages = [];
+  for (const row of verses.slice(0, 3)) {
+    const resolved = await resolvePassage(`${row.book} ${row.chapter}:${row.verse}`);
+    if (resolved) passages.push(resolved);
+  }
+
+  const primary =
+    (await resolvePassage(reply.reference)) ?? passages[0] ?? undefined;
+
+  const topMinistry = ministry[0];
+  const result = {
     answer: reply.answer,
-    passage: (await resolvePassage(reply.reference)) ?? undefined,
-    excerpt: buildExcerpt(top.content, 650),
-    video: {
-      title: top.title,
-      episode: top.episode,
-      youtube_id: top.youtube_id,
-      start_second: top.start_second ?? 0,
-    },
-    source: "video",
+    passage: primary,
+    passages: passages.length ? passages : primary ? [primary] : undefined,
+    source: "biblia",
   };
+
+  if (topMinistry) {
+    result.video = {
+      title: topMinistry.title,
+      episode: topMinistry.episode,
+      youtube_id: topMinistry.youtube_id,
+      start_second: topMinistry.start_second ?? 0,
+    };
+    result.source = "video";
+  }
+
+  return result;
 }

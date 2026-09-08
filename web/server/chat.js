@@ -11,8 +11,11 @@
 
 import pg from "pg";
 
-import { answerBySearch, relatedVerses } from "./chat-search.js";
-import { answerWithSearch, askAnyLLM, hasWriter, explainFromTranscript } from "./chat-llm.js";
+import { answerBySearch, relatedVerses, graceBibleVerses, answerByTitleSearch, findReferences } from "./chat-search.js";
+import { answerWithSearch, askAnyLLM, hasWriter, explainFromTranscript, answerFromBible } from "./chat-llm.js";
+import { enrichPassagesFromAnswer, resolvePassageWithVersions } from "./bible-versions.js";
+import { detectLifeArea, passagesForLifeArea, resolveAllLifeAreas, resolveLifeArea, getLifeAreaById, topicVersesFor, WELCOME_PROMISES } from "./life-areas.js";
+import { guardQuestion, offTopicAnswer, sanitizeAnswer } from "./chat-guard.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
@@ -23,18 +26,35 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const SUPABASE_CHAT_URL = process.env.SUPABASE_CHAT_URL || "";
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "";
 
+const GRACE_LENS = `
+Marco doctrinal obligatorio — dispensacion de la gracia:
+- La Escuela Biblica de Palabra Pura ensena bajo la dispensacion de la gracia, NO bajo la ley ni el Antiguo Pacto como norma para el creyente hoy.
+- Cristo cumplio la ley; la justicia es por fe en lo que El hizo, no por obras de la ley ni por meritos propios.
+- NUNCA condenes, clasifiques pecado ni des veredictos morales usando la ley de Moises, Mateo 19, Marcos 10, carta de divorcio o adulterio como regla para la Iglesia.
+- Si la pregunta es etica (divorcio, volver a casarse, pecado, matrimonio), responde desde gracia: identidad en Cristo, no condenacion, justicia recibida, perdon, nueva criatura — NO desde legalismo.
+- Divide correctamente la Palabra: no apliques mandatos del Antiguo Testamento sin la luz del Nuevo y de la gracia.
+- Cada respuesta debe sonar a evangelio de la gracia, no a ministerio de condenacion de la ley.`;
+
 const SYSTEM_VIDEO = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
+${GRACE_LENS}
+NUNCA uses groserias, insultos, palabras soeces ni tono agresivo.
+Si la pregunta es una bobada, broma, groseria o algo SIN relacion con la Escuela Biblica, la fe, la Biblia o las ensenanzas del ministerio, responde EXACTAMENTE con: {"found": false, "off_topic": true}
+Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
-{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia"}
+{"found": true, "answer": "tu respuesta en 2 a 4 frases bajo la dispensacion de la gracia", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia"}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 Tono: sencillo, calido y respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 const SYSTEM_BIBLE = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
-Responde con base en el pasaje biblico (contexto ampliado) que se te entrega. Si el contexto no contiene la respuesta, dilo con humildad y no inventes nada.
-Tono: sencillo, calido y respetuoso, en espanol, en 2 a 4 frases.
+Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
+${GRACE_LENS}
+NUNCA uses groserias, insultos ni palabras soeces.
+Si la pregunta no tiene relacion con la fe, la Biblia o la Escuela Biblica, responde: {"answer": "", "reference": "", "off_topic": true}
+Si el contexto no contiene la respuesta, dilo con humildad y no inventes nada.
+Tono: sencillo, calido y respetuoso, en espanol, en 2 a 4 frases bajo la dispensacion de la gracia.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
@@ -280,6 +300,17 @@ const NOT_FOUND = {
     "Todavía no encuentro material sobre eso en las enseñanzas. Prueba preguntarlo con otras palabras.",
 };
 
+function normalizePayload(payload) {
+  if (!payload) return payload;
+  if (payload.off_topic || payload.notFound === "off_topic") {
+    return offTopicAnswer();
+  }
+  if (payload.answer) {
+    return { ...payload, answer: sanitizeAnswer(payload.answer) };
+  }
+  return payload;
+}
+
 function answerFor(mode, question) {
   if (mode === "local") return answerLocal(question);
   if (mode === "asistida") return answerAssisted(question);
@@ -295,9 +326,66 @@ function answerFor(mode, question) {
  * descartó. El respaldo sin IA queda para cuando ningún proveedor contestó.
  */
 async function answerAssisted(question) {
+  const greeting = await answerGreeting(question);
+  if (greeting) return greeting;
+
   const written = await answerWithSearch(getPool(), question, resolvePassage);
+  if (written?.off_topic || written?.notFound === "off_topic") return offTopicAnswer();
+  if (written && !written.notFound) return written;
+
+  const byTitle = await answerByTitleSearch(getPool(), question);
+  if (byTitle) return byTitle;
+
+  const bible = await answerFromBible(getPool(), question, resolvePassage);
+  if (bible?.off_topic) return offTopicAnswer();
+  if (bible) return bible;
+
   if (written?.notFound) return NOT_FOUND;
-  return written ?? (await searchOrNothing(question));
+  return (await searchOrNothing(question)) ?? NOT_FOUND;
+}
+
+function isGreeting(question) {
+  const q = String(question ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+  return /^(hola+|holi|buenas|buen(os|as)?\s+(dias|tardes|noches)|hey|hi|hello|saludos|que tal|como estas)(\s|!|\.|\?|¿|¡)*$/i.test(
+    q,
+  );
+}
+
+/** Bienvenida cálida + promesa bíblica completa en TLA. */
+async function answerGreeting(question) {
+  if (!isGreeting(question)) return null;
+
+  const pick = WELCOME_PROMISES[Math.floor(Math.random() * WELCOME_PROMISES.length)];
+  const passage = await resolvePassageWithVersions(pick.reference, resolvePassage);
+  const promiseText = passage?.text?.trim();
+  const promiseBlock = promiseText
+    ? `Hoy te dejo esta promesa (${passage.reference}): “${promiseText}”`
+    : `Hoy te dejo esta promesa de ${pick.reference}.`;
+
+  return {
+    answer:
+      "¡Hola! Bienvenido(a) a la Escuela Bíblica de Palabra Pura. Soy Grace, y estoy aquí para acompañarte con las enseñanzas del ministerio. " +
+      "Pregúntame lo que tengas en el corazón —un tema, un título de enseñanza o una duda— y te ayudo con claridad. " +
+      promiseBlock,
+    passage: passage ?? undefined,
+    passages: passage ? [passage] : undefined,
+    source: "biblia",
+    lifeArea: {
+      id: "bienvenida",
+      label: "Bienvenida",
+      promise: promiseText
+        ? `${passage.reference}: “${promiseText}”`
+        : "Dios tiene planes de bien para tu vida. Estás en el lugar correcto para crecer en Su gracia.",
+    },
+  };
+}
+
+function isNotFoundAnswer(answer) {
+  return /todav[ií]a no encuentro material/i.test(answer ?? "");
 }
 
 async function searchOrNothing(question) {
@@ -305,41 +393,153 @@ async function searchOrNothing(question) {
   return found ?? NOT_FOUND;
 }
 
-/** Agrega versículos relacionados desde la Biblia (por defecto en cada respuesta). */
+function prefersGraceContext(question) {
+  return /divorc|repud|adulter|matrimon|cas(a|o|ar|arse|arme)|pecad|fornic|conden/i.test(
+    String(question),
+  );
+}
+
+/** ¿El texto del versículo se relaciona con la pregunta? */
+function passageLooksRelevant(passage, question) {
+  if (!passage?.text) return false;
+  const terms = String(question ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4);
+  if (!terms.length) return true;
+  const text = String(passage.text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const hits = terms.filter((t) => text.includes(t.slice(0, Math.min(6, t.length))));
+  return hits.length >= 1;
+}
+
+/** Agrega versículos: curados por tema / audio / área. Sin FTS flojo. */
 async function enrichWithRelatedPassages(payload, question) {
-  if (!payload?.answer || payload.notFound) return payload;
-
-  const db = getPool();
-  if (!db) return payload;
-
-  const hits = await relatedVerses(db, question, RELATED_VERSE_LIMIT);
-  if (!hits.length) return payload;
+  if (!payload?.answer || payload.notFound || isNotFoundAnswer(payload.answer)) return payload;
+  if (payload.matchedByTitle) return payload;
+  if (payload.source === "biblia" && payload.passages?.length && isGreeting(question)) {
+    return payload;
+  }
 
   const seen = new Set();
   const passages = [];
 
-  if (payload.passage?.reference) {
-    seen.add(payload.passage.reference);
-    passages.push(payload.passage);
-  }
-
-  for (const row of hits) {
-    const ref = `${row.book} ${row.chapter}:${row.verse}`;
-    if (seen.has(ref)) continue;
-    const resolved = await resolvePassage(ref);
-    if (!resolved) continue;
-    seen.add(resolved.reference);
+  const pushResolved = async (ref, { requireRelevant = false } = {}) => {
+    if (!ref || passages.length >= RELATED_VERSE_LIMIT) return;
+    const key = String(ref).toLowerCase();
+    if (seen.has(key)) return;
+    const resolved = await resolvePassageWithVersions(ref, resolvePassage);
+    if (!resolved) return;
+    if (requireRelevant && !passageLooksRelevant(resolved, question)) return;
+    seen.add(resolved.reference.toLowerCase());
+    seen.add(key);
     passages.push(resolved);
-    if (passages.length >= RELATED_VERSE_LIMIT) break;
+  };
+
+  // 1) Temas curados (prioridad: "yugo desigual", "orar", etc.)
+  for (const ref of topicVersesFor(question)) {
+    await pushResolved(ref);
   }
 
-  if (!passages.length) return payload;
+  // 2) Referencias en la transcripción del video
+  const transcriptBlob = [payload.excerpt, payload.transcript].filter(Boolean).join("\n");
+  for (const ref of findReferences(transcriptBlob)) {
+    await pushResolved(ref, { requireRelevant: passages.length > 0 });
+  }
+
+  // 3) Área de vida curada
+  const lifeArea = detectLifeArea(question);
+  if (lifeArea && passages.length < RELATED_VERSE_LIMIT) {
+    const areaPassages = await passagesForLifeArea(
+      lifeArea,
+      resolvePassageWithVersions,
+      resolvePassage,
+      RELATED_VERSE_LIMIT,
+    );
+    for (const p of areaPassages) {
+      if (passages.length >= RELATED_VERSE_LIMIT) break;
+      const key = p.reference.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      passages.push(p);
+    }
+  }
+
+  // 4) Pasaje del modelo solo si encaja o aún no hay nada
+  const candidates = [
+    ...(payload.passages || []),
+    ...(payload.passage ? [payload.passage] : []),
+  ];
+  for (const p of candidates) {
+    if (!p?.reference || passages.length >= RELATED_VERSE_LIMIT) break;
+    const key = p.reference.toLowerCase();
+    if (seen.has(key)) continue;
+    if (passages.length === 0 || passageLooksRelevant(p, question)) {
+      seen.add(key);
+      passages.push(p);
+    }
+  }
+
+  // 5) Último recurso: FTS estricto / gracia
+  const db = getPool();
+  if (db && !passages.length) {
+    const hits = prefersGraceContext(question)
+      ? await graceBibleVerses(db, RELATED_VERSE_LIMIT)
+      : await relatedVerses(db, question, RELATED_VERSE_LIMIT);
+
+    for (const row of hits) {
+      if (passages.length >= RELATED_VERSE_LIMIT) break;
+      await pushResolved(`${row.book} ${row.chapter}:${row.verse}`, { requireRelevant: true });
+    }
+  }
+
+  if (!passages.length) {
+    const { passage, passages: _drop, ...rest } = payload;
+    return rest;
+  }
 
   return {
     ...payload,
     passage: passages[0],
-    passages,
+    passages: passages.slice(0, RELATED_VERSE_LIMIT),
+    lifeArea: lifeArea
+      ? { id: lifeArea.id, label: lifeArea.label, promise: lifeArea.promise }
+      : payload.lifeArea,
   };
+}
+
+/** API: promesas y versículos por área de vida (TLA). */
+export async function handleLifeAreas(req, res) {
+  const id = String(req.query.id || req.query.area || "").trim();
+  const q = String(req.query.q || "").trim();
+
+  try {
+    if (q) {
+      const area = detectLifeArea(q);
+      if (!area) return res.json({ ok: true, match: null, areas: [] });
+      const resolved = await resolveLifeArea(area, resolvePassageWithVersions, resolvePassage);
+      return res.json({ ok: true, match: resolved, areas: resolved ? [resolved] : [] });
+    }
+
+    if (id) {
+      const area = getLifeAreaById(id);
+      if (!area) return res.status(404).json({ ok: false, error: "area not found" });
+      const resolved = await resolveLifeArea(area, resolvePassageWithVersions, resolvePassage);
+      return res.json({ ok: true, area: resolved });
+    }
+
+    const areas = await resolveAllLifeAreas(resolvePassageWithVersions, resolvePassage);
+    res.set("Cache-Control", "public, max-age=300");
+    res.json({ ok: true, areas });
+  } catch (err) {
+    console.error("[life-areas]", err);
+    res.status(502).json({ ok: false, error: "life-areas unavailable" });
+  }
 }
 
 /** Respaldo sin modelo: si hay IA disponible, redacta explicacion intuitiva del audio. */
@@ -382,6 +582,14 @@ export async function handleChat(req, res) {
     return res.status(400).json({ answer: "La pregunta es muy larga. ¿Puedes resumirla?" });
   }
 
+  res.set("Cache-Control", "no-store");
+
+  // Filtro previo: pastores, groserías y bobadas fuera de la Escuela Bíblica.
+  const guarded = guardQuestion(question);
+  if (guarded) {
+    return res.json(guarded);
+  }
+
   const mode = chatMode();
   if (mode === "unconfigured") {
     return res.status(503).json({
@@ -389,8 +597,6 @@ export async function handleChat(req, res) {
         "El chat no está configurado en este servidor. Falta la base de datos con claves, o la URL de la Edge Function.",
     });
   }
-
-  res.set("Cache-Control", "no-store");
 
   try {
     let payload = await answerFor(mode, question);
@@ -403,16 +609,29 @@ export async function handleChat(req, res) {
       payload = { ...payload, mode };
     }
 
+    payload = normalizePayload(payload);
+    if (payload?.mode === "guard") {
+      return res.json(payload);
+    }
+
+    payload = await enrichPassagesFromAnswer(payload, resolvePassage);
     payload = await enrichWithRelatedPassages(payload, question);
     if (payload?.transcript) delete payload.transcript;
+    if (payload?.excerpt) delete payload.excerpt;
+    if (payload?.matchedByTitle) delete payload.matchedByTitle;
+    if (payload?.answer) payload.answer = sanitizeAnswer(payload.answer);
     res.json(payload);
   } catch (err) {
     console.error("[chat]", mode, err.message);
 
     const rescued = await searchFallback(question);
     if (rescued) {
-      const enriched = await enrichWithRelatedPassages({ ...rescued, mode: "busqueda" }, question);
+      let enriched = await enrichPassagesFromAnswer({ ...rescued, mode: "busqueda" }, resolvePassage);
+      enriched = await enrichWithRelatedPassages(enriched, question);
       if (enriched?.transcript) delete enriched.transcript;
+      if (enriched?.excerpt) delete enriched.excerpt;
+      if (enriched?.matchedByTitle) delete enriched.matchedByTitle;
+      if (enriched?.answer) enriched.answer = sanitizeAnswer(enriched.answer);
       return res.json(enriched);
     }
 

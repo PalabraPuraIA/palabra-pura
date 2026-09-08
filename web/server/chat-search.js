@@ -14,7 +14,26 @@ const STOPWORDS = new Set([
   "cuando", "donde", "porque", "significa", "significado", "quien", "hay", "sirve",
   "de", "la", "el", "en", "un", "es", "se", "lo", "al", "mi", "me", "te", "su", "yo",
   "ser", "hay", "asi", "ese", "esa", "tan", "sus", "nos", "ver", "dar", "van", "voy",
+  "si", "caso", "sea", "solo", "todo", "toda", "todos", "todas", "bien", "mal",
+  // Preguntas frecuentes: no deben exigir coincidencia en el audio
+  "cuantas", "cuantos", "cuanta", "cuanto", "estamos", "estan", "estoy", "somos",
+  "existe", "existen", "actualmente", "ahora", "hoy", "entonces", "aqui", "alla",
+  "algun", "alguna", "algunas", "algunos", "mismo", "misma", "decir", "explica",
+  "explicame", "hablame", "dime", "saber", "sabes", "podrias", "puede", "pueden",
 ]);
+
+/**
+ * Sinónimos / formas cortas para temas del ministerio.
+ * Evita que "dispensacion" (sin tilde) falle en FTS español.
+ */
+const TERM_ALIASES = {
+  dispensacion: ["dispens", "gracia"],
+  dispensaciones: ["dispens", "gracia"],
+  dispensacional: ["dispens", "gracia"],
+  rapto: ["rapto", "iglesia"],
+  sellado: ["sellado", "espiritu"],
+  sellar: ["sellado", "espiritu"],
+};
 
 const REF_PATTERN =
   /\b((?:[1-3]\s+)?[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s+(\d{1,3}):(\d{1,3})(?:\s*[-–]\s*(\d{1,3}))?/g;
@@ -28,6 +47,8 @@ const SPOKEN_REF_PATTERN =
  *
  * Se busca por prefijo porque el ministerio habla de "oración" cuando alguien
  * pregunta "cómo orar": sin el recorte, esas dos palabras no se encuentran.
+ * Las palabras largas se acortan (p. ej. dispensacion → dispensa) para que el
+ * FTS español coincida con "dispensación" en las transcripciones.
  */
 export function searchTerms(question) {
   const words = String(question)
@@ -38,20 +59,104 @@ export function searchTerms(question) {
     .split(/\s+/)
     .filter((w) => w.length >= 2 && !STOPWORDS.has(w));
 
-  const roots = words.map((w) => (w.length <= 4 ? w : w.slice(0, w.length <= 5 ? 3 : 4)));
+  const roots = [];
+  for (const w of words) {
+    if (TERM_ALIASES[w]) {
+      roots.push(...TERM_ALIASES[w]);
+      continue;
+    }
+    // Raíz corta: FTS español stemmea "dispensaciones"→dispens, pero
+    // "dispensacion" (sin tilde) no; el prefijo de 7 letras sí empareja.
+    if (w.length >= 8) roots.push(w.slice(0, 7));
+    else if (w.length >= 5) roots.push(w.slice(0, 5));
+    else roots.push(w);
+  }
   return [...new Set(roots)].slice(0, 8);
 }
 
 /**
  * Cuántas raíces debe contener un texto para considerarlo relevante.
- * Con pocas palabras exigimos todas; con muchas, la mitad.
+ * Con una sola palabra clave basta; con varias, al menos la mitad (mín. 1).
  */
 function minHits(terms) {
-  return terms.length <= 2 ? terms.length : Math.ceil(terms.length / 2);
+  if (terms.length <= 1) return 1;
+  if (terms.length === 2) return 1;
+  return Math.max(1, Math.ceil(terms.length / 2));
 }
 
 function prefixQuery(terms) {
   return terms.map((t) => `${t}:*`).join(" | ");
+}
+
+/** Terminos extra para buscar pasajes biblicos sobre el tema de la pregunta. */
+function bibleTerms(question) {
+  return searchTerms(question);
+}
+
+/** Pasajes biblicos sobre gracia, justicia y la dispensacion (no ley/condena). */
+export async function graceBibleVerses(db, limit = 5) {
+  if (!db) return [];
+
+  const terms = ["graci", "justif", "conden", "ident", "perdon", "crist", "ley"];
+  const buckets = [];
+
+  for (const term of terms) {
+    const { rows } = await db.query(
+      `SELECT b.name AS book, v.chapter, v.verse, v.text,
+              ts_rank_cd(to_tsvector('spanish', v.text), to_tsquery('spanish', $1)) AS score
+         FROM verses v
+         JOIN books b ON b.id = v.book_id
+        WHERE to_tsvector('spanish', v.text) @@ to_tsquery('spanish', $1)
+        ORDER BY score DESC
+        LIMIT 2`,
+      [`${term}:*`],
+    );
+    buckets.push(rows);
+  }
+
+  const seen = new Set();
+  const collected = [];
+  for (const rows of buckets) {
+    for (const row of rows) {
+      const key = `${row.book}:${row.chapter}:${row.verse}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      collected.push(row);
+      if (collected.length >= limit) break;
+    }
+    if (collected.length >= limit) break;
+  }
+
+  return collected;
+}
+
+/** Enseñanzas del ministerio sobre gracia, dispensacion y dividir la Palabra. */
+export async function ministryGraceFragments(db, limit = 3) {
+  if (!db) return [];
+
+  const { rows } = await db.query(
+    `WITH q AS (
+       SELECT to_tsquery(
+         'spanish',
+         'dispens:* | graci:* | justif:* | conden:* | divide:* & palabr:* | ley:* & graci:*'
+       ) AS tsq
+     )
+     SELECT f.content, f.start_second, v.title, v.episode, v.youtube_id,
+            ts_rank_cd(to_tsvector('spanish', f.content), q.tsq) AS score,
+            CASE
+              WHEN v.title ILIKE '%divide%' OR v.title ILIKE '%graci%' OR v.title ILIKE '%dispens%' THEN 2
+              WHEN to_tsvector('spanish', f.content) @@ to_tsquery('spanish', 'dispens:*') THEN 1
+              ELSE 0
+            END AS boost
+       FROM fragment f
+       JOIN video v ON v.id = f.video_id, q
+      WHERE to_tsvector('spanish', f.content) @@ q.tsq
+      ORDER BY boost DESC, score DESC
+      LIMIT $1`,
+    [limit],
+  );
+
+  return rows;
 }
 
 /**
@@ -71,7 +176,7 @@ export function buildExcerpt(content, limit = 420) {
 }
 
 /** Referencias bíblicas citadas en el fragmento, en orden de aparición. */
-function findReferences(text) {
+export function findReferences(text) {
   const refs = [];
   for (const m of String(text).matchAll(REF_PATTERN)) {
     const end = m[4] ? `-${m[4]}` : "";
@@ -93,17 +198,21 @@ async function searchFragments(db, terms) {
     `WITH q AS (SELECT to_tsquery('spanish', $1) AS tsq),
           cand AS (
             SELECT f.content, f.start_second, v.title, v.episode, v.youtube_id,
-                   ts_rank_cd(to_tsvector('spanish', f.content), q.tsq) AS score
+                   ts_rank_cd(
+                     to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')),
+                     q.tsq
+                   ) AS score
               FROM fragment f
               JOIN video v ON v.id = f.video_id, q
-             WHERE to_tsvector('spanish', f.content) @@ q.tsq
+             WHERE to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')) @@ q.tsq
              ORDER BY score DESC
              LIMIT 400
           ),
           scored AS (
             SELECT c.*,
                    (SELECT count(*) FROM unnest($2::text[]) AS t
-                     WHERE to_tsvector('spanish', c.content) @@ to_tsquery('spanish', t || ':*')) AS hits,
+                     WHERE to_tsvector('spanish', coalesce(c.content, '') || ' ' || coalesce(c.title, ''))
+                           @@ to_tsquery('spanish', t || ':*')) AS hits,
                    (SELECT count(*) FROM unnest($2::text[]) AS t
                      WHERE to_tsvector('spanish', c.title) @@ to_tsquery('spanish', t || ':*')) AS title_hits
               FROM cand c
@@ -114,6 +223,83 @@ async function searchFragments(db, terms) {
     [prefixQuery(terms), terms],
   );
   return rows[0] ?? null;
+}
+
+/** Nombre corto de la serie dentro del titulo del video. */
+function seriesFromTitle(title) {
+  const m = String(title).match(/-\s*\d+\s*-\s*([^(-]+?)(?:\s*\(|$)/i);
+  return m ? m[1].trim() : String(title);
+}
+
+/**
+ * Videos cuyo titulo coincide con la pregunta (audios sin transcripcion indexada).
+ * Muchos episodios recientes solo tienen titulo en la base, no fragmentos.
+ */
+export async function searchVideosByTitle(db, question, limit = 3) {
+  if (!db) return [];
+  const terms = searchTerms(question);
+  if (!terms.length) return [];
+
+  const needed = minHits(terms);
+
+  const { rows } = await db.query(
+    `SELECT v.id, v.title, v.episode, v.youtube_id,
+            (SELECT count(*) FROM unnest($1::text[]) AS t
+              WHERE lower(v.title) LIKE '%' || t || '%') AS hits
+       FROM video v
+      WHERE EXISTS (
+        SELECT 1 FROM unnest($1::text[]) AS t
+        WHERE lower(v.title) LIKE '%' || t || '%'
+      )
+      ORDER BY hits DESC, v.episode ASC
+      LIMIT $2`,
+    [terms, limit],
+  );
+
+  return rows.filter((r) => Number(r.hits) >= needed);
+}
+
+/**
+ * Fragmentos de uno o varios videos concretos (p. ej. al coincidir el título).
+ * Orden: inicio del audio primero, para resumir la enseñanza completa.
+ */
+export async function fragmentsForVideos(db, videoIds, limit = 8) {
+  if (!db || !videoIds?.length) return [];
+
+  const { rows } = await db.query(
+    `SELECT f.content, f.start_second, v.id AS video_id, v.title, v.episode, v.youtube_id
+       FROM fragment f
+       JOIN video v ON v.id = f.video_id
+      WHERE f.video_id = ANY($1::bigint[])
+        AND coalesce(trim(f.content), '') <> ''
+      ORDER BY v.episode ASC, f.start_second ASC NULLS LAST
+      LIMIT $2`,
+    [videoIds, limit],
+  );
+
+  return rows;
+}
+
+/** Respuesta directa cuando hay video por titulo pero sin transcripcion. */
+export async function answerByTitleSearch(db, question) {
+  const videos = await searchVideosByTitle(db, question, 3);
+  if (!videos.length) return null;
+
+  const v = videos[0];
+  const series = seriesFromTitle(v.title);
+  const parts = videos.length > 1 ? ` (${videos.length} partes en la biblioteca)` : "";
+
+  return {
+    answer: `Sí, el ministerio tiene una serie sobre «${series}»${parts}. Te comparto el primer video para que lo escuches; ahí el pastor explica el tema con detalle.`,
+    video: {
+      title: v.title,
+      episode: v.episode,
+      youtube_id: v.youtube_id,
+      start_second: 0,
+    },
+    source: "video",
+    matchedByTitle: true,
+  };
 }
 
 async function searchVerses(db, terms) {
@@ -152,17 +338,21 @@ export async function contextFragments(db, question, limit = 5) {
     `WITH q AS (SELECT to_tsquery('spanish', $1) AS tsq),
           cand AS (
             SELECT f.content, f.start_second, v.title, v.episode, v.youtube_id,
-                   ts_rank_cd(to_tsvector('spanish', f.content), q.tsq) AS score
+                   ts_rank_cd(
+                     to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')),
+                     q.tsq
+                   ) AS score
               FROM fragment f
               JOIN video v ON v.id = f.video_id, q
-             WHERE to_tsvector('spanish', f.content) @@ q.tsq
+             WHERE to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')) @@ q.tsq
              ORDER BY score DESC
              LIMIT 400
           ),
           scored AS (
             SELECT c.*,
                    (SELECT count(*) FROM unnest($2::text[]) AS t
-                     WHERE to_tsvector('spanish', c.content) @@ to_tsquery('spanish', t || ':*')) AS hits,
+                     WHERE to_tsvector('spanish', coalesce(c.content, '') || ' ' || coalesce(c.title, ''))
+                           @@ to_tsquery('spanish', t || ':*')) AS hits,
                    (SELECT count(*) FROM unnest($2::text[]) AS t
                      WHERE to_tsvector('spanish', c.title) @@ to_tsquery('spanish', t || ':*')) AS title_hits
               FROM cand c
@@ -208,9 +398,49 @@ export async function relatedVerses(db, question, limit = 3) {
       WHERE hits >= $3
       ORDER BY hits DESC, score DESC
       LIMIT $4`,
-    [prefixQuery(terms), terms, Math.max(1, minHits(terms) - 1), limit],
+    [prefixQuery(terms), terms, minHits(terms), limit],
   );
   return rows;
+}
+
+/** Pasajes biblicos mas relevantes para explicar una pregunta (sin umbral estricto). */
+export async function bibleVersesForQuestion(db, question, limit = 5) {
+  if (!db) return [];
+  const terms = bibleTerms(question);
+  if (!terms.length) return [];
+
+  const ordered = [...terms].sort((a, b) => b.length - a.length);
+  const buckets = [];
+
+  for (const [i, term] of ordered.entries()) {
+    const perTerm = i === 0 ? 5 : 2;
+    const { rows } = await db.query(
+      `SELECT b.name AS book, v.chapter, v.verse, v.text,
+              ts_rank_cd(to_tsvector('spanish', v.text), to_tsquery('spanish', $1)) AS score
+         FROM verses v
+         JOIN books b ON b.id = v.book_id
+        WHERE to_tsvector('spanish', v.text) @@ to_tsquery('spanish', $1)
+        ORDER BY score DESC
+        LIMIT $2`,
+      [`${term}:*`, perTerm],
+    );
+    buckets.push(rows);
+  }
+
+  const seen = new Set();
+  const collected = [];
+  for (const rows of buckets) {
+    for (const row of rows) {
+      const key = `${row.book}:${row.chapter}:${row.verse}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      collected.push(row);
+      if (collected.length >= limit) break;
+    }
+    if (collected.length >= limit) break;
+  }
+
+  return collected;
 }
 
 /**
@@ -249,6 +479,9 @@ export async function answerBySearch(db, question, resolvePassage) {
       source: "video",
     };
   }
+
+  const byTitle = await answerByTitleSearch(db, question);
+  if (byTitle) return byTitle;
 
   const verse = await searchVerses(db, terms);
   if (verse && Number(verse.hits) >= needed) {
