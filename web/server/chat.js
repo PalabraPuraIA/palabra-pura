@@ -444,7 +444,7 @@ function passageLooksRelevant(passage, question) {
   return hits.length >= 1;
 }
 
-/** Agrega versículos: curados por tema / audio / área. Sin FTS flojo. */
+/** Agrega versículos. En video: SOLO citas dichas en la transcripción. */
 async function enrichWithRelatedPassages(payload, question) {
   if (!payload?.answer || payload.notFound || isNotFoundAnswer(payload.answer)) return payload;
   if (payload.matchedByTitle) return payload;
@@ -467,18 +467,58 @@ async function enrichWithRelatedPassages(payload, question) {
     passages.push(resolved);
   };
 
-  // 1) Temas curados (prioridad: "yugo desigual", "orar", etc.)
+  // --- Respuesta desde VIDEO: solo versículos que salen del audio ---
+  if (payload.source === "video") {
+    const transcriptBlob = [payload.transcript, payload.excerpt].filter(Boolean).join("\n");
+    const spoken = findReferences(transcriptBlob);
+
+    // Preferir citas del audio que también encajen con la pregunta.
+    for (const ref of spoken) {
+      await pushResolved(ref, { requireRelevant: true });
+    }
+    // Si ninguna pasó el filtro de relevancia, al menos las dichas en el audio.
+    if (!passages.length) {
+      for (const ref of spoken) {
+        await pushResolved(ref);
+      }
+    }
+
+    // Referencia del modelo / answer solo si también está en el audio.
+    const spokenNorm = spoken.map((r) => r.toLowerCase().replace(/\s+/g, " "));
+    const candidates = [
+      ...(payload.passages || []),
+      ...(payload.passage ? [payload.passage] : []),
+    ];
+    for (const p of candidates) {
+      if (!p?.reference || passages.length >= RELATED_VERSE_LIMIT) break;
+      const ref = String(p.reference).toLowerCase().replace(/\s+/g, " ");
+      const inAudio = spokenNorm.some(
+        (s) => s.includes(ref) || ref.includes(s) || s.startsWith(ref.slice(0, 10)),
+      );
+      if (!inAudio) continue;
+      const key = p.reference.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      passages.push(p);
+    }
+
+    if (!passages.length) {
+      const { passage, passages: _drop, ...rest } = payload;
+      return rest;
+    }
+
+    return {
+      ...payload,
+      passage: passages[0],
+      passages: passages.slice(0, RELATED_VERSE_LIMIT),
+    };
+  }
+
+  // --- Sin video (Biblia / FAQ / etc.): curados + relevancia ---
   for (const ref of topicVersesFor(question)) {
     await pushResolved(ref);
   }
 
-  // 2) Referencias en la transcripción del video
-  const transcriptBlob = [payload.excerpt, payload.transcript].filter(Boolean).join("\n");
-  for (const ref of findReferences(transcriptBlob)) {
-    await pushResolved(ref, { requireRelevant: passages.length > 0 });
-  }
-
-  // 3) Área de vida curada
   const lifeArea = detectLifeArea(question);
   if (lifeArea && passages.length < RELATED_VERSE_LIMIT) {
     const areaPassages = await passagesForLifeArea(
@@ -496,7 +536,6 @@ async function enrichWithRelatedPassages(payload, question) {
     }
   }
 
-  // 4) Pasaje del modelo solo si encaja o aún no hay nada
   const candidates = [
     ...(payload.passages || []),
     ...(payload.passage ? [payload.passage] : []),
@@ -511,7 +550,6 @@ async function enrichWithRelatedPassages(payload, question) {
     }
   }
 
-  // 5) Último recurso: FTS estricto / gracia
   const db = getPool();
   if (db && !passages.length) {
     const hits = prefersGraceContext(question)
@@ -642,7 +680,10 @@ export async function handleChat(req, res) {
       return res.json(await withSuggestions(payload, question));
     }
 
-    payload = await enrichPassagesFromAnswer(payload, resolvePassage);
+    // En video no sacamos versículos del texto de Grace: solo de la transcripción.
+    if (payload?.source !== "video") {
+      payload = await enrichPassagesFromAnswer(payload, resolvePassage);
+    }
     payload = await enrichWithRelatedPassages(payload, question);
     if (payload?.transcript) delete payload.transcript;
     // Conservamos excerpt: pedazo curado de la transcripción para mostrar aparte.

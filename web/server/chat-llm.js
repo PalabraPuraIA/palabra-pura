@@ -13,6 +13,8 @@ import {
   contextFragments,
   buildExcerpt,
   trimRelevantExcerpt,
+  findReferences,
+  citationTextForVideo,
   bibleVersesForQuestion,
   graceBibleVerses,
   ministryGraceFragments,
@@ -45,9 +47,10 @@ Reglas:
 - Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 - Si el audio no alcanza para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 - Si SI puedes responder, responde con:
-{"found": true, "answer": "explicacion breve en 2 a 3 frases (NO copies la transcripcion; el sistema mostrara un recorte del audio aparte)", "reference": "referencia biblica principal si se menciona en el audio, o cadena vacia"}
+{"found": true, "answer": "explicacion breve en 2 a 3 frases (NO copies la transcripcion; el sistema mostrara un recorte del audio aparte)", "reference": "SOLO una referencia biblica si el AUDIO la menciona textualmente; si el audio no cita ningun versiculo, cadena vacia"}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
+NUNCA inventes una referencia que no aparezca en el audio. Si dudas, deja "reference" vacia.
 NUNCA pegues bloques largos del audio en "answer"; resume con tus palabras en pocas frases.
 Tono: cercano, respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
@@ -242,10 +245,12 @@ export async function answerWithSearch(db, question, resolvePassage) {
       );
 
       if (reply?.found !== false && reply?.answer) {
+        const citeText = fromTitle.map((f) => f.content).join("\n");
         return {
           answer: reply.answer,
-          passage: (await resolvePassage(reply.reference)) ?? undefined,
-          excerpt: trimRelevantExcerpt(fromTitle.map((f) => f.content).join(" "), question, 320),
+          passage: undefined,
+          excerpt: trimRelevantExcerpt(citeText, question, 320),
+          transcript: citeText.slice(0, 6000),
           video: {
             title: topVideo.title,
             episode: topVideo.episode,
@@ -310,10 +315,25 @@ export async function answerWithSearch(db, question, resolvePassage) {
     if (reply.found === false || !reply.answer) return { notFound: true };
 
     const top = fragments[0];
+    const citeText =
+      (await citationTextForVideo(db, top.video_id, 80)) ||
+      fragments.map((f) => f.content).join("\n");
+    // Solo aceptamos referencia del modelo si también aparece en el audio.
+    const spokenRefs = findReferences(citeText).map((r) => r.toLowerCase());
+    const modelRef = reply.reference?.trim() || "";
+    const modelOk =
+      modelRef &&
+      spokenRefs.some(
+        (r) =>
+          r.includes(modelRef.toLowerCase()) ||
+          modelRef.toLowerCase().includes(r.replace(/\s+/g, " ").slice(0, 12)),
+      );
+
     return {
       answer: reply.answer,
-      passage: (await resolvePassage(reply.reference)) ?? undefined,
+      passage: modelOk ? (await resolvePassage(modelRef)) ?? undefined : undefined,
       excerpt: trimRelevantExcerpt(top.content, question, 320),
+      transcript: citeText.slice(0, 12000),
       video: {
         title: top.title,
         episode: top.episode,

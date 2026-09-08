@@ -40,7 +40,7 @@ const REF_PATTERN =
 
 /** En los videos las citas se dicen en voz alta: "Juan capítulo 3 versículo 16". */
 const SPOKEN_REF_PATTERN =
-  /\b((?:[1-3]\s+)?[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s+cap[íi]tulo\s+(\d{1,3})[,\s]+vers[íi]culos?\s+(\d{1,3})/gi;
+  /\b((?:[1-3]\s+)?[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s+cap[íi]tulo\s+(\d{1,3})(?:[^0-9]{0,40}?)vers[íi]culos?\s+(\d{1,3})/gi;
 
 /**
  * Palabras útiles de la pregunta, recortadas a su raíz.
@@ -435,6 +435,15 @@ export async function searchVideosByTitle(db, question, limit = 3) {
 }
 
 /**
+ * Todo el texto de un video (para sacar solo versículos dichos en ese audio).
+ */
+export async function citationTextForVideo(db, videoId, limit = 60) {
+  if (!db || !videoId) return "";
+  const rows = await fragmentsForVideos(db, [videoId], limit);
+  return rows.map((f) => f.content).filter(Boolean).join("\n");
+}
+
+/**
  * Fragmentos de uno o varios videos concretos (p. ej. al coincidir el título).
  * Orden: inicio del audio primero, para resumir la enseñanza completa.
  */
@@ -512,7 +521,7 @@ export async function contextFragments(db, question, limit = 5) {
   const { rows } = await db.query(
     `WITH q AS (SELECT to_tsquery('spanish', $1) AS tsq),
           cand AS (
-            SELECT f.content, f.start_second, v.title, v.episode, v.youtube_id,
+            SELECT f.content, f.start_second, v.id AS video_id, v.title, v.episode, v.youtube_id,
                    ts_rank_cd(
                      to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')),
                      q.tsq
