@@ -17,6 +17,8 @@ import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { VideoPlayer } from "./ui/VideoPlayer.js";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js";
+import { LifeAreasPanel } from "./ui/LifeAreasPanel.js";
+import { LifeAreaService } from "./services/LifeAreaService.js";
 
 class App {
   #service = new ChatService();
@@ -25,6 +27,8 @@ class App {
   #view;
   #player;
   #articlesPanel;
+  #lifeAreasPanel;
+  #lifeAreas = new LifeAreaService();
   #chips;
   #busy = false;
 
@@ -34,6 +38,11 @@ class App {
     this.#player.clear();
     this.#articlesPanel = new ArticlesPanel(qs("[data-articles]"));
     this.#articlesPanel.clear();
+    this.#lifeAreasPanel = new LifeAreasPanel(qs("[data-life]"), (question) =>
+      this.#handleQuestion(question),
+    );
+    this.#lifeAreasPanel.showLoading();
+    this.#lifeAreas.loadAll().then((areas) => this.#lifeAreasPanel.render(areas));
 
     this.#chips = new ExampleChips(
       qs("[data-examples]"),
@@ -48,8 +57,14 @@ class App {
 
     new ConnectModal(qs("[data-modal]"), qs("[data-connect-open]"));
 
-    // Reproducir desde el botón de la tarjeta de fuente
+    // Reproducir video o elegir una sugerencia de tema
     qs("[data-messages]").addEventListener("click", (event) => {
+      const tip = event.target.closest("[data-suggest]");
+      if (tip?.dataset.suggest) {
+        this.#handleQuestion(tip.dataset.suggest);
+        return;
+      }
+
       const btn = event.target.closest("[data-play-here]");
       if (!btn) return;
       this.#player.load(
@@ -93,6 +108,14 @@ class App {
     }
 
     this.#articlesPanel.render(articles, question);
+
+    const areaId = response?.lifeArea?.id ?? null;
+    if (areaId) {
+      this.#lifeAreasPanel.highlight(areaId);
+    } else {
+      const match = await this.#lifeAreas.matchQuestion(question);
+      if (match?.id) this.#lifeAreasPanel.highlight(match.id);
+    }
 
     this.#busy = false;
   }

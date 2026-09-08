@@ -12,6 +12,7 @@
 import {
   contextFragments,
   buildExcerpt,
+  trimRelevantExcerpt,
   bibleVersesForQuestion,
   graceBibleVerses,
   ministryGraceFragments,
@@ -44,9 +45,10 @@ Reglas:
 - Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 - Si el audio no alcanza para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 - Si SI puedes responder, responde con:
-{"found": true, "answer": "tu resumen/explicacion en 3 a 5 frases bajo la dispensacion de la gracia", "reference": "referencia biblica principal si se menciona en el audio, o cadena vacia"}
+{"found": true, "answer": "explicacion breve en 2 a 3 frases (NO copies la transcripcion; el sistema mostrara un recorte del audio aparte)", "reference": "referencia biblica principal si se menciona en el audio, o cadena vacia"}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
+NUNCA pegues bloques largos del audio en "answer"; resume con tus palabras en pocas frases.
 Tono: cercano, respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 /** Cuando la pregunta coincide con el titulo de una serie: resumen del audio. */
@@ -243,7 +245,7 @@ export async function answerWithSearch(db, question, resolvePassage) {
         return {
           answer: reply.answer,
           passage: (await resolvePassage(reply.reference)) ?? undefined,
-          excerpt: buildExcerpt(fromTitle.map((f) => f.content).join(" "), 650),
+          excerpt: trimRelevantExcerpt(fromTitle.map((f) => f.content).join(" "), question, 320),
           video: {
             title: topVideo.title,
             episode: topVideo.episode,
@@ -311,7 +313,7 @@ export async function answerWithSearch(db, question, resolvePassage) {
     return {
       answer: reply.answer,
       passage: (await resolvePassage(reply.reference)) ?? undefined,
-      excerpt: buildExcerpt(top.content, 650),
+      excerpt: trimRelevantExcerpt(top.content, question, 320),
       video: {
         title: top.title,
         episode: top.episode,

@@ -175,6 +175,181 @@ export function buildExcerpt(content, limit = 420) {
   return raw.length > limit ? `${raw.slice(0, limit - 1).trim()}…` : raw;
 }
 
+/**
+ * Recorta la transcripción al pedazo que sí habla del tema preguntado.
+ * No entrega el vector completo: busca la zona con más coincidencias
+ * y deja un bloque corto y usable.
+ */
+export function trimRelevantExcerpt(content, question, limit = 320) {
+  const raw = String(content ?? "").replace(/\s+/g, " ").trim();
+  if (!raw) return undefined;
+
+  const terms = searchTerms(question);
+  const normAll = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  // 1) Ventana alrededor de la primera aparición fuerte del tema.
+  let anchor = -1;
+  for (const t of terms) {
+    const idx = normAll.indexOf(t);
+    if (idx >= 0 && (anchor < 0 || idx < anchor)) anchor = idx;
+  }
+
+  if (anchor >= 0) {
+    // Ampliar un poco hacia atrás para no cortar a media frase.
+    let start = Math.max(0, anchor - 80);
+    const lead = raw.slice(start, anchor);
+    const sentenceStart = Math.max(lead.lastIndexOf(". "), lead.lastIndexOf("? "), lead.lastIndexOf("! "));
+    if (sentenceStart >= 0) start = start + sentenceStart + 2;
+
+    let slice = raw.slice(start, start + limit + 80).trim();
+    if (slice.length > limit) {
+      const cut = slice.slice(0, limit);
+      const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+      slice =
+        lastStop > limit * 0.4
+          ? cut.slice(0, lastStop + 1).trim()
+          : `${cut.replace(/\s+\S*$/, "").trim()}…`;
+    }
+    if (start > 0 && !/^[A-ZÁÉÍÓÚÑ¿¡"]/.test(slice)) {
+      // Evitar arrancar a media palabra si el cálculo falló.
+      slice = slice.replace(/^\S*\s+/, "");
+    }
+    if (slice.length > 40) return slice;
+  }
+
+  // 2) Fallback: oraciones con más hits.
+  const sentences = raw
+    .split(/(?<=[.?!…])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 20);
+
+  if (!sentences.length) return buildExcerpt(raw, limit);
+
+  const scored = sentences.map((sentence, index) => {
+    const norm = sentence
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    let hits = 0;
+    for (const t of terms) {
+      if (norm.includes(t)) hits += 1;
+    }
+    return { sentence, index, hits };
+  });
+
+  scored.sort((a, b) => b.hits - a.hits || a.index - b.index);
+  const best = scored[0];
+  if (!best || best.hits < 1) return buildExcerpt(raw, Math.min(limit, 220));
+
+  const block = [sentences[best.index]];
+  const next = sentences[best.index + 1];
+  if (next && (scored.find((s) => s.index === best.index + 1)?.hits ?? 0) > 0) {
+    block.push(next);
+  }
+
+  let out = block.join(" ").replace(/\s+/g, " ").trim();
+  if (out.length > limit) {
+    const cut = out.slice(0, limit);
+    const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("? "), cut.lastIndexOf("! "));
+    out = (lastStop > limit * 0.45 ? cut.slice(0, lastStop + 1) : cut).trim();
+    if (!/[.?!…]$/.test(out)) out = `${out.replace(/\s+\S*$/, "").trim()}…`;
+  }
+  return out;
+}
+
+/** Temas del ministerio; solo se ofrecen si hay evidencia en títulos/transcripciones. */
+const TOPIC_CANDIDATES = [
+  { label: "gracia", stems: ["gracia"] },
+  { label: "ley", stems: [" ley", "ley "] },
+  { label: "fe", stems: [" fe ", "fe,", "la fe"] },
+  { label: "oración", stems: ["oracion", "orar"] },
+  { label: "sanidad", stems: ["sanidad", "sanar", "sanidades"] },
+  { label: "perdón", stems: ["perdon"] },
+  { label: "identidad", stems: ["identidad", "nueva criatura"] },
+  { label: "prosperidad", stems: ["prosperidad", "prospero"] },
+  { label: "salvación", stems: ["salvacion", "salvar"] },
+  { label: "amor", stems: ["amor de dios", "el amor"] },
+  { label: "libertad", stems: ["libertad"] },
+  { label: "matrimonio", stems: ["matrimonio", "casar"] },
+  { label: "familia", stems: ["familia"] },
+  { label: "religión", stems: ["religion"] },
+  { label: "dispensación", stems: ["dispens"] },
+  { label: "Espíritu Santo", stems: ["espiritu santo", "espiritu"] },
+  { label: "palabra", stems: ["palabra de dios", "la palabra"] },
+  { label: "justicia", stems: ["justicia"] },
+  { label: "paz", stems: ["paz de dios", "la paz"] },
+  { label: "tentación", stems: ["tentacion"] },
+];
+
+let topicsCache = null;
+let topicsCacheAt = 0;
+
+/**
+ * Temas que sí aparecen (con certeza) en títulos de videos o fragmentos.
+ * Cache corto para no martillar la base en cada "no encontrado".
+ */
+export async function confirmedTopics(db) {
+  if (!db) return [];
+  if (topicsCache && Date.now() - topicsCacheAt < 10 * 60 * 1000) return topicsCache;
+
+  const { rows: titles } = await db.query("SELECT title FROM video");
+  const blob = titles
+    .map((r) => r.title ?? "")
+    .join("\n")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const confirmed = [];
+  for (const topic of TOPIC_CANDIDATES) {
+    let hits = 0;
+    for (const stem of topic.stems) {
+      const s = stem.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const re = new RegExp(s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+      hits += (blob.match(re) || []).length;
+    }
+    if (hits >= 1) confirmed.push({ label: topic.label, hits });
+  }
+
+  confirmed.sort((a, b) => b.hits - a.hits);
+  topicsCache = confirmed;
+  topicsCacheAt = Date.now();
+  return confirmed;
+}
+
+/**
+ * Sugiere palabras clave seleccionables, solo de lo que sí está transcrito/titulado.
+ * Prioriza temas cercanos a la pregunta; completa con los más repetidos.
+ */
+export async function suggestTopics(db, question, limit = 6) {
+  const confirmed = await confirmedTopics(db);
+  if (!confirmed.length) return [];
+
+  const q = String(question ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const terms = searchTerms(question);
+
+  const ranked = confirmed.map((t) => {
+    const labelNorm = t.label
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    let score = t.hits;
+    if (q.includes(labelNorm) || terms.some((term) => labelNorm.includes(term) || term.includes(labelNorm.slice(0, 4)))) {
+      score += 100;
+    }
+    return { label: t.label, score };
+  });
+
+  ranked.sort((a, b) => b.score - a.score);
+  return ranked.slice(0, limit).map((t) => t.label);
+}
+
 /** Referencias bíblicas citadas en el fragmento, en orden de aparición. */
 export function findReferences(text) {
   const refs = [];
@@ -467,7 +642,7 @@ export async function answerBySearch(db, question, resolvePassage) {
     return {
       answer:
         "Encontré esta enseñanza del ministerio que habla de tu pregunta. Te dejo el fragmento y el video para que lo escuches desde el minuto exacto.",
-      excerpt: buildExcerpt(fragment.content, 650),
+      excerpt: trimRelevantExcerpt(fragment.content, question, 320),
       transcript: buildExcerpt(fragment.content, 1800),
       passage: passage ?? undefined,
       video: {

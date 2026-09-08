@@ -80,8 +80,12 @@ export class ChatService {
       answer: data.answer ?? data.text ?? "",
       excerpt: data.excerpt ?? undefined,
       passage: data.passage ?? undefined,
+      passages: data.passages ?? undefined,
       video: data.video ?? undefined,
       source: data.source ?? undefined,
+      suggestions: Array.isArray(data.suggestions) ? data.suggestions : undefined,
+      lifeArea: data.lifeArea ?? undefined,
+      mode: data.mode ?? undefined,
     };
   }
 }

@@ -16,6 +16,23 @@ function graceAvatar(modifier = "") {
           </span>`;
 }
 
+function renderSuggestions(suggestions) {
+  if (!Array.isArray(suggestions) || !suggestions.length) return "";
+
+  const chips = suggestions
+    .map(
+      (label) =>
+        `<button type="button" class="msg__suggest" data-suggest="${escapeHtml(label)}">${escapeHtml(label)}</button>`,
+    )
+    .join("");
+
+  return `
+    <div class="msg__suggestions" role="group" aria-label="Temas transcritos">
+      <p class="msg__suggest-label">Temas que sí están en los audios:</p>
+      <div class="msg__suggest-row">${chips}</div>
+    </div>`;
+}
+
 export class ChatView {
   #root;
   #typingEl = null;
@@ -37,20 +54,41 @@ export class ChatView {
 
   /**
    * Añade una respuesta del asistente.
-   * Separado: explicación de la IA + cuadritos de fuente (audio / pasaje / video).
-   * @param {{ answer: string, passage?: object, video?: object, excerpt?: string, source?: string }} response
-   * @returns {HTMLElement} El nodo del mensaje (para enganchar acciones).
+   * Separado: explicación breve de la IA + recorte de audio + pasaje + video + sugerencias.
+   * @returns {HTMLElement}
    */
   addBotMessage(response) {
     const hasAnswer = Boolean(response.answer?.trim());
     const sources = renderSourceCard(response);
-    const showLabel = Boolean(sources);
+    const tips = renderSuggestions(response.suggestions);
+    const showLabel = Boolean(sources) || hasAnswer;
+    const isVideo = response.source === "video" && response.video;
+    const hasVerses = Boolean(response.passage?.reference || response.passages?.length);
+    const lifePromise = response.lifeArea?.promise
+      ? `<p class="msg__life-promise"><strong>${escapeHtml(response.lifeArea.label)}:</strong> ${escapeHtml(response.lifeArea.promise)}</p>`
+      : "";
+    const answerLabel = isVideo ? "En pocas palabras" : "Explicación";
+    const answerHint =
+      isVideo && response.excerpt
+        ? `<p class="msg__hint">Resumen corto · el pedazo del audio está abajo.</p>`
+        : isVideo && hasVerses
+          ? `<p class="msg__hint">Lo que enseñó el pastor, con versículos y el video abajo.</p>`
+          : tips
+            ? `<p class="msg__hint">Elige una palabra clave para apuntar mejor.</p>`
+            : "";
+
     const answerBlock = hasAnswer
       ? `<div class="msg__bubble msg__bubble--answer">
-           ${showLabel ? `<p class="msg__label">Explicación</p>` : ""}
+           ${showLabel ? `<p class="msg__label">${answerLabel}</p>` : ""}
+           ${answerHint}
+           ${lifePromise}
            <p class="msg__answer">${escapeHtml(response.answer)}</p>
+           ${tips}
+           <p class="msg__lens">Enseñanza bajo la dispensación de la gracia.</p>
          </div>`
-      : "";
+      : tips
+        ? `<div class="msg__bubble msg__bubble--answer">${tips}</div>`
+        : "";
 
     const el = createEl("div", {
       className: "msg msg--bot",

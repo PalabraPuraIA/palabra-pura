@@ -1,8 +1,5 @@
 /**
- * SourceCard.js — Bloques separados de fuente:
- *  1) Recorte de la enseñanza (audio / transcripción)
- *  2) Pasaje(s) bíblico(s) (Reina-Valera Antigua)
- *  3) Video en el minuto exacto
+ * SourceCard.js — Versículos en TLA y video de la enseñanza.
  */
 
 import {
@@ -17,53 +14,57 @@ const CTA_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5
 
 const isDemoVideo = (video) => String(video?.youtube_id ?? "").startsWith("DEMO");
 
-function renderExcerpt(excerpt) {
-  if (!excerpt) return "";
-
-  return `
-    <div class="source__block source__excerpt">
-      <p class="source__label">Transcripción del audio</p>
-      <p class="source__text">“${escapeHtml(excerpt)}”</p>
-    </div>`;
+function passageText(passage) {
+  if (passage?.text) return passage.text;
+  const versions = passage?.versions;
+  if (Array.isArray(versions) && versions.length) return versions[0]?.text ?? "";
+  return "";
 }
 
 function renderPassage(passage, demo, label = "Pasaje bíblico") {
   if (!passage?.reference) return "";
 
-  const version = passage.bible_version || "Reina-Valera Antigua";
+  const text = passageText(passage);
+  if (!text) return "";
+
   const badge = demo
     ? `<span class="source__badge">ejemplo</span>`
-    : `<span class="source__badge">${escapeHtml(version)}</span>`;
-  const text = passage.text
-    ? `<p class="source__text">“${escapeHtml(passage.text)}”</p>`
-    : "";
+    : `<span class="source__badge">TLA</span>`;
 
   return `
-    <div class="source__block source__verse">
+    <article class="source__block source__verse">
       <p class="source__label">${escapeHtml(label)}</p>
-      <p class="source__ref">${escapeHtml(passage.reference)}${badge}</p>
-      ${text}
-    </div>`;
+      <p class="source__ref">${escapeHtml(passage.reference)}</p>
+      ${badge}
+      <p class="source__text">“${escapeHtml(text)}”</p>
+    </article>`;
 }
 
 function renderPassages(passage, passages, demo) {
-  const list = Array.isArray(passages) && passages.length
-    ? passages
-    : passage?.reference
-      ? [passage]
-      : [];
+  const list =
+    Array.isArray(passages) && passages.length
+      ? passages
+      : passage?.reference
+        ? [passage]
+        : [];
 
   if (!list.length) return "";
 
-  return list
+  const cards = list
     .map((p, i) =>
       renderPassage(
         p,
         demo,
-        list.length > 1 ? `Versículo relacionado ${i + 1}` : "Pasaje bíblico",
+        list.length > 1 ? `Versículo ${i + 1}` : "Versículo",
       ),
     )
     .join("");
+
+  return `
+    <section class="source__panel source__panel--verses" aria-label="Versículos">
+      <h3 class="source__panel-title">Versículos (TLA)</h3>
+      <div class="source__panel-body">${cards}</div>
+    </section>`;
 }
 
 function renderVideo(video) {
@@ -90,40 +91,45 @@ function renderVideo(video) {
     : "";
 
   return `
-    <div class="source__block source__video">
-      <p class="source__label">Video de referencia</p>
-      <div class="source__video-row">
-        <span class="source__thumb" aria-hidden="true">${PLAY_ICON}</span>
-        <span class="source__info">
-          ${episode}
-          <span class="source__video-title">${escapeHtml(video.title ?? "Ver el video")}</span>
-        </span>
-        <span class="source__actions">
-          ${playHere}
-          <a class="source__cta source__cta--link" href="${url}" target="_blank" rel="noopener">
-            ${CTA_ICON} YouTube · ${formatTimestamp(start)}
-          </a>
-        </span>
+    <section class="source__panel source__panel--video" aria-label="Audio en video">
+      <h3 class="source__panel-title">Escucha la enseñanza completa</h3>
+      <div class="source__block source__video">
+        <div class="source__video-row">
+          <span class="source__thumb" aria-hidden="true">${PLAY_ICON}</span>
+          <span class="source__info">
+            ${episode}
+            <span class="source__video-title">${escapeHtml(video.title ?? "Ver el video")}</span>
+            <span class="source__video-hint">Minuto ${formatTimestamp(start)} · basado en este audio</span>
+          </span>
+          <span class="source__actions">
+            ${playHere}
+            <a class="source__cta source__cta--link" href="${url}" target="_blank" rel="noopener">
+              ${CTA_ICON} YouTube
+            </a>
+          </span>
+        </div>
       </div>
-    </div>`;
+    </section>`;
 }
 
 /**
- * @param {{ passage?: object, passages?: object[], video?: object, excerpt?: string, source?: string }} response
+ * @param {{ passage?: object, passages?: object[], video?: object, source?: string }} response
  */
-export function renderSourceCard({ passage, passages, video, excerpt, source } = {}) {
+export function renderSourceCard({ passage, passages, video, source } = {}) {
   const demo = isDemoVideo(video);
-  const inner =
-    renderExcerpt(excerpt) + renderPassages(passage, passages, demo) + renderVideo(video);
+  const verses = renderPassages(passage, passages, demo);
+  const vid = renderVideo(video);
 
-  if (!inner) return "";
+  if (!verses && !vid) return "";
 
   const origin =
-    source === "biblia"
-      ? `<p class="source__origin">Respuesta basada en la Biblia (cuando no hubo coincidencia clara en los videos).</p>`
-      : source === "video"
-        ? `<p class="source__origin">Respuesta basada en la enseñanza en video.</p>`
-        : "";
+    source === "biblia" && verses
+      ? `<p class="source__origin">Pasajes bíblicos relacionados con tu pregunta.</p>`
+      : source === "video" && verses
+        ? `<p class="source__origin">Resumen del audio del ministerio, con versículos citados y el video donde se enseña.</p>`
+        : source === "video"
+          ? `<p class="source__origin">Basado en la enseñanza en audio del ministerio.</p>`
+          : "";
 
-  return `<div class="source">${origin}${inner}</div>`;
+  return `<div class="source">${origin}${verses}${vid}</div>`;
 }

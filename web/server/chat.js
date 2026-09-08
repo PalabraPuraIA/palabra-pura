@@ -11,7 +11,7 @@
 
 import pg from "pg";
 
-import { answerBySearch, relatedVerses, graceBibleVerses, answerByTitleSearch, findReferences } from "./chat-search.js";
+import { answerBySearch, relatedVerses, graceBibleVerses, answerByTitleSearch, findReferences, suggestTopics } from "./chat-search.js";
 import { answerWithSearch, askAnyLLM, hasWriter, explainFromTranscript, answerFromBible } from "./chat-llm.js";
 import { enrichPassagesFromAnswer, resolvePassageWithVersions } from "./bible-versions.js";
 import { detectLifeArea, passagesForLifeArea, resolveAllLifeAreas, resolveLifeArea, getLifeAreaById, topicVersesFor, WELCOME_PROMISES } from "./life-areas.js";
@@ -297,8 +297,28 @@ const UPSTREAM_FAILED = /tuve un problema para responder/i;
 
 const NOT_FOUND = {
   answer:
-    "Todavía no encuentro material sobre eso en las enseñanzas. Prueba preguntarlo con otras palabras.",
+    "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes elegir un tema de lo que sí está en los audios transcritos:",
 };
+
+async function withSuggestions(payload, question) {
+  if (!payload) return payload;
+  const needsHelp =
+    payload.mode === "guard" ||
+    payload === NOT_FOUND ||
+    payload.answer === NOT_FOUND.answer ||
+    (!payload.video && !payload.passage && !payload.passages?.length);
+
+  if (!needsHelp && payload.suggestions) return payload;
+  if (!needsHelp) return payload;
+
+  try {
+    const suggestions = await suggestTopics(getPool(), question, 6);
+    if (suggestions.length) return { ...payload, suggestions };
+  } catch (err) {
+    console.error("[chat] suggestions", err.message);
+  }
+  return payload;
+}
 
 function normalizePayload(payload) {
   if (!payload) return payload;
@@ -306,7 +326,13 @@ function normalizePayload(payload) {
     return offTopicAnswer();
   }
   if (payload.answer) {
-    return { ...payload, answer: sanitizeAnswer(payload.answer) };
+    let answer = sanitizeAnswer(payload.answer);
+    // La IA resume; el audio va aparte. Máximo 3 frases.
+    if (payload.source === "video" || payload.excerpt) {
+      const parts = String(answer).match(/[^.!?…]+[.!?…]*/g);
+      if (parts && parts.length > 3) answer = parts.slice(0, 3).join("").trim();
+    }
+    return { ...payload, answer };
   }
   return payload;
 }
@@ -340,8 +366,8 @@ async function answerAssisted(question) {
   if (bible?.off_topic) return offTopicAnswer();
   if (bible) return bible;
 
-  if (written?.notFound) return NOT_FOUND;
-  return (await searchOrNothing(question)) ?? NOT_FOUND;
+  if (written?.notFound) return withSuggestions({ ...NOT_FOUND }, question);
+  return withSuggestions((await searchOrNothing(question)) ?? { ...NOT_FOUND }, question);
 }
 
 function isGreeting(question) {
@@ -587,7 +613,9 @@ export async function handleChat(req, res) {
   // Filtro previo: pastores, groserías y bobadas fuera de la Escuela Bíblica.
   const guarded = guardQuestion(question);
   if (guarded) {
-    return res.json(guarded);
+    const withTips =
+      guarded.mode === "guard" ? await withSuggestions(guarded, question) : guarded;
+    return res.json(withTips);
   }
 
   const mode = chatMode();
@@ -611,15 +639,19 @@ export async function handleChat(req, res) {
 
     payload = normalizePayload(payload);
     if (payload?.mode === "guard") {
-      return res.json(payload);
+      return res.json(await withSuggestions(payload, question));
     }
 
     payload = await enrichPassagesFromAnswer(payload, resolvePassage);
     payload = await enrichWithRelatedPassages(payload, question);
     if (payload?.transcript) delete payload.transcript;
-    if (payload?.excerpt) delete payload.excerpt;
+    // Conservamos excerpt: pedazo curado de la transcripción para mostrar aparte.
     if (payload?.matchedByTitle) delete payload.matchedByTitle;
     if (payload?.answer) payload.answer = sanitizeAnswer(payload.answer);
+
+    if (!payload?.video && !payload?.passage && !payload?.passages?.length) {
+      payload = await withSuggestions(payload, question);
+    }
     res.json(payload);
   } catch (err) {
     console.error("[chat]", mode, err.message);
@@ -629,15 +661,19 @@ export async function handleChat(req, res) {
       let enriched = await enrichPassagesFromAnswer({ ...rescued, mode: "busqueda" }, resolvePassage);
       enriched = await enrichWithRelatedPassages(enriched, question);
       if (enriched?.transcript) delete enriched.transcript;
-      if (enriched?.excerpt) delete enriched.excerpt;
       if (enriched?.matchedByTitle) delete enriched.matchedByTitle;
       if (enriched?.answer) enriched.answer = sanitizeAnswer(enriched.answer);
       return res.json(enriched);
     }
 
-    res.status(502).json({
-      answer: "Tuve un problema para responder ahora mismo. Intenta de nuevo en un momento.",
-    });
+    res.status(502).json(
+      await withSuggestions(
+        {
+          answer: "Tuve un problema para responder ahora mismo. Intenta de nuevo en un momento.",
+        },
+        question,
+      ),
+    );
   }
 }
 
