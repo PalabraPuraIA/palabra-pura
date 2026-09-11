@@ -74,7 +74,7 @@ class App {
           title: btn.dataset.title || undefined,
           episode: btn.dataset.episode ? Number(btn.dataset.episode) : undefined,
         },
-        { autoplay: true },
+        { autoplay: false },
       );
     });
 
@@ -104,7 +104,7 @@ class App {
     this.#view.addBotMessage(response);
 
     if (response?.video?.youtube_id) {
-      this.#player.load(response.video, { autoplay: true });
+      this.#player.load(response.video, { autoplay: false });
     }
 
     this.#articlesPanel.render(articles, question);

@@ -37,7 +37,7 @@ export function buildYouTubeUrl(youtubeId, startSecond = 0) {
  * URL de embed (iframe) al segundo exacto.
  * autoplay=1 ayuda a arrancar; el navegador puede bloquear el sonido.
  */
-export function buildYouTubeEmbedUrl(youtubeId, startSecond = 0, { autoplay = true } = {}) {
+export function buildYouTubeEmbedUrl(youtubeId, startSecond = 0, { autoplay = false } = {}) {
   if (!youtubeId) return null;
   const time = Math.max(0, Math.floor(Number(startSecond) || 0));
   const params = new URLSearchParams({

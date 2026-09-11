@@ -43,7 +43,7 @@ export const config = {
    */
   articlesApiUrl: "/api/articles",
   articlesHubUrl: "https://iglesiapalabrapura.com/site/articulos/",
-  articlesLimit: 3,
+  articlesLimit: 5,
 };
 
 /** Cambia el endpoint en caliente (desde el modal de conexión). */

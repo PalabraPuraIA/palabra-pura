@@ -29,7 +29,7 @@ export class VideoPlayer {
    * @param {{ title?: string, episode?: number, youtube_id?: string, start_second?: number } | null | undefined} video
    * @param {{ autoplay?: boolean }} [opts]
    */
-  load(video, { autoplay = true } = {}) {
+  load(video, { autoplay = false } = {}) {
     if (!video?.youtube_id) {
       this.clear();
       return;

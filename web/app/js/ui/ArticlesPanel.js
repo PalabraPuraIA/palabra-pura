@@ -1,5 +1,6 @@
 /**
  * ArticlesPanel.js — Lista de artículos recomendados (solo lectura / enlaces).
+ * Se puede ampliar y, al pasar el cursor, muestra más del extracto.
  */
 
 import { escapeHtml } from "../utils/format.js";
@@ -10,6 +11,7 @@ export class ArticlesPanel {
   #list;
   #empty;
   #status;
+  #toggle;
 
   /** @param {HTMLElement} root */
   constructor(root) {
@@ -17,6 +19,13 @@ export class ArticlesPanel {
     this.#list = root.querySelector("[data-articles-list]");
     this.#empty = root.querySelector("[data-articles-empty]");
     this.#status = root.querySelector("[data-articles-status]");
+    this.#toggle = root.querySelector("[data-articles-toggle]");
+
+    this.#toggle?.addEventListener("click", () => {
+      const open = this.#root.classList.toggle("articles--expanded");
+      this.#toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      this.#toggle.textContent = open ? "Reducir" : "Ampliar";
+    });
   }
 
   showLoading() {
@@ -57,21 +66,28 @@ export class ArticlesPanel {
     this.#list.innerHTML =
       hint +
       articles
-        .map(
-          (a) => `
+        .map((a) => {
+          const full = String(a.excerpt || "").trim();
+          const preview = full.length > 110 ? `${full.slice(0, 110).trim()}…` : full;
+          const hover = full.length > 110 ? full.slice(0, 420) + (full.length > 420 ? "…" : "") : "";
+
+          return `
       <a class="articles__item" href="${escapeHtml(a.link)}" target="_blank" rel="noopener">
         <span class="articles__item-kicker">${a.date ? escapeHtml(a.date) : "Artículo"}</span>
         <span class="articles__item-title">${escapeHtml(a.title)}</span>
         ${
-          a.excerpt
-            ? `<span class="articles__item-excerpt">${escapeHtml(a.excerpt.slice(0, 160))}${
-                a.excerpt.length > 160 ? "…" : ""
-              }</span>`
+          preview
+            ? `<span class="articles__item-excerpt">${escapeHtml(preview)}</span>`
+            : ""
+        }
+        ${
+          hover && hover !== preview
+            ? `<span class="articles__item-preview" aria-hidden="true">${escapeHtml(hover)}</span>`
             : ""
         }
         <span class="articles__item-cta">Leer en la web de la iglesia</span>
-      </a>`,
-        )
+      </a>`;
+        })
         .join("");
   }
 
@@ -89,5 +105,10 @@ export class ArticlesPanel {
         de la Enciclopedia de Palabra Pura.
       </p>`;
     this.#root.hidden = false;
+    this.#root.classList.remove("articles--expanded");
+    if (this.#toggle) {
+      this.#toggle.setAttribute("aria-expanded", "false");
+      this.#toggle.textContent = "Ampliar";
+    }
   }
 }

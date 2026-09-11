@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="/css/tokens.css" />
   <link rel="stylesheet" href="/css/base.css" />
-  <link rel="stylesheet" href="/css/layout.css" />
-  <link rel="stylesheet" href="/css/chat.css" />
+  <link rel="stylesheet" href="/css/layout.css?v=sidebar-scroll-2" />
+  <link rel="stylesheet" href="/css/chat.css?v=sidebar-scroll-2" />
   <link rel="stylesheet" href="/css/modal.css" />
 </head>
 <body>
@@ -185,9 +185,14 @@
         <section class="articles" data-articles aria-label="Artículos relacionados">
           <div class="articles__head">
             <p class="articles__label">Para seguir leyendo</p>
-            <a class="articles__hub" href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
-              Ver todos
-            </a>
+            <div class="articles__head-actions">
+              <button type="button" class="articles__toggle" data-articles-toggle aria-expanded="false">
+                Ampliar
+              </button>
+              <a class="articles__hub" href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
+                Ver todos
+              </a>
+            </div>
           </div>
           <p class="articles__status" data-articles-status hidden></p>
           <div class="articles__list" data-articles-list></div>
@@ -204,6 +209,22 @@
         </section>
       </aside>
     </div>
+
+    <section class="life-band" data-life aria-label="Promesas y versículos por área de vida">
+      <div class="life-band__head">
+        <div>
+          <p class="life-band__label">Promesas y versículos</p>
+          <p class="life-band__hint">Por área de tu vida · Traducción en Lenguaje Actual</p>
+        </div>
+        <p class="life-band__scroll-hint">Desliza para ver más →</p>
+      </div>
+      <p class="life-band__status" data-life-status hidden></p>
+      <div class="life-band__track" data-life-list></div>
+      <div class="life-band__empty" data-life-empty hidden>
+        <p class="life-band__empty-title">Áreas de vida</p>
+        <p class="life-band__empty-text">Las promesas y versículos aparecerán aquí en un momento.</p>
+      </div>
+    </section>
 
     <div class="panels">
       <section class="panel">
