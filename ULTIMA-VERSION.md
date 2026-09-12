@@ -3,14 +3,14 @@
 Documento canónico para **bajar, restaurar y correr** el chat de Palabra Pura
 sin depender de que el servidor `10.45.178.129` esté encendido.
 
-Fecha de este snapshot: **2026-09-11**
+Fecha de este snapshot: **2026-09-11** · commit `9ff665e` en `main`
 
 ## Dónde está todo
 
 | Pieza | Dónde |
 |-------|--------|
 | **Código (front + lógica del chat)** | Repo privado: https://github.com/PalabraPuraIA/palabra-pura |
-| **Base de datos (videos, fragmentos, versículos, embeddings)** | Release de GitHub `db-backup` (archivo `.sql.gz`) + copia en Supabase |
+| **Base de datos (videos, fragmentos, versículos, embeddings)** | [Release db-backup-2026-09-11](https://github.com/PalabraPuraIA/palabra-pura/releases/tag/db-backup-2026-09-11) · archivo `palabra-pura-db-2026-09-11.sql.gz` (~176 MB) · también en Supabase |
 | **Supabase (nube)** | Proyecto `roxbekpxdgvqbosepmdd` · cuenta `palabrapuraia@gmail.com` |
 | **Server actual (demo)** | `server-fintek` · IP `10.45.178.129` · carpeta `/home/fintek-1/palabra-pura` |
 | **URL pública (solo si el server está ON)** | Ver `curl -s http://10.45.178.129:8088/api/public-url` |
