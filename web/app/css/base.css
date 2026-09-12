@@ -5,7 +5,9 @@
 *::before,
 *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+/* Auto evita que el scroll de la página se “pegue” con animaciones suaves
+   compitiendo contra rueda/trackpad y scrollIntoView. */
+html { scroll-behavior: auto; }
 
 body {
   position: relative;

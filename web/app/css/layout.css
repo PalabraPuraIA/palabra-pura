@@ -163,11 +163,39 @@
   gap: var(--sp-3);
   min-width: 0;
   max-height: calc(100vh - 112px);
+  overflow-x: hidden;
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* En el borde, ceder el scroll a la página (evita el “pegado”). */
+  overscroll-behavior-y: auto;
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: var(--sp-3);
+  padding-right: 4px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--c-rose) 55%, var(--c-line)) transparent;
 }
 
-.sidebar > * { margin-top: 0; margin-bottom: 0; }
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+  margin-block: 6px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--c-rose) 45%, var(--c-line));
+  border-radius: var(--r-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--c-rose);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.sidebar > * { margin-top: 0; margin-bottom: 0; flex-shrink: 0; }
 
 /* En pantallas anchas la columna lateral acompaña al chat sin desbordarse. */
 @media (max-width: 1080px) {

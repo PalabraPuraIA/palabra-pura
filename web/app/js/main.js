@@ -7,6 +7,10 @@
 
 import { config } from "./config.js";
 import { qs } from "./utils/dom.js";
+import {
+  applyBibleVersionEverywhere,
+  setPreferredBibleVersion,
+} from "./utils/bibleVersion.js";
 
 import { ChatService } from "./services/ChatService.js";
 import { ArticleService } from "./services/ArticleService.js";
@@ -57,11 +61,18 @@ class App {
 
     new ConnectModal(qs("[data-modal]"), qs("[data-connect-open]"));
 
-    // Reproducir video o elegir una sugerencia de tema
+    // Reproducir video, elegir sugerencia o cambiar versión bíblica
     qs("[data-messages]").addEventListener("click", (event) => {
       const tip = event.target.closest("[data-suggest]");
       if (tip?.dataset.suggest) {
         this.#handleQuestion(tip.dataset.suggest);
+        return;
+      }
+
+      const versionTab = event.target.closest("[data-bible-version]");
+      if (versionTab?.dataset.bibleVersion) {
+        const next = setPreferredBibleVersion(versionTab.dataset.bibleVersion);
+        applyBibleVersionEverywhere(next);
         return;
       }
 

@@ -1,5 +1,5 @@
 /**
- * SourceCard.js — Versículos en TLA y video de la enseñanza.
+ * SourceCard.js — Versículos (TLA / Reina-Valera) y video de la enseñanza.
  */
 
 import {
@@ -8,36 +8,96 @@ import {
   buildYouTubeUrl,
   isPlayableYouTubeId,
 } from "../utils/format.js";
+import {
+  getPreferredBibleVersion,
+  versionIdFromLabel,
+} from "../utils/bibleVersion.js";
 
 const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M9 8.5v7l6-3.5-6-3.5Z" fill="currentColor"/></svg>`;
 const CTA_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5Z" fill="currentColor"/></svg>`;
 
 const isDemoVideo = (video) => String(video?.youtube_id ?? "").startsWith("DEMO");
 
-function passageText(passage) {
-  if (passage?.text) return passage.text;
-  const versions = passage?.versions;
-  if (Array.isArray(versions) && versions.length) return versions[0]?.text ?? "";
-  return "";
+/** @param {object} passage */
+function passageVersions(passage) {
+  if (Array.isArray(passage?.versions) && passage.versions.length) {
+    return passage.versions.map((v) => ({
+      id: v.id || versionIdFromLabel(v.bible_version),
+      label: shortLabel(v.bible_version || v.id),
+      text: v.text || "",
+    }));
+  }
+  if (passage?.text) {
+    const id = versionIdFromLabel(passage.bible_version);
+    return [
+      {
+        id,
+        label: shortLabel(passage.bible_version || id),
+        text: passage.text,
+      },
+    ];
+  }
+  return [];
 }
 
-function renderPassage(passage, demo, label = "Pasaje bíblico") {
+function shortLabel(name) {
+  const id = versionIdFromLabel(name);
+  if (id === "tla") return "TLA";
+  if (id === "rva") return "Reina-Valera";
+  return String(name || "Biblia");
+}
+
+function renderPassage(passage, demo, label = "Pasaje bíblico", preferred) {
   if (!passage?.reference) return "";
 
-  const text = passageText(passage);
-  if (!text) return "";
+  const versions = passageVersions(passage).filter((v) => v.text);
+  if (!versions.length) return "";
 
-  const badge = demo
-    ? `<span class="source__badge">ejemplo</span>`
-    : `<span class="source__badge">TLA</span>`;
+  const activeId =
+    versions.find((v) => v.id === preferred)?.id || versions[0].id;
+
+  const blocks = versions
+    .map((v) => {
+      const hidden = v.id === activeId ? "" : " hidden";
+      const badge = demo
+        ? `<span class="source__badge">ejemplo</span>`
+        : `<span class="source__badge">${escapeHtml(v.label)}</span>`;
+      return `
+      <div class="source__version${v.id === activeId ? " source__version--active" : ""}" data-version="${escapeHtml(v.id)}"${hidden}>
+        ${badge}
+        <p class="source__text">“${escapeHtml(v.text)}”</p>
+      </div>`;
+    })
+    .join("");
 
   return `
     <article class="source__block source__verse">
       <p class="source__label">${escapeHtml(label)}</p>
       <p class="source__ref">${escapeHtml(passage.reference)}</p>
-      ${badge}
-      <p class="source__text">“${escapeHtml(text)}”</p>
+      ${blocks}
     </article>`;
+}
+
+function renderVersionTabs(availableIds, preferred) {
+  if (availableIds.length < 2) return "";
+
+  const tabs = [
+    { id: "tla", label: "TLA" },
+    { id: "rva", label: "Reina-Valera" },
+  ]
+    .filter((t) => availableIds.includes(t.id))
+    .map((t) => {
+      const active = t.id === preferred;
+      return `<button
+        type="button"
+        class="source__tab${active ? " source__tab--active" : ""}"
+        data-bible-version="${t.id}"
+        aria-pressed="${active ? "true" : "false"}"
+      >${t.label}</button>`;
+    })
+    .join("");
+
+  return `<div class="source__tabs" role="group" aria-label="Versión de la Biblia">${tabs}</div>`;
 }
 
 function renderPassages(passage, passages, demo) {
@@ -50,19 +110,36 @@ function renderPassages(passage, passages, demo) {
 
   if (!list.length) return "";
 
+  const preferred = getPreferredBibleVersion();
+  const available = new Set();
+  for (const p of list) {
+    for (const v of passageVersions(p)) {
+      if (v.text) available.add(v.id);
+    }
+  }
+  const availableIds = [...available];
+  const active =
+    availableIds.includes(preferred) ? preferred : availableIds[0] || "tla";
+
   const cards = list
     .map((p, i) =>
       renderPassage(
         p,
         demo,
         list.length > 1 ? `Versículo ${i + 1}` : "Versículo",
+        active,
       ),
     )
     .join("");
 
+  const tabs = renderVersionTabs(availableIds, active);
+
   return `
-    <section class="source__panel source__panel--verses" aria-label="Versículos">
-      <h3 class="source__panel-title">Versículos (TLA)</h3>
+    <section class="source__panel source__panel--verses" aria-label="Versículos" data-bible-panel>
+      <div class="source__panel-head">
+        <h3 class="source__panel-title">Versículos</h3>
+        ${tabs}
+      </div>
       <div class="source__panel-body">${cards}</div>
     </section>`;
 }

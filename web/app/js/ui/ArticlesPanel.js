@@ -28,6 +28,14 @@ export class ArticlesPanel {
     });
   }
 
+  #setExpanded(open) {
+    this.#root.classList.toggle("articles--expanded", open);
+    if (this.#toggle) {
+      this.#toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      this.#toggle.textContent = open ? "Reducir" : "Ampliar";
+    }
+  }
+
   showLoading() {
     this.#root.hidden = false;
     this.#list.innerHTML = "";
@@ -47,6 +55,7 @@ export class ArticlesPanel {
     if (!articles?.length) {
       this.#list.innerHTML = "";
       this.#empty.hidden = false;
+      this.#setExpanded(false);
       this.#empty.innerHTML = `
         <p class="articles__empty-title">Sin coincidencias claras ahora</p>
         <p class="articles__empty-text">
@@ -59,6 +68,7 @@ export class ArticlesPanel {
     }
 
     this.#empty.hidden = true;
+    this.#setExpanded(true);
     const hint = question
       ? `<p class="articles__match">Relacionados con tu pregunta</p>`
       : "";
@@ -105,10 +115,6 @@ export class ArticlesPanel {
         de la Enciclopedia de Palabra Pura.
       </p>`;
     this.#root.hidden = false;
-    this.#root.classList.remove("articles--expanded");
-    if (this.#toggle) {
-      this.#toggle.setAttribute("aria-expanded", "false");
-      this.#toggle.textContent = "Ampliar";
-    }
+    this.#setExpanded(false);
   }
 }

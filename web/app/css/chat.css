@@ -153,6 +153,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: var(--sp-4) 24px 18px;
   display: flex;
   flex-direction: column;
@@ -337,6 +339,22 @@
   color: var(--c-ink-faint);
 }
 
+.source__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.source__panel-head .source__panel-title {
+  margin: 0;
+}
+
+.source__panel-head .source__tabs {
+  margin-bottom: 0;
+}
+
 .source__panel--verses .source__panel-body {
   display: flex;
   flex-direction: column;
@@ -379,8 +397,15 @@
   color: var(--c-rose);
 }
 
-.source__version[hidden] {
+.source__version {
   display: none;
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
+
+.source__version[hidden] {
+  display: none !important;
 }
 
 .source__version--active {
@@ -440,12 +465,6 @@
   text-transform: uppercase;
   color: var(--c-rose);
   margin: 0 0 10px;
-}
-
-.source__version {
-  padding-top: 0;
-  margin-top: 0;
-  border-top: none;
 }
 
 .source__verse + .source__verse {
@@ -918,20 +937,19 @@
   overflow: hidden;
 }
 
-/* Panel más alto; con "Ampliar" crece aún más. */
+/* Un solo scroll en la columna: el de .sidebar (sin lista anidada). */
 .sidebar .articles {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   width: 100%;
-  max-height: min(520px, 58vh);
+  min-height: 280px;
+  max-height: none;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  transition: max-height .25s ease;
+  overflow: visible;
 }
 
 .sidebar .articles.articles--expanded {
-  max-height: min(820px, 82vh);
-  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .sidebar .articles__head,
@@ -940,41 +958,18 @@
 }
 
 .sidebar .articles__list {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
   height: auto;
   max-height: none;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
   padding-bottom: 12px;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: #ff4d8d #2a2448;
-}
-
-.sidebar .articles__list::-webkit-scrollbar {
-  width: 10px;
-}
-.sidebar .articles__list::-webkit-scrollbar-track {
-  background: #2a2448;
-  border-radius: 8px;
-  margin: 4px;
-}
-.sidebar .articles__list::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #ff4d8d, #c44dff);
-  border-radius: 8px;
-  border: 2px solid #2a2448;
-}
-.sidebar .articles__list::-webkit-scrollbar-thumb:hover {
-  background: #ff6ba3;
 }
 
 .sidebar .articles__empty {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow-y: auto;
+  overflow: visible;
 }
 
 .articles__head {

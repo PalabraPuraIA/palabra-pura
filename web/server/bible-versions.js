@@ -1,8 +1,8 @@
 /**
- * bible-versions.js — Pasajes en TLA y refs citadas en la respuesta.
+ * bible-versions.js — Pasajes en TLA + Reina-Valera Antigua.
  *
- * El texto mostrado al usuario es solo Traducción en Lenguaje Actual (TLA).
- * La base RVA se usa internamente para validar referencias, no para mostrar.
+ * El usuario puede cambiar de versión en la UI.
+ * RVA viene de la base local; TLA de un snapshot en caché.
  */
 
 import fs from "fs";
@@ -13,7 +13,8 @@ const norm = (s) =>
   String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 const TLA_URL = "https://mrk214.github.io/snapshots/es___spa___spa/TLA_vid_176.json";
-const TLA_LABEL = "Traducción en Lenguaje Actual";
+export const TLA_LABEL = "Traducción en Lenguaje Actual";
+export const RVA_LABEL = "Reina-Valera Antigua";
 
 /** Códigos USFM para la Traducción en Lenguaje Actual (TLA). */
 const USFM_BY_NORM = {
@@ -213,7 +214,10 @@ async function fetchTlaVersion(parsed) {
   }
 }
 
-/** Solo TLA para mostrar al usuario (referencia validada con la base RVA). */
+/**
+ * Devuelve el pasaje con ambas versiones cuando existen (RVA + TLA).
+ * Texto por defecto: TLA si hay; si no, Reina-Valera.
+ */
 export async function resolvePassageWithVersions(reference, resolvePassage) {
   const parsed = parseRef(reference);
   if (!parsed || parsed.startVerse == null) return null;
@@ -221,26 +225,42 @@ export async function resolvePassageWithVersions(reference, resolvePassage) {
   const primary = await resolvePassage(reference);
   const tlaText = await fetchTlaVersion(parsed);
 
+  if (!primary?.text && !tlaText) return null;
+
   const refLabel =
     parsed.startVerse === parsed.endVerse
       ? `${parsed.book} ${parsed.chapter}:${parsed.startVerse}`
       : `${parsed.book} ${parsed.chapter}:${parsed.startVerse}-${parsed.endVerse}`;
 
-  if (!tlaText) return null;
+  const versions = [];
+  if (primary?.text) {
+    versions.push({
+      id: "rva",
+      bible_version: primary.bible_version || RVA_LABEL,
+      text: primary.text,
+    });
+  }
+  if (tlaText) {
+    versions.push({
+      id: "tla",
+      bible_version: TLA_LABEL,
+      text: tlaText,
+    });
+  }
 
-  const version = { bible_version: TLA_LABEL, text: tlaText };
+  const preferred = versions.find((v) => v.id === "tla") || versions[0];
 
   return {
     reference: primary?.reference || refLabel,
-    text: tlaText,
-    bible_version: TLA_LABEL,
-    versions: [version],
+    text: preferred.text,
+    bible_version: preferred.bible_version,
+    versions,
   };
 }
 
 const MAX_PASSAGES = 5;
 
-/** Versículos citados en la explicación, en TLA. */
+/** Versículos citados en la explicación, con TLA + RVA cuando hay. */
 export async function enrichPassagesFromAnswer(payload, resolvePassage) {
   if (!payload?.answer) return payload;
 
@@ -264,8 +284,8 @@ export async function enrichPassagesFromAnswer(payload, resolvePassage) {
 
   const enriched = [];
   for (const p of list.slice(0, MAX_PASSAGES)) {
-    const tla = await resolvePassageWithVersions(p.reference, resolvePassage);
-    if (tla) enriched.push(tla);
+    const dual = await resolvePassageWithVersions(p.reference, resolvePassage);
+    if (dual) enriched.push(dual);
   }
 
   if (!enriched.length) {

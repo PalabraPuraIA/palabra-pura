@@ -21,7 +21,11 @@ export function createEl(tag, { className = "", html = "", attrs = {} } = {}) {
   return el;
 }
 
-/** Desplaza un contenedor hasta el final. */
+/** Desplaza un contenedor hasta el final (sin pelear si el usuario ya subió). */
 export function scrollToBottom(el) {
+  if (!el) return;
+  const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+  // Si el usuario está leyendo arriba, no lo arrastramos al fondo.
+  if (distanceFromBottom > 120 && el.scrollTop > 0) return;
   el.scrollTop = el.scrollHeight;
 }

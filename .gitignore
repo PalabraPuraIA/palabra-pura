@@ -38,3 +38,6 @@ stack/runtime/
 !stack/runtime/.gitkeep
 # Local machine overrides (private bind IPs, etc.) — do not publish
 stack/docker-compose.override.yml
+
+# DB dumps locales
+stack/backups/

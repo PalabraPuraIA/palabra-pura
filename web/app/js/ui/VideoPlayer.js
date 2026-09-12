@@ -106,9 +106,12 @@ export class VideoPlayer {
   }
 
   #scrollIntoView() {
-    // Suave, sin saltar agresivo en cada mensaje
+    // Solo si está fuera de vista; sin smooth para no pelear con el scroll del usuario.
     requestAnimationFrame(() => {
-      this.#root.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      const rect = this.#root.getBoundingClientRect();
+      const inView = rect.top >= 72 && rect.bottom <= window.innerHeight - 24;
+      if (inView) return;
+      this.#root.scrollIntoView({ behavior: "auto", block: "nearest" });
     });
   }
 }

@@ -272,6 +272,7 @@ export async function resolveLifeArea(area, resolvePassageWithVersions, resolveP
       title: v.title,
       text: resolved.text,
       bible_version: resolved.bible_version,
+      versions: resolved.versions,
     });
   }
 
@@ -303,7 +304,9 @@ export async function passagesForLifeArea(area, resolvePassageWithVersions, reso
     reference: v.reference,
     text: v.text,
     bible_version: v.bible_version,
-    versions: [{ bible_version: v.bible_version, text: v.text }],
+    versions: v.versions?.length
+      ? v.versions
+      : [{ bible_version: v.bible_version, text: v.text }],
     lifeArea: area.id,
     lifeAreaLabel: area.label,
   }));
