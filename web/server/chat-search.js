@@ -426,17 +426,17 @@ export async function searchVideosByTitle(db, question, limit = 3) {
   const needed = minHits(terms);
 
   const { rows } = await db.query(
-    `SELECT v.id, v.title, v.episode, v.youtube_id,
+    `WITH q AS (SELECT to_tsquery('spanish', $2) AS tsq)
+     SELECT v.id, v.title, v.episode, v.youtube_id,
             (SELECT count(*) FROM unnest($1::text[]) AS t
-              WHERE lower(v.title) LIKE '%' || t || '%') AS hits
-       FROM video v
-      WHERE EXISTS (
-        SELECT 1 FROM unnest($1::text[]) AS t
-        WHERE lower(v.title) LIKE '%' || t || '%'
-      )
-      ORDER BY hits DESC, v.episode ASC
-      LIMIT $2`,
-    [terms, limit],
+              WHERE to_tsvector('spanish', v.title)
+                    @@ to_tsquery('spanish', t || ':*')) AS hits,
+            ts_rank_cd(to_tsvector('spanish', v.title), q.tsq) AS score
+       FROM video v, q
+      WHERE to_tsvector('spanish', v.title) @@ q.tsq
+      ORDER BY hits DESC, score DESC, v.episode ASC
+      LIMIT $3`,
+    [terms, prefixQuery(terms), limit],
   );
 
   return rows.filter((r) => Number(r.hits) >= needed);
@@ -459,7 +459,8 @@ export async function fragmentsForVideos(db, videoIds, limit = 8) {
   if (!db || !videoIds?.length) return [];
 
   const { rows } = await db.query(
-    `SELECT f.content, f.start_second, v.id AS video_id, v.title, v.episode, v.youtube_id
+    `SELECT f.id, f.position, f.content, f.start_second,
+            v.id AS video_id, v.title, v.episode, v.youtube_id
        FROM fragment f
        JOIN video v ON v.id = f.video_id
       WHERE f.video_id = ANY($1::bigint[])
@@ -529,14 +530,15 @@ export async function contextFragments(db, question, limit = 5) {
   const { rows } = await db.query(
     `WITH q AS (SELECT to_tsquery('spanish', $1) AS tsq),
           cand AS (
-            SELECT f.content, f.start_second, v.id AS video_id, v.title, v.episode, v.youtube_id,
+            SELECT f.id, f.position, f.content, f.start_second,
+                   v.id AS video_id, v.title, v.episode, v.youtube_id,
                    ts_rank_cd(
-                     to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')),
+                     to_tsvector('spanish', f.content),
                      q.tsq
                    ) AS score
               FROM fragment f
               JOIN video v ON v.id = f.video_id, q
-             WHERE to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')) @@ q.tsq
+             WHERE to_tsvector('spanish', f.content) @@ q.tsq
              ORDER BY score DESC
              LIMIT 400
           ),
@@ -557,6 +559,51 @@ export async function contextFragments(db, question, limit = 5) {
   );
 
   return rows;
+}
+
+/**
+ * Añade los trozos inmediatamente anterior/siguiente a los mejores resultados.
+ * Esto evita que el contexto empiece o termine a media explicación.
+ */
+export async function expandAdjacentFragments(db, fragments, radius = 1, max = 8) {
+  if (!db || !Array.isArray(fragments) || !fragments.length) return fragments || [];
+  const result = [];
+  const seen = new Set();
+
+  const push = (row) => {
+    const key = `${row.video_id}:${row.position}`;
+    if (seen.has(key) || result.length >= max) return;
+    seen.add(key);
+    result.push(row);
+  };
+
+  for (const match of fragments) {
+    const { rows } = await db.query(
+      `SELECT f.id, f.position, f.content, f.start_second,
+              v.id AS video_id, v.title, v.episode, v.youtube_id
+         FROM fragment f
+         JOIN video v ON v.id = f.video_id
+        WHERE f.video_id = $1
+          AND f.position BETWEEN $2 AND $3
+        ORDER BY abs(f.position - $4), f.position`,
+      [
+        match.video_id,
+        Number(match.position) - radius,
+        Number(match.position) + radius,
+        Number(match.position),
+      ],
+    );
+    for (const row of rows) {
+      push({
+        ...row,
+        score: row.id === match.id ? match.score : null,
+        adjacent: row.id !== match.id,
+      });
+    }
+    if (result.length >= max) break;
+  }
+
+  return result;
 }
 
 

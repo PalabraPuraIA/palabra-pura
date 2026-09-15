@@ -22,6 +22,76 @@ function fmtWhen(iso) {
   }
 }
 
+function fmtMinute(seconds) {
+  const total = Math.max(0, Number(seconds) || 0);
+  const minutes = Math.floor(total / 60);
+  const rest = Math.floor(total % 60);
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
+}
+
+function sourceLabel(source, mode) {
+  if (source === "video") return "Enseñanza en video";
+  if (source === "biblia") return "Biblia";
+  if (mode === "guard") return "Filtro";
+  return source || mode || "Chat";
+}
+
+function renderRecentCard(record) {
+  const tags = (record.topics || [])
+    .map((id) => `<span class="tag">${escapeHtml(TOPIC_LABELS[id] || id)}</span>`)
+    .join("");
+  const source = sourceLabel(record.source, record.mode);
+  const answer = record.answer
+    ? `<section class="qa-card__section">
+         <h3>Respuesta de Grace</h3>
+         <p>${escapeHtml(record.answer)}</p>
+       </section>`
+    : `<p class="qa-card__legacy">Esta consulta es anterior al registro de respuestas.</p>`;
+  const excerpt = record.excerpt
+    ? `<section class="qa-card__section qa-card__excerpt">
+         <h3>Fragmento relevante de la transcripción</h3>
+         <blockquote>${escapeHtml(record.excerpt)}</blockquote>
+       </section>`
+    : "";
+  const video = record.video?.title
+    ? `<section class="qa-card__section qa-card__meta">
+         <h3>Fuente</h3>
+         <p>${escapeHtml(record.video.title)}
+           ${record.video.episode ? ` · episodio ${escapeHtml(record.video.episode)}` : ""}
+           · desde ${escapeHtml(fmtMinute(record.video.start_second))}
+         </p>
+       </section>`
+    : "";
+  const passageList = Array.isArray(record.passages) ? record.passages : [];
+  const passages = passageList.length
+    ? `<section class="qa-card__section qa-card__meta">
+         <h3>Referencias bíblicas</h3>
+         <p>${passageList
+           .map((p) => escapeHtml(p.reference))
+           .filter(Boolean)
+           .join(" · ")}</p>
+       </section>`
+    : "";
+
+  return `<details class="qa-card">
+    <summary>
+      <span class="qa-card__when">${escapeHtml(fmtWhen(record.at))}</span>
+      <span class="qa-card__question">${escapeHtml(record.question)}</span>
+      <span class="qa-card__summary-meta">
+        <span class="qa-card__source">${escapeHtml(source)}</span>
+        ${tags}
+      </span>
+      <span class="qa-card__chevron" aria-hidden="true">⌄</span>
+    </summary>
+    <div class="qa-card__body">
+      ${answer}
+      ${excerpt}
+      ${video}
+      ${passages}
+    </div>
+  </details>`;
+}
+
 async function load() {
   const res = await fetch("/api/analytics/summary", { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -80,18 +150,7 @@ function render(data) {
     recentEmpty.hidden = false;
   } else {
     recentEmpty.hidden = true;
-    tbody.innerHTML = recent
-      .map((r) => {
-        const tags = (r.topics || [])
-          .map((id) => `<span class="tag">${escapeHtml(TOPIC_LABELS[id] || id)}</span>`)
-          .join("");
-        return `<tr>
-          <td class="when">${escapeHtml(fmtWhen(r.at))}</td>
-          <td>${escapeHtml(r.question)}</td>
-          <td>${tags}</td>
-        </tr>`;
-      })
-      .join("");
+    tbody.innerHTML = recent.map(renderRecentCard).join("");
   }
 
   document.querySelector("[data-generated]").textContent =

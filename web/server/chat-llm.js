@@ -21,7 +21,12 @@ import {
   searchVideosByTitle,
   answerByTitleSearch,
   fragmentsForVideos,
+  expandAdjacentFragments,
 } from "./chat-search.js";
+import {
+  formatFragmentsForModel,
+  selectLiteralExcerpt,
+} from "./excerpt.js";
 
 /** Marco doctrinal que toda respuesta debe respetar. */
 const GRACE_LENS = `
@@ -47,11 +52,12 @@ Reglas:
 - Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 - Si el audio no alcanza para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 - Si SI puedes responder, responde con:
-{"found": true, "answer": "explicacion breve en 2 a 3 frases (NO copies la transcripcion; el sistema mostrara un recorte del audio aparte)", "reference": "SOLO una referencia biblica si el AUDIO la menciona textualmente; si el audio no cita ningun versiculo, cadena vacia"}
+{"found": true, "answer": "explicacion breve en 2 a 3 frases (NO copies la transcripcion; el sistema mostrara un recorte del audio aparte)", "reference": "SOLO una referencia biblica si el AUDIO la menciona textualmente; si el audio no cita ningun versiculo, cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 NUNCA inventes una referencia que no aparezca en el audio. Si dudas, deja "reference" vacia.
 NUNCA pegues bloques largos del audio en "answer"; resume con tus palabras en pocas frases.
+En "evidence", selecciona SOLO un rango continuo de oraciones numeradas que sustente la respuesta. Usa pocas oraciones para algo puntual y más si hace falta contexto.
 Tono: cercano, respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 /** Cuando la pregunta coincide con el titulo de una serie: resumen del audio. */
@@ -67,7 +73,8 @@ Reglas estrictas:
 - Si en el audio hay ejemplos o pasos concretos, mencionalos de forma breve.
 - Si la transcripcion no alcanza, responde EXACTAMENTE con: {"found": false}
 - Si SI puedes resumir, responde con:
-{"found": true, "answer": "tu resumen en 3 a 6 frases", "reference": "referencia biblica si se menciona en el audio, o cadena vacia"}
+{"found": true, "answer": "tu resumen en 3 a 6 frases", "reference": "referencia biblica si se menciona en el audio, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 5}}
+En "evidence", selecciona SOLO un rango continuo de oraciones numeradas que sustente el resumen. El sistema copiará esas oraciones literalmente.
 Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 const SYSTEM_TITLE = `Eres Grace, guia calida de la Escuela Biblica de Palabra Pura.
@@ -222,16 +229,10 @@ export async function explainFromTranscript(question, transcript, videoTitle = "
  * Si no hay fragmentos, cae a coincidencia por título de serie.
  */
 export async function answerWithSearch(db, question, resolvePassage) {
-  const fragments = await contextFragments(db, question, 3);
-  if (fragments.length) {
-    const context = fragments
-      .map(
-        (f, i) =>
-          `Fragmento ${i + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${String(
-            f.content,
-          ).slice(0, 1400)}`,
-      )
-      .join("\n\n");
+  const ranked = await contextFragments(db, question, 6);
+  if (ranked.length) {
+    const fragments = await expandAdjacentFragments(db, ranked.slice(0, 3), 1, 8);
+    const context = formatFragmentsForModel(fragments);
 
     const reply = await askAnyLLM(
       SYSTEM,
@@ -241,7 +242,8 @@ export async function answerWithSearch(db, question, resolvePassage) {
     if (reply.off_topic) return { notFound: "off_topic", off_topic: true };
     if (reply.found === false || !reply.answer) return { notFound: true };
 
-    const top = fragments[0];
+    const selected = selectLiteralExcerpt(fragments, question, reply.evidence);
+    const top = selected.fragment || fragments[0];
     const citeText =
       (await citationTextForVideo(db, top.video_id, 80)) ||
       fragments.map((f) => f.content).join("\n");
@@ -259,7 +261,8 @@ export async function answerWithSearch(db, question, resolvePassage) {
     return {
       answer: reply.answer,
       passage: modelOk ? (await resolvePassage(modelRef)) ?? undefined : undefined,
-      excerpt: trimRelevantExcerpt(top.content, question, 320),
+      excerpt: selected.excerpt || trimRelevantExcerpt(top.content, question, 520),
+      retrieval: selected.retrieval,
       spokenRefs,
       video: {
         title: top.title,
@@ -298,15 +301,8 @@ export async function answerWithSearch(db, question, resolvePassage) {
         }
       }
 
-      const context = fromTitle
-        .slice(0, 8)
-        .map(
-          (f, i) =>
-            `Fragmento ${i + 1} — "${f.title}" (min ${Math.floor((f.start_second ?? 0) / 60)}):\n${String(
-              f.content,
-            ).slice(0, 1200)}`,
-        )
-        .join("\n\n");
+      const titleFragments = fromTitle.slice(0, 8);
+      const context = formatFragmentsForModel(titleFragments);
 
       const reply = await askAnyLLM(
         SYSTEM_TEACHING,
@@ -314,19 +310,22 @@ export async function answerWithSearch(db, question, resolvePassage) {
       );
 
       if (reply?.found !== false && reply?.answer) {
+        const selected = selectLiteralExcerpt(titleFragments, question, reply.evidence);
+        const chosen = selected.fragment || topVideo;
         const citeText =
-          (await citationTextForVideo(db, topVideo.video_id || videoIds[0], 80)) ||
+          (await citationTextForVideo(db, chosen.video_id || videoIds[0], 80)) ||
           fromTitle.map((f) => f.content).join("\n");
         return {
           answer: reply.answer,
           passage: undefined,
-          excerpt: trimRelevantExcerpt(topVideo.content, question, 320),
+          excerpt: selected.excerpt || trimRelevantExcerpt(chosen.content, question, 700),
+          retrieval: selected.retrieval,
           spokenRefs: findReferences(citeText),
           video: {
-            title: topVideo.title,
-            episode: topVideo.episode,
-            youtube_id: topVideo.youtube_id,
-            start_second: topVideo.start_second ?? 0,
+            title: chosen.title,
+            episode: chosen.episode,
+            youtube_id: chosen.youtube_id,
+            start_second: chosen.start_second ?? 0,
           },
           source: "video",
         };

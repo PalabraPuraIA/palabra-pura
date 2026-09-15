@@ -8,7 +8,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { chatMode, handleChat, handleChatStatus } from "./chat.js";
+import { chatMode, handleChat, handleChatStatus, handleLifeAreas } from "./chat.js";
+import {
+  initConversationStore,
+  migrateLegacyEvents,
+  readConversationEvents,
+  recordConversation,
+} from "./conversation-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 80);
@@ -118,6 +124,13 @@ function buildSummary(store) {
     .map((e) => ({
       id: e.id,
       question: e.question,
+      answer: e.answer ?? null,
+      excerpt: e.excerpt ?? null,
+      source: e.source ?? null,
+      mode: e.mode ?? null,
+      video: e.video ?? null,
+      passages: e.passages ?? null,
+      retrieval: e.retrieval ?? null,
       at: e.at,
       topics: e.topics,
     }));
@@ -326,8 +339,32 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Cerebro del chat en el mismo contenedor que la página.
-app.post("/api/chat", handleChat);
+// Captura exactamente el payload que recibió el usuario y lo guarda antes de
+// enviarlo. Así pregunta, respuesta y extracto siempre pertenecen al mismo evento.
+app.post("/api/chat", (req, res, next) => {
+  const question = String(req.body?.question || "").trim();
+  const sendJson = res.json.bind(res);
+  let captured = false;
+
+  res.json = (payload) => {
+    if (captured || !question || res.statusCode < 200 || res.statusCode >= 400) {
+      return sendJson(payload);
+    }
+    captured = true;
+    recordConversation({
+      question,
+      response: payload,
+      topics: detectTopics(question),
+    })
+      .catch((err) => console.warn("[conversations] save", err.message))
+      .finally(() => sendJson(payload));
+    return res;
+  };
+
+  Promise.resolve(handleChat(req, res)).catch(next);
+});
 app.get("/api/chat/status", handleChatStatus);
+app.get("/api/life-areas", handleLifeAreas);
 
 /** Current public Cloudflare quick-tunnel URLs (updated by tunnel-watchdog). */
 app.get("/api/public-url", (_req, res) => {
@@ -366,7 +403,7 @@ app.get("/api/articles", async (req, res) => {
   }
 });
 
-app.post("/api/analytics/event", (req, res) => {
+app.post("/api/analytics/event", async (req, res) => {
   const question = String(req.body?.question || "").trim();
   if (!question || question.length < 2) {
     return res.status(400).json({ error: "question required" });
@@ -375,23 +412,39 @@ app.post("/api/analytics/event", (req, res) => {
     return res.status(400).json({ error: "question too long" });
   }
 
-  const store = readStore();
-  const event = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    question,
-    topics: detectTopics(question),
-    at: new Date().toISOString(),
-  };
-  store.events.push(event);
-  // keep last 5000
-  if (store.events.length > 5000) store.events = store.events.slice(-5000);
-  writeStore(store);
-
-  res.status(201).json({ ok: true, id: event.id, topics: event.topics });
+  // Compatibilidad con clientes antiguos/directos. La app nueva registra
+  // server-side en /api/chat; este endpoint acepta el intercambio completo.
+  const topics = detectTopics(question);
+  try {
+    const id = await recordConversation({
+      question,
+      response: req.body?.response || {
+        answer: req.body?.answer,
+        excerpt: req.body?.excerpt,
+        source: req.body?.source,
+        mode: req.body?.mode,
+        video: req.body?.video,
+        passages: req.body?.passages,
+        retrieval: req.body?.retrieval,
+      },
+      topics,
+    });
+    if (!id) return res.status(503).json({ error: "conversation store unavailable" });
+    res.status(201).json({ ok: true, id, topics });
+  } catch (err) {
+    console.warn("[conversations] legacy event", err.message);
+    res.status(503).json({ error: "conversation store unavailable" });
+  }
 });
 
-app.get("/api/analytics/summary", (_req, res) => {
-  res.json(buildSummary(readStore()));
+app.get("/api/analytics/summary", async (_req, res) => {
+  try {
+    const events = await readConversationEvents();
+    res.json(buildSummary({ events: events || readStore().events }));
+  } catch (err) {
+    console.warn("[conversations] summary", err.message);
+    res.json(buildSummary(readStore()));
+  }
 });
 
 app.use(express.static(PUBLIC_DIR, {
@@ -415,6 +468,16 @@ app.get("*", (req, res, next) => {
 });
 
 ensureStore();
+initConversationStore()
+  .then(async (available) => {
+    if (!available) return;
+    const legacy = readStore().events;
+    if (legacy?.length) {
+      const migrated = await migrateLegacyEvents(legacy);
+      console.log(`[conversations] legacy events checked=${migrated}`);
+    }
+  })
+  .catch((err) => console.warn("[conversations] init", err.message));
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`palabra-pura-web listening on :${PORT}`);
   console.log(`public=${PUBLIC_DIR} data=${DATA_FILE}`);

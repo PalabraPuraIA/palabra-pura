@@ -144,6 +144,16 @@ function renderPassages(passage, passages, demo) {
     </section>`;
 }
 
+function renderExcerpt(excerpt) {
+  const text = String(excerpt ?? "").trim();
+  if (!text) return "";
+  return `
+    <section class="source__panel source__panel--excerpt" aria-label="Fragmento de la transcripción">
+      <h3 class="source__panel-title">Fragmento relevante de la transcripción</h3>
+      <blockquote class="source__block source__excerpt">“${escapeHtml(text)}”</blockquote>
+    </section>`;
+}
+
 function renderVideo(video) {
   if (!video?.title && !video?.youtube_id) return "";
 
@@ -190,14 +200,15 @@ function renderVideo(video) {
 }
 
 /**
- * @param {{ passage?: object, passages?: object[], video?: object, source?: string }} response
+ * @param {{ passage?: object, passages?: object[], video?: object, excerpt?: string, source?: string }} response
  */
-export function renderSourceCard({ passage, passages, video, source } = {}) {
+export function renderSourceCard({ passage, passages, video, excerpt, source } = {}) {
   const demo = isDemoVideo(video);
+  const transcript = renderExcerpt(excerpt);
   const verses = renderPassages(passage, passages, demo);
   const vid = renderVideo(video);
 
-  if (!verses && !vid) return "";
+  if (!transcript && !verses && !vid) return "";
 
   const origin =
     source === "biblia" && verses
@@ -208,5 +219,5 @@ export function renderSourceCard({ passage, passages, video, source } = {}) {
           ? `<p class="source__origin">Basado en la enseñanza en audio del ministerio.</p>`
           : "";
 
-  return `<div class="source">${origin}${verses}${vid}</div>`;
+  return `<div class="source">${origin}${transcript}${verses}${vid}</div>`;
 }

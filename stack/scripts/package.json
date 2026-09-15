@@ -1,0 +1,8 @@
+{
+  "name": "palabra-pura-transcribe",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

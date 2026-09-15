@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/dashboard/dashboard.css" />
+  <link rel="stylesheet" href="/dashboard/dashboard.css?v=contextual-1" />
 </head>
 <body>
   <div class="wrap">
@@ -58,24 +58,14 @@
 
     <section class="card card--wide">
       <h2>Últimas consultas</h2>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Cuándo</th>
-              <th>Pregunta</th>
-              <th>Temas</th>
-            </tr>
-          </thead>
-          <tbody data-recent></tbody>
-        </table>
-      </div>
+      <p class="card__hint">Abre una ficha para ver la pregunta, la respuesta y la evidencia de la transcripción.</p>
+      <div class="qa-list" data-recent></div>
       <p class="empty" data-recent-empty hidden>Todavía no hay consultas registradas. Prueba el chat y vuelve aquí.</p>
     </section>
 
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="/dashboard/dashboard.js"></script>
+  <script type="module" src="/dashboard/dashboard.js?v=contextual-1"></script>
 </body>
 </html>

@@ -80,6 +80,7 @@ cp .env.example .env
 
 docker compose up -d --build
 ./scripts/restore-db.sh /ruta/al/backup.sql.gz   # si usas local
+./scripts/apply-migrations.sh                    # también tras actualizar el repo
 ```
 
 Puertos por defecto:
@@ -104,13 +105,25 @@ docker logs -f palabra-pura-tunnel
 |------|--------|
 | `web/app/` | Front (HTML/CSS/JS) |
 | `web/server/` | Lógica `/api/chat`, versículos, guard, LLM |
-| `db/` | Schemas SQL |
-| `stack/` | Docker Compose, scripts, `.env.example` |
+| `db/` | Schemas y migraciones SQL |
+| `stack/` | Docker Compose, backup/restore, auditoría, transcripción y reindexado |
 | `supabase/functions/` | Edge Functions (chatbot, enciclopedia…) |
 | `CONEXION.md` | Cuentas y backends |
 | `SERVIDOR.md` | Server `10.45.178.129` |
 | `ACCESO-OTRO-PC.md` | SSH / segundo PC |
 | `ULTIMA-VERSION.md` | Este archivo |
+
+## Conversaciones e indexación
+
+- `chat_interactions` guarda pregunta, respuesta, extracto literal, fuente,
+  video/minuto, versículos y metadatos de recuperación.
+- `/dashboard/` es público y presenta el historial como fichas expandibles.
+- `stack/scripts/audit-retrieval.mjs` comprueba faltantes, duplicados,
+  tamaños, embeddings cero e índices.
+- `transcribe-videos.mjs` procesa solo videos sin ningún fragmento y nunca
+  reemplaza transcripciones existentes.
+- `reindex-fragment-embeddings.mjs` completa únicamente vectores cero; requiere
+  `GEMINI_API_KEY` en `stack/.env` y puede revisarse primero con `--dry-run`.
 
 ## Derechos de textos bíblicos
 

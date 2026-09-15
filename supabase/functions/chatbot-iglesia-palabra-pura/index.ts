@@ -17,9 +17,10 @@ const SYSTEM_VIDEO = `Eres una guia calida de la Iglesia Palabra Pura que acompa
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
 Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
-{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia"}
+{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
+En "evidence", elige un rango continuo de oraciones numeradas que sustente la respuesta.
 Tono: sencillo, calido y respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 // Segunda etapa: contexto biblico ampliado (capitulo completo via parent-child).
 const SYSTEM_BIBLE = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
@@ -31,6 +32,43 @@ Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Lib
 // ---- Helpers ----
 // Normaliza para comparar nombres de libros (minusculas, sin acentos).
 const norm = (s)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+const clean = (s)=>String(s ?? "").replace(/\s+/g, " ").trim();
+function sentences(content) {
+  const raw = clean(content);
+  if (!raw) return [];
+  const parts = raw.split(/(?<=[.!?…])\s+(?=[¿¡A-ZÁÉÍÓÚÜÑ0-9"'])/).map(clean).filter(Boolean);
+  return parts.length ? parts : [
+    raw
+  ];
+}
+function numberedFragments(fragments) {
+  return fragments.map((f, fi)=>{
+    const lines = sentences(f.content).map((s, si)=>`[F${fi + 1} S${si + 1}] ${s}`);
+    return `Fragmento F${fi + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${lines.join("\n")}`;
+  }).join("\n\n");
+}
+function literalExcerpt(fragments, evidence) {
+  const fi = Number(evidence?.fragment) - 1;
+  const start = Number(evidence?.start_sentence) - 1;
+  const end = Number(evidence?.end_sentence);
+  const fragment = fragments[fi] ?? fragments[0];
+  const list = sentences(fragment?.content);
+  const valid = fragment && Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end <= list.length && end - start <= 9;
+  let excerpt = valid ? clean(list.slice(start, end).join(" ")) : clean(list.slice(0, Math.min(3, list.length)).join(" "));
+  if (excerpt.length > 1800) excerpt = `${excerpt.slice(0, 1799).replace(/\s+\S*$/, "").trim()}…`;
+  return {
+    excerpt: excerpt || undefined,
+    fragment,
+    retrieval: {
+      fragment_id: fragment?.id ?? null,
+      position: fragment?.position ?? null,
+      score: fragment?.similarity ?? null,
+      sentence_start: valid ? start + 1 : 1,
+      sentence_end: valid ? end : Math.min(3, list.length),
+      strategy: valid ? "llm-sentence-range" : "first-sentences"
+    }
+  };
+}
 // Cache de la tabla `books` mientras el isolate esta caliente (66 filas, no cambia).
 let booksCache = null;
 async function getBooksMap() {
@@ -158,22 +196,21 @@ Deno.serve(async (req)=>{
     });
     if (fragErr) throw new Error("match_fragments: " + fragErr.message);
     if (fragMatches && fragMatches.length > 0) {
-      const context = fragMatches.map((m, i)=>`Fragmento ${i + 1} — video "${m.title}", episodio ${m.episode ?? "?"}:\n${m.content}`).join("\n\n");
+      const context = numberedFragments(fragMatches);
       const vid = await askLLM(SYSTEM_VIDEO, `Contexto de los videos:\n${context}\n\nPregunta: ${question}`);
       // Si el LLM pudo responder con los videos, terminamos aqui.
       if (vid.found) {
         const passage = await resolvePassage(vid.reference);
-        const top = fragMatches[0];
-        // Recorte del fragmento de audio/transcripción que alimentó la respuesta.
-        const raw = String(top.content ?? "").replace(/\s+/g, " ").trim();
-        const excerpt = raw.length > 320 ? `${raw.slice(0, 317).trim()}…` : raw || undefined;
+        const selected = literalExcerpt(fragMatches, vid.evidence);
+        const top = selected.fragment;
         return json({
           answer: vid.answer ?? "",
           passage: passage ? {
             ...passage,
             bible_version: "Reina-Valera Antigua"
           } : undefined,
-          excerpt,
+          excerpt: selected.excerpt,
+          retrieval: selected.retrieval,
           video: {
             title: top.title,
             episode: top.episode,

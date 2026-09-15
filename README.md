@@ -84,6 +84,20 @@ El contenedor `web` sirve la página **y** el cerebro del chat en `/api/chat`:
 El front llama a `/api/chat` (same-origin) y, si no existe, cae a la Edge Function.
 Detalle en [SERVIDOR.md](./SERVIDOR.md).
 
+Cada respuesta local se registra en Postgres junto con su pregunta y el fragmento
+literal utilizado. El dashboard público muestra esos intercambios como fichas
+expandibles; no publiques información privada en las preguntas.
+
+La recuperación combina el índice textual GIN con pgvector. Herramientas:
+
+```bash
+./stack/scripts/apply-migrations.sh
+docker compose -f stack/docker-compose.yml --profile transcribe run --rm \
+  --entrypoint node transcribe audit-retrieval.mjs
+docker compose -f stack/docker-compose.yml --profile transcribe run --rm \
+  --entrypoint node transcribe reindex-fragment-embeddings.mjs --dry-run
+```
+
 En las respuestas con versículos puedes cambiar entre **TLA** y **Reina-Valera Antigua**.
 
 Artículos vía WordPress público de [iglesiapalabrapura.com](https://iglesiapalabrapura.com/site/articulos/).

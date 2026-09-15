@@ -14,7 +14,6 @@ import {
 
 import { ChatService } from "./services/ChatService.js";
 import { ArticleService } from "./services/ArticleService.js";
-import { AnalyticsService } from "./services/AnalyticsService.js";
 import { ChatView } from "./ui/ChatView.js";
 import { Composer } from "./ui/Composer.js";
 import { ExampleChips } from "./ui/ExampleChips.js";
@@ -27,7 +26,6 @@ import { LifeAreaService } from "./services/LifeAreaService.js";
 class App {
   #service = new ChatService();
   #articles = new ArticleService();
-  #analytics = new AnalyticsService();
   #view;
   #player;
   #articlesPanel;
@@ -101,9 +99,6 @@ class App {
     this.#view.addUserMessage(question);
     this.#view.showTyping();
     this.#articlesPanel.showLoading();
-
-    // No bloquea la UI si falla el registro
-    this.#analytics.trackQuestion(question);
 
     // Chat + artículos en paralelo (artículos = solo lectura pública WP)
     const [response, articles] = await Promise.all([

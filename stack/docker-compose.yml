@@ -74,6 +74,9 @@ services:
       PGUSER: palabra
       PGPASSWORD: ${POSTGRES_PASSWORD:-change_me}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEY_2: ${GEMINI_API_KEY_2:-}
+      GEMINI_API_KEY_3: ${GEMINI_API_KEY_3:-}
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       DOLA_API_KEY: ${DOLA_API_KEY:-}
@@ -113,6 +116,32 @@ services:
       - http://web:80
     depends_on:
       web:
+        condition: service_healthy
+    networks:
+      - pp_net
+
+  # Herramienta manual: no arranca con `up`; usar --profile transcribe.
+  transcribe:
+    build:
+      context: ..
+      dockerfile: stack/Dockerfile.transcribe
+    image: palabra-pura-transcribe:local
+    profiles:
+      - transcribe
+    environment:
+      PROJECT_ROOT: /app
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: palabra_pura
+      PGUSER: palabra
+      PGPASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_API_KEY_2: ${GEMINI_API_KEY_2:-}
+      GEMINI_API_KEY_3: ${GEMINI_API_KEY_3:-}
+      GEMINI_API_KEYS: ${GEMINI_API_KEYS:-}
+    depends_on:
+      db:
         condition: service_healthy
     networks:
       - pp_net

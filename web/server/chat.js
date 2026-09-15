@@ -16,12 +16,27 @@ import { answerWithSearch, askAnyLLM, hasWriter, explainFromTranscript, answerFr
 import { enrichPassagesFromAnswer, resolvePassageWithVersions } from "./bible-versions.js";
 import { detectLifeArea, passagesForLifeArea, resolveAllLifeAreas, resolveLifeArea, getLifeAreaById, topicVersesFor, WELCOME_PROMISES } from "./life-areas.js";
 import { guardQuestion, offTopicAnswer, sanitizeAnswer } from "./chat-guard.js";
+import { formatFragmentsForModel, selectLiteralExcerpt } from "./excerpt.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
 const EMBED_MODEL = "gemini-embedding-001";
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
+
+/** Una o más keys: GEMINI_API_KEY, GEMINI_API_KEY_2… o GEMINI_API_KEYS=a,b */
+function geminiApiKeys() {
+  const listed = [
+    process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3,
+    ...(String(process.env.GEMINI_API_KEYS || "").split(",")),
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return [...new Set(listed)];
+}
+
+let preferredGeminiKeyIndex = 0;
 
 const SUPABASE_CHAT_URL = process.env.SUPABASE_CHAT_URL || "";
 const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "";
@@ -43,9 +58,10 @@ Si la pregunta es una bobada, broma, groseria o algo SIN relacion con la Escuela
 Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
-{"found": true, "answer": "tu respuesta en 2 a 4 frases bajo la dispensacion de la gracia", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia"}
+{"found": true, "answer": "tu respuesta en 2 a 4 frases bajo la dispensacion de la gracia", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
+En "evidence", elige un rango continuo de las oraciones numeradas que realmente sustente la respuesta.
 Tono: sencillo, calido y respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 const SYSTEM_BIBLE = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
@@ -91,7 +107,7 @@ function getPool() {
 export function chatMode() {
   const wanted = (process.env.CHAT_MODE || "auto").toLowerCase();
   const canSearch = Boolean(getPool());
-  const canLocal = Boolean(canSearch && GEMINI_API_KEY && hasWriter());
+  const canLocal = Boolean(canSearch && geminiApiKeys().length && hasWriter());
   const canAssisted = Boolean(canSearch && hasWriter());
   const canProxy = Boolean(SUPABASE_CHAT_URL);
 
@@ -170,11 +186,11 @@ async function resolvePassage(reference) {
   };
 }
 
-async function embedQuery(question) {
+async function embedQueryWithKey(apiKey, question) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${EMBED_MODEL}:embedContent`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_API_KEY },
+    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
     body: JSON.stringify({
       content: { parts: [{ text: question }] },
       taskType: "RETRIEVAL_QUERY",
@@ -187,17 +203,36 @@ async function embedQuery(question) {
   return data.embedding.values;
 }
 
+/** Si una key se acaba (429/403), prueba la siguiente y se queda en la que funciona. */
+async function embedQuery(question) {
+  const keys = geminiApiKeys();
+  if (!keys.length) throw new Error("Falta GEMINI_API_KEY");
+
+  let lastError;
+  for (let offset = 0; offset < keys.length; offset += 1) {
+    const index = (preferredGeminiKeyIndex + offset) % keys.length;
+    try {
+      const values = await embedQueryWithKey(keys[index], question);
+      preferredGeminiKeyIndex = index;
+      return values;
+    } catch (err) {
+      lastError = err;
+      const message = String(err?.message || "");
+      if (!/\b(429|403)\b/.test(message)) throw err;
+      console.warn(
+        `[chat] gemini key ${index + 1}/${keys.length} falló; probando otra`,
+        message.slice(0, 160),
+      );
+    }
+  }
+  throw lastError;
+}
+
 /** Redacta con el primer proveedor disponible de la cadena. */
 async function askLLM(system, userContent) {
   const reply = await askAnyLLM(system, userContent);
   if (!reply) throw new Error("ningun modelo de texto respondio");
   return reply;
-}
-
-function buildExcerpt(content) {
-  const raw = String(content ?? "").replace(/\s+/g, " ").trim();
-  if (!raw) return undefined;
-  return raw.length > 320 ? `${raw.slice(0, 317).trim()}…` : raw;
 }
 
 /** Pipeline completo: primero videos, luego Biblia. */
@@ -212,23 +247,20 @@ async function answerLocal(question) {
   );
 
   if (fragMatches.length) {
-    const context = fragMatches
-      .map(
-        (m, i) =>
-          `Fragmento ${i + 1} — video "${m.title}", episodio ${m.episode ?? "?"}:\n${m.content}`,
-      )
-      .join("\n\n");
+    const context = formatFragmentsForModel(fragMatches);
     const vid = await askLLM(
       SYSTEM_VIDEO,
       `Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
     );
 
     if (vid.found) {
-      const top = fragMatches[0];
+      const selected = selectLiteralExcerpt(fragMatches, question, vid.evidence);
+      const top = selected.fragment || fragMatches[0];
       return {
         answer: vid.answer ?? "",
         passage: (await resolvePassage(vid.reference)) ?? undefined,
-        excerpt: buildExcerpt(top.content),
+        excerpt: selected.excerpt,
+        retrieval: selected.retrieval,
         video: {
           title: top.title,
           episode: top.episode,
@@ -730,7 +762,8 @@ export async function handleChatStatus(_req, res) {
   const status = {
     mode,
     hasDb: Boolean(dbConfig()),
-    hasGeminiKey: Boolean(GEMINI_API_KEY),
+    hasGeminiKey: geminiApiKeys().length > 0,
+    geminiKeys: geminiApiKeys().length,
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
     hasDolaKey: Boolean(process.env.DOLA_API_KEY || process.env.BYTEPLUS_API_KEY),
     hasOpenRouterKey: Boolean(OPENROUTER_API_KEY),
