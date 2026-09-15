@@ -2,7 +2,7 @@
    LAYOUT — contenedor, barra, hero, paneles, footer
    ============================================================ */
 .wrap {
-  width: min(1400px, 94vw);
+  width: min(1280px, 96vw);
   margin-inline: auto;
 }
 
@@ -16,8 +16,8 @@
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 14px;
-  padding: 12px 20px;
+  margin-top: 10px;
+  padding: 8px 14px;
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -29,7 +29,7 @@
 /* Solo el nombre, sin logotipo. */
 .brand__name {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: .95rem;
   letter-spacing: -.01em;
   color: var(--c-ink);
   line-height: 1.2;
@@ -53,16 +53,16 @@
 }
 
 .status-pill {
-  display: flex; align-items: center; gap: 7px;
+  display: flex; align-items: center; gap: 6px;
   font-size: var(--t-xs);
-  letter-spacing: .09em;
+  letter-spacing: .08em;
   text-transform: uppercase;
   font-weight: 600;
   color: var(--c-ink-soft);
   background: var(--c-surface-2);
   border: 1px solid var(--c-line);
   border-radius: var(--r-pill);
-  padding: 8px 15px;
+  padding: 6px 12px;
   transition: border-color var(--transition), color var(--transition),
               transform var(--transition), box-shadow var(--transition);
 }
@@ -88,15 +88,15 @@
 /* ---------- Hero ---------- */
 .hero {
   text-align: center;
-  padding: var(--sp-6) 0 var(--sp-4);
+  padding: var(--sp-4) 0 var(--sp-3);
 }
 
 .hero__badge {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: var(--sp-3);
-  padding: 7px 16px 7px 12px;
+  gap: 6px;
+  margin-bottom: var(--sp-2);
+  padding: 5px 12px 5px 10px;
   font-size: var(--t-xs);
   font-weight: 600;
   letter-spacing: .08em;
@@ -139,38 +139,39 @@
 }
 
 .hero p {
-  margin: var(--sp-3) auto 0;
-  max-width: 56ch;
+  margin: var(--sp-2) auto 0;
+  max-width: 52ch;
   color: var(--c-ink-soft);
-  font-size: var(--t-lg);
+  font-size: var(--t-base);
   font-weight: 400;
+  line-height: 1.5;
 }
 
 /* ---------- Área de trabajo: chat + columna lateral ---------- */
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(440px, 1fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .88fr);
   align-items: start;
-  gap: var(--sp-4);
-  margin-top: var(--sp-2);
+  gap: var(--sp-3);
+  margin-top: var(--sp-1);
 }
 
 .sidebar {
   position: sticky;
-  top: 92px;
+  top: 68px;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-2);
   min-width: 0;
-  max-height: calc(100vh - 112px);
+  max-height: calc(100vh - 84px);
   overflow-x: hidden;
   overflow-y: auto;
   /* En el borde, ceder el scroll a la página (evita el “pegado”). */
   overscroll-behavior-y: auto;
   overscroll-behavior-x: none;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: var(--sp-3);
-  padding-right: 4px;
+  padding-bottom: var(--sp-2);
+  padding-right: 2px;
   scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--c-rose) 55%, var(--c-line)) transparent;
@@ -197,8 +198,14 @@
 
 .sidebar > * { margin-top: 0; margin-bottom: 0; flex-shrink: 0; }
 
-/* En pantallas anchas la columna lateral acompaña al chat sin desbordarse. */
-@media (max-width: 1080px) {
+/* En pantallas medianas/estrechas la columna lateral va debajo. */
+@media (max-width: 1100px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .95fr);
+  }
+}
+
+@media (max-width: 920px) {
   .workspace { grid-template-columns: 1fr; }
   .sidebar {
     position: static;
@@ -211,8 +218,8 @@
 .panels {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--sp-4);
-  margin: var(--sp-6) 0 10px;
+  gap: var(--sp-3);
+  margin: var(--sp-4) 0 8px;
 }
 
 @media (max-width: 760px) {
@@ -220,7 +227,7 @@
 }
 
 .panel {
-  padding: var(--sp-4);
+  padding: var(--sp-3);
   background: var(--g-surface);
   border: 1px solid var(--c-line);
   border-radius: var(--r-lg);
@@ -243,20 +250,20 @@
 
 .step {
   display: flex;
-  gap: 14px;
-  padding: 16px 0;
+  gap: 10px;
+  padding: 10px 0;
   border-top: 1px solid var(--c-line-soft);
 }
-.step:first-of-type { border-top: none; padding-top: 4px; }
+.step:first-of-type { border-top: none; padding-top: 2px; }
 
 .step .step__n {
   flex: none;
-  width: 30px; height: 30px;
+  width: 26px; height: 26px;
   display: grid; place-items: center;
   border-radius: var(--r-sm);
   background: var(--g-brand);
   color: var(--c-white);
-  font-size: var(--t-sm);
+  font-size: var(--t-xs);
   font-weight: 700;
   box-shadow: var(--shadow-rose);
 }
@@ -282,7 +289,7 @@
 .faq summary {
   list-style: none;
   cursor: pointer;
-  padding: 16px 40px 16px 12px;
+  padding: 12px 36px 12px 8px;
   position: relative;
   font-weight: 600;
   font-size: var(--t-base);
@@ -315,16 +322,16 @@
 
 .faq p {
   color: var(--c-ink-soft);
-  font-size: var(--t-base);
-  padding: 0 14px 18px;
+  font-size: var(--t-sm);
+  padding: 0 10px 12px;
 }
 
 /* ---------- Footer ---------- */
 .footer {
   position: relative;
   text-align: center;
-  padding: var(--sp-5) var(--sp-4) 36px;
-  margin-top: var(--sp-6);
+  padding: var(--sp-4) var(--sp-3) 24px;
+  margin-top: var(--sp-4);
   background: var(--g-deep);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
   color: rgba(255, 255, 255, .72);
@@ -343,12 +350,18 @@
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
-  .wrap { width: 94vw; }
-  .topbar { padding: 10px 14px; border-radius: var(--r-lg); }
-  .brand__name { font-size: .95rem; }
-  .hero { padding: var(--sp-5) 0 var(--sp-3); }
-  .hero__badge { font-size: .6rem; padding: 6px 12px 6px 10px; }
-  .hero p { font-size: var(--t-base); }
+  .wrap { width: 96vw; }
+  .topbar {
+    padding: 8px 10px;
+    border-radius: var(--r-lg);
+    margin-top: 6px;
+  }
+  .brand__name { font-size: .88rem; }
+  .hero { padding: var(--sp-3) 0 var(--sp-2); }
+  .hero__badge { font-size: .58rem; padding: 4px 10px 4px 8px; }
+  .hero h1 { max-width: 14ch; }
+  .hero p { font-size: var(--t-sm); }
   .panel { padding: var(--sp-3); }
-  .footer { padding: var(--sp-4) var(--sp-3) 30px; }
+  .footer { padding: var(--sp-3) var(--sp-2) 20px; }
+  .status-pill { padding: 5px 10px; }
 }

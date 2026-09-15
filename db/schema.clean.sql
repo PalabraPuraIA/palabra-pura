@@ -22,22 +22,47 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
 
-CREATE OR REPLACE FUNCTION "public"."match_fragments"("query_embedding" "text", "match_count" integer DEFAULT 5) RETURNS TABLE("content" "text", "position" integer, "start_second" integer, "video_id" bigint, "title" "text", "episode" integer, "youtube_id" "text", "similarity" double precision)
+CREATE OR REPLACE FUNCTION "public"."match_fragments"(
+  "query_embedding" "text",
+  "match_count" integer DEFAULT 5,
+  "min_similarity" double precision DEFAULT 0
+) RETURNS TABLE(
+  "id" bigint,
+  "content" "text",
+  "position" integer,
+  "start_second" integer,
+  "word_count" integer,
+  "video_id" bigint,
+  "title" "text",
+  "episode" integer,
+  "youtube_id" "text",
+  "similarity" double precision
+)
     LANGUAGE "sql" STABLE
     AS $$
-  select
-    f.content,
-    f."position",
-    f.start_second,
-    v.id  as video_id,
-    v.title,
-    v.episode,
-    v.youtube_id,
-    1 - (f.embedding <=> query_embedding::halfvec(3072)) as similarity
-  from fragment f
-  join video v on v.id = f.video_id
-  order by f.embedding <=> query_embedding::halfvec(3072)
-  limit match_count;
+  SELECT *
+    FROM (
+      SELECT
+        f.id,
+        f.content,
+        f."position",
+        f.start_second,
+        f.word_count,
+        v.id AS video_id,
+        v.title,
+        v.episode,
+        v.youtube_id,
+        1 - (f.embedding <=> query_embedding::halfvec(3072)) AS similarity
+      FROM fragment f
+      JOIN video v ON v.id = f.video_id
+      WHERE f.embedding IS NOT NULL
+        AND l2_norm(f.embedding) > 0
+      ORDER BY f.embedding <=> query_embedding::halfvec(3072)
+      LIMIT GREATEST(match_count * 4, match_count)
+    ) ranked
+   WHERE ranked.similarity >= min_similarity
+   ORDER BY ranked.similarity DESC
+   LIMIT match_count;
 $$;
 
 

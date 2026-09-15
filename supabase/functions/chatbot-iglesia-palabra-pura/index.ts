@@ -5,6 +5,10 @@ const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 const OPENROUTER_MODEL = "google/gemini-2.5-flash";
 // Cuantos capitulos-padre completos enviar como contexto (control de tokens).
 const MAX_PARENTS = 2;
+const MIN_SIMILARITY = 0.65;
+const VECTOR_CANDIDATES = 12;
+const SEED_LIMIT = 4;
+const CONTEXT_MAX = 8;
 const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -115,6 +119,62 @@ async function resolvePassage(reference) {
     text
   };
 }
+function filterBySimilarity(rows, minSimilarity = MIN_SIMILARITY, fallbackTop = 3) {
+  const list = Array.isArray(rows) ? rows : [];
+  const passed = list.filter((row) => Number(row.similarity) >= minSimilarity);
+  return passed.length ? passed : list.slice(0, fallbackTop);
+}
+
+async function expandAdjacent(seeds, radius = 1, max = CONTEXT_MAX) {
+  const result = [];
+  const seen = new Set();
+  const push = (row) => {
+    const key = `${row.video_id}:${row.position}`;
+    if (seen.has(key) || result.length >= max) return;
+    seen.add(key);
+    result.push(row);
+  };
+
+  for (const match of seeds) {
+    const { data, error } = await supabase
+      .from("fragment")
+      .select("id, position, content, start_second, word_count, video_id")
+      .eq("video_id", match.video_id)
+      .gte("position", Number(match.position) - radius)
+      .lte("position", Number(match.position) + radius)
+      .order("position");
+    if (error || !data?.length) {
+      push(match);
+      continue;
+    }
+    // Adjuntar metadatos del video desde el seed.
+    for (const row of data) {
+      push({
+        ...row,
+        title: match.title,
+        episode: match.episode,
+        youtube_id: match.youtube_id,
+        similarity: row.position === match.position ? match.similarity : undefined,
+      });
+    }
+    if (result.length >= max) break;
+  }
+  return result.length ? result : seeds;
+}
+
+async function retrieveVideoFragments(embStr) {
+  const { data: fragMatches, error: fragErr } = await supabase.rpc("match_fragments", {
+    query_embedding: embStr,
+    match_count: VECTOR_CANDIDATES,
+  });
+  if (fragErr) throw new Error("match_fragments: " + fragErr.message);
+  const filtered = filterBySimilarity(fragMatches || []);
+  if (!filtered.length) return [];
+  const seeds = filtered.slice(0, SEED_LIMIT);
+  const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 120);
+  return expandAdjacent(seeds, shortHit ? 2 : 1, CONTEXT_MAX);
+}
+
 // Embebe la pregunta del usuario.
 async function embedQuery(question) {
   const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent", {
@@ -190,11 +250,7 @@ Deno.serve(async (req)=>{
     const embedding = await embedQuery(question);
     const embStr = JSON.stringify(embedding); // halfvec como texto "[...]"
     // ========== 1) VIDEOS primero ==========
-    const { data: fragMatches, error: fragErr } = await supabase.rpc("match_fragments", {
-      query_embedding: embStr,
-      match_count: 5
-    });
-    if (fragErr) throw new Error("match_fragments: " + fragErr.message);
+    const fragMatches = await retrieveVideoFragments(embStr);
     if (fragMatches && fragMatches.length > 0) {
       const context = numberedFragments(fragMatches);
       const vid = await askLLM(SYSTEM_VIDEO, `Contexto de los videos:\n${context}\n\nPregunta: ${question}`);

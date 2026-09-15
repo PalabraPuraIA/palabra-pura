@@ -28,7 +28,6 @@ const GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const WHISPER_MODEL = "whisper-large-v3-turbo";
 const GEMINI_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent";
-const ZERO_EMBED = `[${"0,".repeat(3071)}0]`;
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -249,7 +248,9 @@ function seriesFromTitle(title) {
 }
 
 async function embedGemini(text) {
-  if (!GEMINI_API_KEY) return ZERO_EMBED;
+  if (!GEMINI_API_KEY) {
+    throw new Error("Falta GEMINI_API_KEY para generar embeddings de fragmentos");
+  }
 
   const res = await fetch(GEMINI_URL, {
     method: "POST",
@@ -261,14 +262,19 @@ async function embedGemini(text) {
       model: "models/gemini-embedding-001",
       content: { parts: [{ text: text.slice(0, 8000) }] },
       taskType: "RETRIEVAL_DOCUMENT",
+      outputDimensionality: 3072,
     }),
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!res.ok) return ZERO_EMBED;
+  if (!res.ok) {
+    throw new Error(`Gemini embedding ${res.status}: ${await res.text()}`);
+  }
   const data = await res.json();
   const emb = data?.embedding?.values;
-  if (!emb || emb.length !== 3072) return ZERO_EMBED;
+  if (!emb || emb.length !== 3072) {
+    throw new Error(`Embedding inválido, dims=${emb?.length ?? "null"}`);
+  }
   return `[${emb.join(",")}]`;
 }
 

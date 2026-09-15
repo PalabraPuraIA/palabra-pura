@@ -17,6 +17,7 @@ import { enrichPassagesFromAnswer, resolvePassageWithVersions } from "./bible-ve
 import { detectLifeArea, passagesForLifeArea, resolveAllLifeAreas, resolveLifeArea, getLifeAreaById, topicVersesFor, WELCOME_PROMISES } from "./life-areas.js";
 import { guardQuestion, offTopicAnswer, sanitizeAnswer } from "./chat-guard.js";
 import { formatFragmentsForModel, selectLiteralExcerpt } from "./excerpt.js";
+import { retrieveTranscriptContext } from "./chat-retrieve.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
@@ -241,10 +242,7 @@ async function answerLocal(question) {
   const embStr = JSON.stringify(embedding);
   const db = getPool();
 
-  const { rows: fragMatches } = await db.query(
-    "SELECT * FROM match_fragments($1, $2)",
-    [embStr, 5],
-  );
+  const fragMatches = await retrieveTranscriptContext(db, embStr, question);
 
   if (fragMatches.length) {
     const context = formatFragmentsForModel(fragMatches);

@@ -34,7 +34,8 @@ Deno.serve(async (req)=>{
             }
           ]
         },
-        taskType: "RETRIEVAL_DOCUMENT"
+        taskType: "RETRIEVAL_DOCUMENT",
+        outputDimensionality: 3072
       })
     });
     if (!geminiRes.ok) {
