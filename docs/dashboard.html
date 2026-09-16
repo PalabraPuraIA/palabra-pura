@@ -31,7 +31,7 @@
   </div>
   <script>
     const PATH = "/dashboard/";
-    const STATUS_URL = "https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/enciclopedia?format=json";
+    const FALLBACK_BASE = "https://hygiene-block-eugene-sage.trycloudflare.com";
 
     function showStatus(title, text) {
       document.getElementById("statusTitle").textContent = title;
@@ -61,9 +61,15 @@
 
     async function refresh() {
       try {
-        const res = await fetch(STATUS_URL + "&_=" + Date.now(), { cache: "no-store" });
-        const data = await res.json();
-        const base = String(data.baseUrl || "").replace(/\/+$/, "");
+        let base = FALLBACK_BASE;
+        try {
+          const res = await fetch("./public-url.json?_=" + Date.now(), { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            base = String(data.baseUrl || data.chatUrl || FALLBACK_BASE);
+          }
+        } catch (_) { /* usa el fallback */ }
+        base = base.replace(/\/+$/, "");
         if (!base) throw new Error("sin URL pública publicada");
 
         showStatus("Comprobando servidor…", "Hay una URL publicada. Verificando que responda…");
