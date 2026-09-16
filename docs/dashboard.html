@@ -73,7 +73,7 @@
         if (!base) throw new Error("sin URL pública publicada");
 
         showStatus("Comprobando servidor…", "Hay una URL publicada. Verificando que responda…");
-        await probe(base);
+        try { await probe(base); } catch (_) { /* el iframe igual puede cargar */ }
 
         const next = base + PATH;
         const frame = document.getElementById("app");
