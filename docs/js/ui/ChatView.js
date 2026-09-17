@@ -1,7 +1,7 @@
 /**
  * ChatView.js — Renderiza la conversación.
  *
- * Las respuestas van acompañadas de Grace, la gotita de la Escuela Bíblica.
+ * Las respuestas van acompañadas de Blaze, el fuego de la Escuela Bíblica.
  * Solo sabe pintar mensajes. No sabe de red ni de estado global.
  */
 
@@ -9,10 +9,10 @@ import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
 import { renderSourceCard } from "./SourceCard.js";
 
-/** Grace vive como <symbol> en el HTML; aquí solo se referencia. */
-function graceAvatar(modifier = "") {
-  return `<span class="grace grace--avatar ${modifier}" aria-hidden="true">
-            <svg class="grace__svg" viewBox="0 0 64 80"><use href="#grace-drop" /></svg>
+/** Logo animado de Blaze junto a cada respuesta. */
+function blazeAvatar(modifier = "") {
+  return `<span class="blaze blaze--avatar ${modifier}" aria-hidden="true">
+            <img class="blaze__img" src="./assets/blaze-logo.png" alt="" width="34" height="34" />
           </span>`;
 }
 
@@ -92,7 +92,7 @@ export class ChatView {
 
     const el = createEl("div", {
       className: "msg msg--bot",
-      html: `${graceAvatar()}<div class="msg__stack">${answerBlock}${sources}</div>`,
+      html: `${blazeAvatar()}<div class="msg__stack">${answerBlock}${sources}</div>`,
     });
 
     this.#append(el);
@@ -104,7 +104,7 @@ export class ChatView {
     this.#typingEl = createEl("div", {
       className: "msg msg--bot",
       html: `
-        ${graceAvatar("grace--thinking")}
+        ${blazeAvatar("blaze--thinking")}
         <div class="msg__stack">
           <div class="msg__bubble msg__bubble--bare">
             <div class="typing"><span></span><span></span><span></span></div>

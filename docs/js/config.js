@@ -31,7 +31,7 @@ export const config = {
 
   /** Mensaje inicial del asistente. */
   welcomeMessage:
-    "Hola, soy Grace. Bienvenidos a la Escuela Bíblica de Palabra Pura. " +
+    "Hola, soy Blaze. Bienvenidos a la Escuela Bíblica de Palabra Pura. " +
     "Indícame qué pregunta tienes hoy, ¿cómo puedo guiarte?",
 
   /** Retardo simulado del modo demo, en milisegundos. */

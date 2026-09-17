@@ -5,94 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Enciclopedia de Palabra Pura — Pregúntale a la Palabra</title>
 
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 80'%3E%3Cpath fill='%23FF4B1F' d='M32 2c3.5 9 8 13.5 9.5 21 2.5-2.5 3.5-6.5 3-11 4.5 6.5 7 14 6 22 2.5-1.5 4-4.5 4.5-8 3.5 8.5 4 19-.5 27.5C49.5 65 41.5 74 32 74s-17.5-9-22.5-20.5C5 45 5.5 34.5 9 26c.5 3.5 2 6.5 4.5 8-1-8 1.5-15.5 6-22-.5 4.5.5 8.5 3 11C24 15.5 28.5 11 32 2z'/%3E%3Cpath fill='%23FFDD6E' d='M32 24c2.5 6 6.5 9.5 7.5 15.5 1.5 8 .5 15-2 19.5-1.5 2.5-3.4 3.5-5.5 3.5s-4-1-5.5-3.5c-2.5-4.5-3.5-11.5-2-19.5 1-6 5-9.5 7.5-15.5z'/%3E%3Cellipse cx='28.2' cy='45' rx='2.8' ry='3.5' fill='%233B1D0E'/%3E%3Cellipse cx='35.8' cy='45' rx='2.8' ry='3.5' fill='%233B1D0E'/%3E%3C/svg%3E" />
+  <link rel="icon" href="./assets/blaze-logo.png" type="image/png" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/tokens.css?v=supabase-1" />
-  <link rel="stylesheet" href="./css/base.css?v=supabase-1" />
-  <link rel="stylesheet" href="./css/layout.css?v=supabase-1" />
-  <link rel="stylesheet" href="./css/chat.css?v=supabase-1" />
-  <link rel="stylesheet" href="./css/modal.css?v=supabase-1" />
+  <link rel="stylesheet" href="./css/tokens.css?v=blaze-1" />
+  <link rel="stylesheet" href="./css/base.css?v=blaze-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=blaze-1" />
+  <link rel="stylesheet" href="./css/chat.css?v=blaze-1" />
+  <link rel="stylesheet" href="./css/modal.css?v=blaze-1" />
 </head>
 <body>
-
-  <!-- Grace: se define una vez y se reutiliza con <use> en la cabecera y en cada respuesta. -->
-  <svg class="sprite" aria-hidden="true" focusable="false">
-    <defs>
-      <linearGradient id="graceOuter" x1="0" y1="1" x2="0.2" y2="0">
-        <stop offset="0%" stop-color="#E01B3C" />
-        <stop offset="55%" stop-color="#FF4B1F" />
-        <stop offset="100%" stop-color="#FF7A2F" />
-      </linearGradient>
-      <linearGradient id="graceMid" x1="0" y1="1" x2="0.2" y2="0">
-        <stop offset="0%" stop-color="#FF5E1F" />
-        <stop offset="60%" stop-color="#FF9A22" />
-        <stop offset="100%" stop-color="#FFC24A" />
-      </linearGradient>
-      <linearGradient id="graceCore" x1="0" y1="1" x2="0.2" y2="0">
-        <stop offset="0%" stop-color="#FFC24A" />
-        <stop offset="60%" stop-color="#FFDD6E" />
-        <stop offset="100%" stop-color="#FFF0A8" />
-      </linearGradient>
-    </defs>
-
-    <symbol id="grace-drop" viewBox="0 0 64 80">
-      <g class="grace__body">
-        <!-- Chispas alrededor de la llama -->
-        <g class="grace__sparks" fill="#FFC24A">
-          <circle class="grace__spark" cx="7" cy="30" r="1.1" />
-          <circle class="grace__spark" cx="57" cy="26" r="1.3" />
-          <circle class="grace__spark" cx="12" cy="15" r=".9" />
-          <circle class="grace__spark" cx="53" cy="12" r="1" />
-          <circle class="grace__spark" cx="61" cy="46" r="1" />
-          <circle class="grace__spark" cx="4" cy="49" r="1.1" />
-        </g>
-
-        <!-- El fuego va en un grupo ensanchado: da la silueta regordeta de bolita. -->
-        <g transform="translate(32 51) scale(1.24 .89) translate(-32 -51)">
-          <!-- Capa externa: las lenguas de fuego -->
-          <path
-            class="grace__layer grace__layer--out"
-            fill="url(#graceOuter)"
-            d="M32 4c3.5 9 8 13.5 9.5 21 2.5-2.5 3.5-6.5 3-11 4.5 6.5 7 14 6 22 2.5-1.5 4-4.5 4.5-8 4 9.5 4.5 21-1 29.5C48.5 67 41 76 32 76s-16.5-9-22-18.5C4.5 49 5 37.5 9 28c.5 3.5 2 6.5 4.5 8-1-8 1.5-15.5 6-22-.5 4.5.5 8.5 3 11C24 17.5 28.5 13 32 4z" />
-
-          <!-- Capa media -->
-          <path
-            class="grace__layer grace__layer--mid"
-            fill="url(#graceMid)"
-            d="M32 15c3 7.5 6.5 11 7.5 17 2-2 2.5-5 2-8.5 3.5 5 5.5 11 5 17.5 2-1 3-3.5 3.5-6.5 3 7 3 16-1 23C45 65 39 71 32 71s-13-6-17-13.5c-4-7-4-16-1-23 .5 3 1.5 5.5 3.5 6.5-.5-6.5 1.5-12.5 5-17.5-.5 3.5 0 6.5 2 8.5 1-6 4.5-9.5 7.5-17z" />
-
-          <!-- Núcleo claro donde vive la carita -->
-          <path
-            class="grace__layer grace__layer--core"
-            fill="url(#graceCore)"
-            d="M32 26c3 6.5 8 10 9.5 16.5 2 8.5 1 16-2 20.5-2 3-4.5 4-7.5 4s-5.5-1-7.5-4c-3-4.5-4-12-2-20.5C24 36 29 32.5 32 26z" />
-        </g>
-
-        <!-- Carita kawaii -->
-        <g class="grace__face">
-          <ellipse cx="26.4" cy="49.4" rx="2.9" ry="1.9" fill="#FF6F8E" opacity=".5" />
-          <ellipse cx="37.6" cy="49.4" rx="2.9" ry="1.9" fill="#FF6F8E" opacity=".5" />
-          <g class="grace__eyes">
-            <ellipse cx="28.2" cy="45" rx="2.8" ry="3.5" fill="#3B1D0E" />
-            <ellipse cx="35.8" cy="45" rx="2.8" ry="3.5" fill="#3B1D0E" />
-            <circle cx="27.2" cy="43.5" r="1.1" fill="#FFFFFF" />
-            <circle cx="34.8" cy="43.5" r="1.1" fill="#FFFFFF" />
-          </g>
-          <path
-            class="grace__mouth"
-            d="M29.6 50.8c1.5 1.9 3.3 1.9 4.8 0"
-            fill="none"
-            stroke="#3B1D0E"
-            stroke-width="1.6"
-            stroke-linecap="round" />
-        </g>
-      </g>
-    </symbol>
-  </svg>
 
   <div class="wrap">
 
@@ -123,11 +48,11 @@
       <main class="chat" aria-label="Conversación con el chatbot">
         <div class="chat__head">
           <div class="chat__identity">
-            <span class="grace grace--lg" aria-hidden="true">
-              <svg class="grace__svg" viewBox="0 0 64 80"><use href="#grace-drop" /></svg>
+            <span class="blaze blaze--lg" aria-hidden="true">
+              <img class="blaze__img" src="./assets/blaze-logo.png" alt="" width="40" height="40" />
             </span>
             <span class="chat__names">
-              <span class="chat__title">Grace</span>
+              <span class="chat__title">Blaze</span>
               <span class="chat__role">Escuela Bíblica de Palabra Pura</span>
             </span>
           </div>
@@ -302,6 +227,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=supabase-1"></script>
+  <script type="module" src="./js/main.js?v=blaze-1"></script>
 </body>
 </html>

@@ -8,8 +8,8 @@
 
 export const config = {
   /**
-   * Endpoint del chat. Por defecto same-origin: el mismo contenedor que sirve
-   * la página responde en /api/chat (modo local con Postgres, o proxy).
+   * En GitHub Pages el chat llama directo a la Edge Function de Supabase.
+   * Proyecto: jkffgudzlcemapxprbws
    */
   endpoint: "/api/chat",
 
@@ -17,7 +17,7 @@ export const config = {
   fallbackEndpoint:
     "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
 
-  /** Publishable key (pública). Solo se usa con el fallback a Supabase. */
+  /** Publishable / anon key del proyecto (pública). */
   publishableKey: "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW",
 
   /** Preguntas de ejemplo que se muestran bajo el chat. */
@@ -30,7 +30,7 @@ export const config = {
 
   /** Mensaje inicial del asistente. */
   welcomeMessage:
-    "Hola, soy Grace. Bienvenidos a la Escuela Bíblica de Palabra Pura. " +
+    "Hola, soy Blaze. Bienvenidos a la Escuela Bíblica de Palabra Pura. " +
     "Indícame qué pregunta tienes hoy, ¿cómo puedo guiarte?",
 
   /** Retardo simulado del modo demo, en milisegundos. */

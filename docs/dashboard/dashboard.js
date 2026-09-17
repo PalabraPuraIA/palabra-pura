@@ -43,7 +43,7 @@ function renderRecentCard(record) {
   const source = sourceLabel(record.source, record.mode);
   const answer = record.answer
     ? `<section class="qa-card__section">
-         <h3>Respuesta de Grace</h3>
+         <h3>Respuesta de Blaze</h3>
          <p>${escapeHtml(record.answer)}</p>
        </section>`
     : `<p class="qa-card__legacy">Esta consulta es anterior al registro de respuestas.</p>`;
