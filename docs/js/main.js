@@ -22,10 +22,12 @@ import { VideoPlayer } from "./ui/VideoPlayer.js";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js";
 import { LifeAreasPanel } from "./ui/LifeAreasPanel.js";
 import { LifeAreaService } from "./services/LifeAreaService.js";
+import { AnalyticsService } from "./services/AnalyticsService.js";
 
 class App {
   #service = new ChatService();
   #articles = new ArticleService();
+  #analytics = new AnalyticsService();
   #view;
   #player;
   #articlesPanel;
@@ -108,6 +110,7 @@ class App {
 
     this.#view.hideTyping();
     this.#view.addBotMessage(response);
+    this.#analytics.trackQuestion(question, response);
 
     if (response?.video?.youtube_id) {
       this.#player.load(response.video, { autoplay: false });

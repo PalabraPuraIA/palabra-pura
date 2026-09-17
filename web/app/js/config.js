@@ -18,6 +18,7 @@ export const config = {
     "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
 
   /** Publishable / anon key del proyecto (pública). */
+  supabaseUrl: "https://jkffgudzlcemapxprbws.supabase.co",
   publishableKey: "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW",
 
   /** Preguntas de ejemplo que se muestran bajo el chat. */

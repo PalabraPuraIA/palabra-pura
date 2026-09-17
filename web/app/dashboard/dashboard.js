@@ -10,6 +10,27 @@ const TOPIC_LABELS = {
   otros: "Otros",
 };
 
+const TOPICS = [
+  { id: "fe", label: "Fe y confianza" },
+  { id: "oracion", label: "Oración" },
+  { id: "sanidad", label: "Sanidad" },
+  { id: "palabra", label: "La Palabra" },
+  { id: "nuevo", label: "Nuevo nacimiento / salvación" },
+  { id: "dones", label: "Dones espirituales" },
+  { id: "familia", label: "Familia y matrimonio" },
+  { id: "testimonio", label: "Testimonios / restauración" },
+];
+
+const STOPWORDS = new Set([
+  "a", "al", "algo", "como", "con", "de", "del", "el", "en", "es", "esta", "este",
+  "la", "las", "lo", "los", "me", "mi", "no", "o", "para", "pero", "por", "que",
+  "se", "si", "su", "te", "tu", "un", "una", "y", "ya", "yo", "qué", "cómo",
+  "dice", "dios", "significa", "puedo", "puede", "hacer", "tengo", "tiene", "ser",
+]);
+
+const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
+const PUBLISHABLE_KEY = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
+
 function fmtWhen(iso) {
   try {
     const d = new Date(iso);
@@ -34,6 +55,64 @@ function sourceLabel(source, mode) {
   if (source === "biblia") return "Biblia";
   if (mode === "guard") return "Filtro";
   return source || mode || "Chat";
+}
+
+function normalizeTokens(text) {
+  return String(text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 2 && !STOPWORDS.has(t));
+}
+
+function buildSummary(events) {
+  const topicCounts = Object.fromEntries(TOPICS.map((t) => [t.id, 0]));
+  topicCounts.otros = 0;
+  const termCounts = new Map();
+
+  for (const ev of events) {
+    for (const tid of ev.topics || []) {
+      topicCounts[tid] = (topicCounts[tid] || 0) + 1;
+    }
+    for (const term of normalizeTokens(ev.question)) {
+      termCounts.set(term, (termCounts.get(term) || 0) + 1);
+    }
+  }
+
+  const topics = [
+    ...TOPICS.map((t) => ({
+      id: t.id,
+      label: t.label,
+      count: topicCounts[t.id] || 0,
+    })),
+    { id: "otros", label: "Otros temas", count: topicCounts.otros || 0 },
+  ]
+    .filter((t) => t.count > 0)
+    .sort((a, b) => b.count - a.count);
+
+  const topTerms = [...termCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 12)
+    .map(([term, count]) => ({ term, count }));
+
+  const recent = [...events]
+    .sort((a, b) => String(b.at).localeCompare(String(a.at)))
+    .slice(0, 25);
+
+  const last24h = events.filter(
+    (e) => Date.now() - Date.parse(e.at) < 24 * 3600 * 1000,
+  ).length;
+
+  return {
+    totalQuestions: events.length,
+    last24h,
+    topics,
+    topTerms,
+    recent,
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 function renderRecentCard(record) {
@@ -92,10 +171,53 @@ function renderRecentCard(record) {
   </details>`;
 }
 
-async function load() {
+async function loadFromLocal() {
   const res = await fetch("/api/analytics/summary", { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+async function loadFromSupabase() {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/chat_interactions`);
+  url.searchParams.set(
+    "select",
+    "id,question,answer,excerpt,source,mode,topics,video,passages,retrieval_meta,created_at",
+  );
+  url.searchParams.set("order", "created_at.desc");
+  url.searchParams.set("limit", "500");
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      apikey: PUBLISHABLE_KEY,
+      Authorization: `Bearer ${PUBLISHABLE_KEY}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`);
+  const rows = await res.json();
+  const events = (Array.isArray(rows) ? rows : []).map((row) => ({
+    id: row.id,
+    question: row.question,
+    answer: row.answer,
+    excerpt: row.excerpt,
+    source: row.source,
+    mode: row.mode,
+    topics: row.topics || [],
+    video: row.video,
+    passages: row.passages,
+    retrieval: row.retrieval_meta,
+    at: row.created_at,
+  }));
+  return buildSummary(events);
+}
+
+async function load() {
+  try {
+    return await loadFromLocal();
+  } catch (_) {
+    return loadFromSupabase();
+  }
 }
 
 function render(data) {
@@ -171,7 +293,7 @@ async function refresh() {
   } catch (err) {
     console.error(err);
     document.querySelector("[data-generated]").textContent =
-      "No se pudo cargar el resumen. ¿El servidor web está activo?";
+      "No se pudo cargar el resumen desde Supabase.";
   }
 }
 

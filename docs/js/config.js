@@ -21,6 +21,9 @@ export const config = {
   /** Publishable / anon key del proyecto (pública). */
   publishableKey: "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW",
 
+  /** Proyecto Supabase (REST / analytics). */
+  supabaseUrl: "https://jkffgudzlcemapxprbws.supabase.co",
+
   /** Preguntas de ejemplo que se muestran bajo el chat. */
   exampleQuestions: [
     "¿Qué significa nacer de nuevo?",
