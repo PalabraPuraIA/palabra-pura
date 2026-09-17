@@ -199,40 +199,34 @@ async function embedQuery(question) {
   const data = await res.json();
   return data.embedding.values;
 }
-// Llama al LLM (OpenRouter) y parsea el JSON de respuesta.
+// Llama al LLM (Gemini) y parsea el JSON de respuesta.
 async function askLLM(system, userContent) {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      temperature: 0.3,
-      response_format: {
-        type: "json_object"
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY missing");
+  const res = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
       },
-      messages: [
-        {
-          role: "system",
-          content: system
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: system }] },
+        contents: [{ role: "user", parts: [{ text: userContent }] }],
+        generationConfig: {
+          temperature: 0.3,
+          responseMimeType: "application/json",
         },
-        {
-          role: "user",
-          content: userContent
-        }
-      ]
-    })
-  });
-  if (!res.ok) throw new Error("OpenRouter: " + await res.text());
+      }),
+    },
+  );
+  if (!res.ok) throw new Error("Gemini LLM: " + await res.text());
   const data = await res.json();
+  const content = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ?? "";
   try {
-    return JSON.parse(data.choices[0].message.content);
-  } catch  {
-    return {
-      answer: data?.choices?.[0]?.message?.content ?? ""
-    };
+    return JSON.parse(content);
+  } catch {
+    return { answer: content };
   }
 }
 // ---- Handler ----
