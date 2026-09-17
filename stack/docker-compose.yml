@@ -84,7 +84,7 @@ services:
       DOLA_MODEL: ${DOLA_MODEL:-}
       CEREBRAS_API_KEY: ${CEREBRAS_API_KEY:-}
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
-      SUPABASE_CHAT_URL: ${SUPABASE_CHAT_URL:-https://roxbekpxdgvqbosepmdd.supabase.co/functions/v1/chatbot-iglesia-palabra-pura}
+      SUPABASE_CHAT_URL: ${SUPABASE_CHAT_URL:-https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
     volumes:
       # Live UI updates without rebuild (optional in prod)

@@ -1,0 +1,101 @@
+/* ============================================================
+   BASE — reset, tipografía y accesibilidad
+   ============================================================ */
+*,
+*::before,
+*::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Auto evita que el scroll de la página se “pegue” con animaciones suaves
+   compitiendo contra rueda/trackpad y scrollIntoView. */
+html { scroll-behavior: auto; }
+
+body {
+  position: relative;
+  font-family: var(--f-body);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* Aura de marca detrás del contenido. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20% -10% auto -10%;
+  height: 70vh;
+  background: var(--g-halo);
+  filter: blur(20px);
+  pointer-events: none;
+  z-index: -2;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  right: -12vw;
+  bottom: -18vh;
+  width: 46vw;
+  height: 46vw;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(242, 106, 27, .12) 0%, transparent 70%);
+  filter: blur(30px);
+  pointer-events: none;
+  z-index: -2;
+}
+
+button { font: inherit; cursor: pointer; }
+input, textarea { font: inherit; }
+
+::selection { background: rgba(255, 0, 102, .18); }
+
+:focus-visible {
+  outline: 2px solid var(--c-rose);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* Barras de desplazamiento discretas */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-line) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--c-line);
+  border-radius: var(--r-pill);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--c-ink-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Animaciones compartidas */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px) scale(.99); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: .25; }
+  40%           { opacity: 1; }
+}
+
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 0, 102, .5); }
+  70%  { box-shadow: 0 0 0 7px rgba(255, 0, 102, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 102, 0); }
+}
+
+@keyframes shimmer {
+  from { background-position: 0% 50%; }
+  to   { background-position: 200% 50%; }
+}
