@@ -39,10 +39,11 @@ export const config = {
 
   /**
    * Artículos públicos de la iglesia.
-   * Preferimos el proxy same-origin (/api/articles) para evitar CORS y
-   * búsquedas vacías de WordPress con varias palabras.
+   * En el server local usa /api/articles; en GitHub Pages cae a WordPress directo.
    */
   articlesApiUrl: "/api/articles",
+  wpPostsUrl: "https://iglesiapalabrapura.com/site/wp-json/wp/v2/posts",
+  wpArticlesCategory: "50",
   articlesHubUrl: "https://iglesiapalabrapura.com/site/articulos/",
   articlesLimit: 5,
 };

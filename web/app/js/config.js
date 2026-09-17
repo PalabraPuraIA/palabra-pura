@@ -42,6 +42,8 @@ export const config = {
    * búsquedas vacías de WordPress con varias palabras.
    */
   articlesApiUrl: "/api/articles",
+  wpPostsUrl: "https://iglesiapalabrapura.com/site/wp-json/wp/v2/posts",
+  wpArticlesCategory: "50",
   articlesHubUrl: "https://iglesiapalabrapura.com/site/articulos/",
   articlesLimit: 5,
 };
