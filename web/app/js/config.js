@@ -1,25 +1,31 @@
 /**
  * config.js — Configuración central de la aplicación.
  *
- * Pon aquí la URL de tu Edge Function para que la página
- * arranque ya conectada. Si la dejas vacía, funciona en
- * modo demostración y puedes conectarla desde la interfaz.
+ * Orden de backends:
+ *  1. Supabase nube (principal en GitHub Pages)
+ *  2. Server Fintek / túnel (reserva si la nube falla)
  */
 
 export const config = {
   /**
-   * En GitHub Pages el chat llama directo a la Edge Function de Supabase.
-   * Proyecto: jkffgudzlcemapxprbws
+   * URL pública del contenedor Fintek (túnel) — reserva.
+   * Si cambia al reiniciar el túnel, actualiza también docs/public-url.json.
    */
-  endpoint: "/api/chat",
+  serverBaseUrl: "",  // same-origin reserve when hosted in the container
 
-  /** Si /api/chat no existe (hosting estático), se usa la Edge Function. */
+  /** Endpoint principal: Edge Function en Supabase nube. */
+  endpoint:
+    "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
+
+  /** Alias de la nube (compatibilidad). */
   fallbackEndpoint:
     "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
 
   /** Publishable / anon key del proyecto (pública). */
-  supabaseUrl: "https://jkffgudzlcemapxprbws.supabase.co",
   publishableKey: "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW",
+
+  /** Proyecto Supabase (REST / analytics). */
+  supabaseUrl: "https://jkffgudzlcemapxprbws.supabase.co",
 
   /** Preguntas de ejemplo que se muestran bajo el chat. */
   exampleQuestions: [
@@ -38,9 +44,7 @@ export const config = {
   demoDelayMs: 800,
 
   /**
-   * Artículos públicos de la iglesia.
-   * Preferimos el proxy same-origin (/api/articles) para evitar CORS y
-   * búsquedas vacías de WordPress con varias palabras.
+   * Artículos: WordPress directo; proxy del server solo de reserva.
    */
   articlesApiUrl: "/api/articles",
   wpPostsUrl: "https://iglesiapalabrapura.com/site/wp-json/wp/v2/posts",
@@ -57,5 +61,5 @@ export function setEndpoint(url) {
 
 /** ¿Está conectado a un backend real? */
 export function isConnected() {
-  return Boolean(config.endpoint);
+  return Boolean(config.endpoint || config.serverBaseUrl || config.fallbackEndpoint);
 }

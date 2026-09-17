@@ -1,10 +1,10 @@
 /**
- * AnalyticsService.js — Registra consultas en Supabase (chat_interactions).
- * En GitHub Pages no hay /api/analytics; usa el REST de Supabase.
- * Falla en silencio si el API no está disponible.
+ * AnalyticsService.js — Registra consultas.
+ * Prefiere Supabase nube; el server Fintek queda de reserva.
  */
 
 import { config } from "../config.js";
+import { resolveBackend } from "./backend.js";
 
 const TOPICS = [
   { id: "fe", keywords: ["fe", "confiar", "confianza", "creer", "temor", "miedo", "ansiedad"] },
@@ -67,33 +67,42 @@ export class AnalyticsService {
       retrieval_meta: response?.retrieval || null,
     };
 
+    const bodyLocal = {
+      question: payload.question,
+      answer: payload.answer,
+      excerpt: payload.excerpt,
+      source: payload.source,
+      mode: payload.mode,
+      video: payload.video,
+      passages: payload.passages,
+      retrieval: payload.retrieval_meta,
+    };
+
     try {
-      // Prefer local proxy when available (Fintek server).
-      const local = await fetch("/api/analytics/event", {
+      // 1) Nube primero
+      if (config.publishableKey) {
+        const cloud = await fetch(supabaseUrl("chat_interactions"), {
+          method: "POST",
+          headers: supabaseHeaders(),
+          body: JSON.stringify(payload),
+          keepalive: true,
+        }).catch(() => null);
+        if (cloud?.ok) return;
+      }
+
+      // 2) Reserva: server Fintek
+      const backend = await resolveBackend();
+      const eventUrl = backend.serverBase
+        ? `${backend.serverBase}/api/analytics/event`
+        : null;
+      if (!eventUrl) return;
+
+      await fetch(eventUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: payload.question,
-          answer: payload.answer,
-          excerpt: payload.excerpt,
-          source: payload.source,
-          mode: payload.mode,
-          video: payload.video,
-          passages: payload.passages,
-          retrieval: payload.retrieval_meta,
-        }),
+        body: JSON.stringify(bodyLocal),
         keepalive: true,
       }).catch(() => null);
-
-      if (local?.ok) return;
-
-      if (!config.publishableKey) return;
-      await fetch(supabaseUrl("chat_interactions"), {
-        method: "POST",
-        headers: supabaseHeaders(),
-        body: JSON.stringify(payload),
-        keepalive: true,
-      });
     } catch (err) {
       console.warn("[AnalyticsService]", err);
     }

@@ -1,7 +1,10 @@
 {
   "ok": true,
-  "provider": "supabase",
-  "baseUrl": "https://jkffgudzlcemapxprbws.supabase.co",
-  "chatUrl": "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
+  "serverBaseUrl": "https://trends-then-pipe-airlines.trycloudflare.com",
+  "baseUrl": "https://trends-then-pipe-airlines.trycloudflare.com",
+  "chatUrl": "https://trends-then-pipe-airlines.trycloudflare.com/",
+  "dashboardUrl": "https://trends-then-pipe-airlines.trycloudflare.com/dashboard/",
+  "supabaseUrl": "https://jkffgudzlcemapxprbws.supabase.co",
+  "supabaseChatUrl": "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
   "projectRef": "jkffgudzlcemapxprbws"
 }

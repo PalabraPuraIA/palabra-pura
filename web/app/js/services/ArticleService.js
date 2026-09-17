@@ -6,6 +6,7 @@
  */
 
 import { config } from "../config.js";
+import { resolveBackend } from "./backend.js";
 
 const STOPWORDS = new Set([
   "a", "al", "algo", "algun", "alguna", "algunas", "algunos", "ante", "antes",
@@ -179,16 +180,21 @@ async function recommendFromWordpress(question, limit) {
     .map(({ post }) => post);
 }
 
-async function recommendFromProxy(question, limit) {
+async function recommendFromProxy(question, limit, serverBase = null) {
   const terms = extractSearchTerms(question);
   const q = terms.slice(0, 4).join(" ") || String(question ?? "").trim();
   if (!q) return [];
 
-  const url = new URL(config.articlesApiUrl, window.location.origin);
-  url.searchParams.set("q", q);
-  url.searchParams.set("limit", String(limit));
+  const finalUrl = serverBase
+    ? `${serverBase.replace(/\/+$/, "")}/api/articles?q=${encodeURIComponent(q)}&limit=${limit}`
+    : (() => {
+        const u = new URL(config.articlesApiUrl, window.location.origin);
+        u.searchParams.set("q", q);
+        u.searchParams.set("limit", String(limit));
+        return u.toString();
+      })();
 
-  const response = await fetch(url.toString(), {
+  const response = await fetch(finalUrl, {
     headers: { Accept: "application/json" },
     cache: "no-store",
   });
@@ -218,18 +224,22 @@ export class ArticleService {
     const cacheKey = `${q}|${limit}`;
     if (this.#cache.has(cacheKey)) return this.#cache.get(cacheKey);
 
+    // 1) WordPress directo (nube / Pages). 2) Proxy del server viejo de reserva.
     let articles = [];
     try {
-      articles = await recommendFromProxy(question, limit);
-    } catch (_) {
+      articles = await recommendFromWordpress(question, limit);
+    } catch (error) {
+      console.warn("[ArticleService] WP", error);
       articles = [];
     }
 
     if (!articles.length) {
       try {
-        articles = await recommendFromWordpress(question, limit);
-      } catch (error) {
-        console.warn("[ArticleService]", error);
+        const backend = await resolveBackend();
+        if (backend.serverBase) {
+          articles = await recommendFromProxy(question, limit, backend.serverBase);
+        }
+      } catch (_) {
         articles = [];
       }
     }

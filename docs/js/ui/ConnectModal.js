@@ -1,12 +1,10 @@
 /**
- * ConnectModal.js — Permite pegar la URL de la Edge Function sin tocar el código.
- *
- * Útil para el demo: enseñas la página en modo ejemplo y la
- * conectas en vivo cuando quieras.
+ * ConnectModal.js — Muestra si el chat usa el server Fintek o Supabase nube.
  */
 
 import { qs } from "../utils/dom.js";
 import { config, setEndpoint, isConnected } from "../config.js";
+import { resolveBackend } from "../services/backend.js";
 
 export class ConnectModal {
   #modal;
@@ -28,6 +26,7 @@ export class ConnectModal {
 
     this.#bindEvents();
     this.#refreshStatus();
+    setInterval(() => this.#refreshStatus(), 30000);
   }
 
   #bindEvents() {
@@ -39,7 +38,6 @@ export class ConnectModal {
     qs("[data-modal-save]", this.#modal)
       .addEventListener("click", () => this.#save());
 
-    // Clic fuera de la tarjeta cierra el modal.
     this.#modal.addEventListener("click", (event) => {
       if (event.target === this.#modal) this.#close();
     });
@@ -50,7 +48,7 @@ export class ConnectModal {
   }
 
   #open() {
-    this.#input.value = config.endpoint;
+    this.#input.value = config.serverBaseUrl || config.endpoint;
     this.#modal.classList.add("modal--open");
     this.#input.focus();
   }
@@ -60,16 +58,29 @@ export class ConnectModal {
   }
 
   #save() {
-    setEndpoint(this.#input.value);
-    this.#refreshStatus();
+    const value = this.#input.value.trim();
+    if (/trycloudflare\.com|localhost|127\.0\.0\.1|10\./.test(value) && !/functions\/v1/.test(value)) {
+      config.serverBaseUrl = value.replace(/\/+$/, "");
+    } else {
+      setEndpoint(value);
+    }
+    this.#refreshStatus(true);
     this.#close();
   }
 
-  /** Refleja en la píldora si estamos conectados o en demo. */
-  #refreshStatus() {
+  async #refreshStatus(force = false) {
     const connected = isConnected();
-
     this.#dot.classList.toggle("status-pill__dot--live", connected);
-    this.#label.textContent = connected ? "Conectado" : "Demo · Conectar";
+    if (!connected) {
+      this.#label.textContent = "Demo · Conectar";
+      return;
+    }
+    try {
+      const backend = await resolveBackend({ force });
+      this.#label.textContent =
+        backend.mode === "server" ? "Reserva · Server" : "Nube · Supabase";
+    } catch {
+      this.#label.textContent = "Conectado";
+    }
   }
 }

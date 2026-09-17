@@ -1,21 +1,12 @@
 /**
  * ChatService.js — Única capa que habla con el backend.
  *
- * La interfaz (ui/*) NO sabe nada de fetch ni de JSON.
- * Le pide una respuesta a este servicio y ya.
- *
- * Contrato con la Edge Function:
- *   envía →  { "question": "...", "history": [{role, content}] }
- *   recibe → { "answer": "...",                 // explicación de la IA
- *              "excerpt": "...",                // recorte de audio/transcripción (opcional)
- *              "passage": { "reference", "text", "bible_version?" },
- *              "video":   { "title", "episode", "youtube_id", "start_second" },
- *              "source":  "video" | "biblia" }
- *   (passage, video, excerpt son opcionales)
+ * Prefiere Supabase nube. Si falla, usa el server Fintek (túnel) de reserva.
  */
 
 import { config, isConnected } from "../config.js";
 import { demoResponses, fallbackDemoResponse } from "../data/demoResponses.js";
+import { resolveBackend } from "./backend.js";
 
 const NETWORK_ERROR_MESSAGE =
   "No pude conectar con el chatbot. Revisa que la URL sea correcta y que la función esté desplegada, " +
@@ -31,35 +22,45 @@ export class ChatService {
    * Envía una pregunta y devuelve una respuesta normalizada.
    * Nunca lanza: los errores vuelven como respuesta legible.
    * @param {string} question
-   * @returns {Promise<{answer: string, passage?: object, video?: object}>}
+   * @returns {Promise<{answer: string, passage?: object, video?: object, mode?: string}>}
    */
   async ask(question) {
     if (!isConnected()) return this.#askDemo(question);
 
-    try {
-      const response = this.#normalize(
-        await this.#post(config.endpoint, question, this.#history),
-      );
-      this.#remember(question, response);
-      return response;
-    } catch (error) {
-      console.error("[ChatService]", error);
+    const backend = await resolveBackend();
+    const cloud =
+      config.endpoint ||
+      config.fallbackEndpoint ||
+      `${String(config.supabaseUrl || "").replace(/\/+$/, "")}/functions/v1/chatbot-iglesia-palabra-pura`;
+    const reserve =
+      backend.serverBase
+        ? `${backend.serverBase}/api/chat`
+        : backend.mode === "server"
+          ? backend.chatEndpoint
+          : backend.reserveChatEndpoint;
 
-      // Hosting estático o backend propio sin configurar: probamos la Edge Function.
-      const fallback = config.fallbackEndpoint;
-      if (fallback && fallback !== config.endpoint) {
-        try {
-          const response = this.#normalize(
-            await this.#post(fallback, question, this.#history),
-          );
-          this.#remember(question, response);
-          return response;
-        } catch (fallbackError) {
-          console.error("[ChatService] fallback", fallbackError);
-        }
-      }
-      return { answer: NETWORK_ERROR_MESSAGE };
+    // Siempre: nube primero, server viejo de reserva.
+    const endpoints = [];
+    if (cloud) endpoints.push(cloud);
+    if (reserve && !endpoints.includes(reserve) && !/supabase\.co/.test(reserve)) {
+      endpoints.push(reserve);
     }
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = this.#normalize(
+          await this.#post(endpoint, question, this.#history),
+        );
+        response.mode =
+          response.mode || (/supabase\.co/.test(endpoint) ? "supabase" : "server");
+        this.#remember(question, response);
+        return response;
+      } catch (error) {
+        console.warn("[ChatService]", endpoint, error);
+      }
+    }
+
+    return { answer: NETWORK_ERROR_MESSAGE };
   }
 
   /** Un POST al backend. Solo manda la apikey si el destino es Supabase. */
@@ -93,13 +94,11 @@ export class ChatService {
     }
   }
 
-  /** Modo demostración: respuestas de ejemplo, sin backend. */
   async #askDemo(question) {
     await new Promise((resolve) => setTimeout(resolve, config.demoDelayMs));
     return demoResponses[question] ?? fallbackDemoResponse;
   }
 
-  /** Acepta variaciones de formato y siempre devuelve la misma forma. */
   #normalize(data) {
     if (typeof data === "string") return { answer: data };
 

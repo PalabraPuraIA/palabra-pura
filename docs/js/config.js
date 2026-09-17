@@ -1,20 +1,23 @@
 /**
  * config.js — Configuración central de la aplicación.
  *
- * Pon aquí la URL de tu Edge Function para que la página
- * arranque ya conectada. Si la dejas vacía, funciona en
- * modo demostración y puedes conectarla desde la interfaz.
+ * Orden de backends:
+ *  1. Supabase nube (principal en GitHub Pages)
+ *  2. Server Fintek / túnel (reserva si la nube falla)
  */
 
 export const config = {
   /**
-   * En GitHub Pages el chat llama directo a la Edge Function de Supabase.
-   * Proyecto: jkffgudzlcemapxprbws
+   * URL pública del contenedor Fintek (túnel) — reserva.
+   * Si cambia al reiniciar el túnel, actualiza también docs/public-url.json.
    */
+  serverBaseUrl: "https://trends-then-pipe-airlines.trycloudflare.com",
+
+  /** Endpoint principal: Edge Function en Supabase nube. */
   endpoint:
     "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
 
-  /** Reserva por si el endpoint principal falla. */
+  /** Alias de la nube (compatibilidad). */
   fallbackEndpoint:
     "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
 
@@ -41,8 +44,7 @@ export const config = {
   demoDelayMs: 800,
 
   /**
-   * Artículos públicos de la iglesia.
-   * En el server local usa /api/articles; en GitHub Pages cae a WordPress directo.
+   * Artículos: WordPress directo; proxy del server solo de reserva.
    */
   articlesApiUrl: "/api/articles",
   wpPostsUrl: "https://iglesiapalabrapura.com/site/wp-json/wp/v2/posts",
@@ -59,5 +61,5 @@ export function setEndpoint(url) {
 
 /** ¿Está conectado a un backend real? */
 export function isConnected() {
-  return Boolean(config.endpoint);
+  return Boolean(config.endpoint || config.serverBaseUrl || config.fallbackEndpoint);
 }
