@@ -135,6 +135,20 @@ export function sanitizeAnswer(answer) {
     return RUDE_ANSWER;
   }
 
+  // Quita coletillas de "humildad" literales; el tono amable se queda.
+  text = text
+    .replace(/\bcon\s+mucho\s+amor\s+y\s+(mucha\s+)?humildad\s+(te\s+)?(digo|comparto)[,:]?\s*/gi, "")
+    .replace(/\bcon\s+(mucha\s+)?humildad\s+(te\s+)?(digo|comparto|digo\s+que)[,:]?\s*/gi, "")
+    .replace(/\b(te\s+)?(digo|comparto)\s+con\s+(mucha\s+)?humildad[,:]?\s*/gi, "")
+    .replace(/\bhumildemente[,:]?\s*/gi, "")
+    .replace(/\by\s+humildad\b/gi, "")
+    .replace(/\bcon\s+(mucha\s+)?humildad\b/gi, "")
+    .replace(/\bhumildad\b/gi, "")
+    .replace(/\bhumilde(s)?\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[,:\s]+/, "")
+    .trim();
+
   return text;
 }
 

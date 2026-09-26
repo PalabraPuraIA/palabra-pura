@@ -83,6 +83,39 @@ export function adjacentRadiusFor(fragment) {
 }
 
 /**
+ * ¿Hay evidencia clara en los fragmentos aunque el LLM diga found:false?
+ * Evita caer a solo-Biblia cuando el audio sí habla del tema (p. ej. noviazgo).
+ */
+export function hasStrongVideoEvidence(fragments, question, minSimilarity = 0.68) {
+  const list = Array.isArray(fragments) ? fragments : [];
+  if (!list.length) return false;
+
+  const terms = [
+    ...new Set(
+      String(question ?? "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 5),
+    ),
+  ];
+
+  for (const row of list) {
+    if (Number(row.similarity) >= minSimilarity) return true;
+    if (row.hybrid) return true;
+    if (!terms.length) continue;
+    const text = String(row.content || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+    if (terms.some((term) => text.includes(term))) return true;
+  }
+  return false;
+}
+
+/**
  * Pipeline completo: candidatos vector → umbral → híbrido FTS → expandir vecinos.
  */
 export async function retrieveTranscriptContext(db, embeddingLiteral, question, opts = {}) {

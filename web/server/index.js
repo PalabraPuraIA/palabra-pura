@@ -7,8 +7,26 @@ import express from "express";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import multer from "multer";
 
 import { chatMode, handleChat, handleChatStatus, handleLifeAreas } from "./chat.js";
+import { handleKnowledgeFeedback } from "./knowledge.js";
+import {
+  handleKnowledgeList,
+  handleKnowledgePatch,
+  handleKnowledgeDelete,
+  handleFactsList,
+  handleFactCreate,
+  handleFactPatch,
+  handleFactDelete,
+} from "./knowledge-admin.js";
+import {
+  handleIngestCreate,
+  handleIngestList,
+  handleIngestGet,
+  handleCorpusStats,
+  kickWorker,
+} from "./ingest.js";
 import {
   initConversationStore,
   migrateLegacyEvents,
@@ -120,7 +138,7 @@ function buildSummary(store) {
 
   const recent = [...events]
     .sort((a, b) => String(b.at).localeCompare(String(a.at)))
-    .slice(0, 25)
+    .slice(0, 40)
     .map((e) => ({
       id: e.id,
       question: e.question,
@@ -152,6 +170,23 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", true);
 app.use(express.json({ limit: "32kb" }));
+
+// Pages (github.io) llama al túnel HTTPS; permitir CORS en API.
+app.use((req, res, next) => {
+  const origin = String(req.headers.origin || "");
+  if (
+    origin.includes("github.io")
+    || origin.includes("trycloudflare.com")
+    || origin.includes("10.45.178.129")
+    || origin.includes("localhost")
+  ) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey");
+  }
+  if (req.method === "OPTIONS") return res.status(204).end();
+  next();
+});
 
 // Allow stable entry page(s) to embed this UI in an iframe.
 app.use((_req, res, next) => {
@@ -339,8 +374,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 // Cerebro del chat en el mismo contenedor que la página.
-// Captura exactamente el payload que recibió el usuario y lo guarda antes de
-// enviarlo. Así pregunta, respuesta y extracto siempre pertenecen al mismo evento.
+// Guarda pregunta + respuesta antes de enviarla al cliente (dashboard desplegable).
 app.post("/api/chat", (req, res, next) => {
   const question = String(req.body?.question || "").trim();
   const sendJson = res.json.bind(res);
@@ -365,6 +399,26 @@ app.post("/api/chat", (req, res, next) => {
 });
 app.get("/api/chat/status", handleChatStatus);
 app.get("/api/life-areas", handleLifeAreas);
+app.post("/api/knowledge/feedback", handleKnowledgeFeedback);
+
+app.get("/api/knowledge", handleKnowledgeList);
+app.patch("/api/knowledge/:id", handleKnowledgePatch);
+app.delete("/api/knowledge/:id", handleKnowledgeDelete);
+app.get("/api/facts", handleFactsList);
+app.post("/api/facts", handleFactCreate);
+app.patch("/api/facts/:id", handleFactPatch);
+app.delete("/api/facts/:id", handleFactDelete);
+app.get("/api/corpus", handleCorpusStats);
+
+const upload = multer({
+  dest: path.join(DATA_DIR, "ingest-tmp"),
+  limits: { fileSize: 400 * 1024 * 1024 },
+});
+fs.mkdirSync(path.join(DATA_DIR, "ingest-tmp"), { recursive: true });
+
+app.get("/api/ingest/jobs", handleIngestList);
+app.get("/api/ingest/jobs/:id", handleIngestGet);
+app.post("/api/ingest", upload.single("file"), handleIngestCreate);
 
 /** Current public Cloudflare quick-tunnel URLs (updated by tunnel-watchdog). */
 app.get("/api/public-url", (_req, res) => {
@@ -412,8 +466,6 @@ app.post("/api/analytics/event", async (req, res) => {
     return res.status(400).json({ error: "question too long" });
   }
 
-  // Compatibilidad con clientes antiguos/directos. La app nueva registra
-  // server-side en /api/chat; este endpoint acepta el intercambio completo.
   const topics = detectTopics(question);
   try {
     const id = await recordConversation({
@@ -429,22 +481,35 @@ app.post("/api/analytics/event", async (req, res) => {
       },
       topics,
     });
-    if (!id) return res.status(503).json({ error: "conversation store unavailable" });
-    res.status(201).json({ ok: true, id, topics });
+    if (id) return res.status(201).json({ ok: true, id, topics });
   } catch (err) {
     console.warn("[conversations] legacy event", err.message);
-    res.status(503).json({ error: "conversation store unavailable" });
   }
+
+  // Fallback a analytics.json si Postgres no está listo
+  const store = readStore();
+  const event = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    question,
+    topics,
+    at: new Date().toISOString(),
+  };
+  store.events.push(event);
+  if (store.events.length > 5000) store.events = store.events.slice(-5000);
+  writeStore(store);
+  res.status(201).json({ ok: true, id: event.id, topics: event.topics });
 });
 
 app.get("/api/analytics/summary", async (_req, res) => {
   try {
     const events = await readConversationEvents();
-    res.json(buildSummary({ events: events || readStore().events }));
+    if (events?.length) {
+      return res.json(buildSummary({ events }));
+    }
   } catch (err) {
     console.warn("[conversations] summary", err.message);
-    res.json(buildSummary(readStore()));
   }
+  res.json(buildSummary(readStore()));
 });
 
 app.use(express.static(PUBLIC_DIR, {
@@ -482,4 +547,5 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`palabra-pura-web listening on :${PORT}`);
   console.log(`public=${PUBLIC_DIR} data=${DATA_FILE}`);
   console.log(`chat mode=${chatMode()}`);
+  kickWorker();
 });

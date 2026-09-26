@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agregar contenido — Palabra Pura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <link rel="stylesheet" href="./dashboard.css?v=facts-2" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="bar">
+      <div>
+        <p class="eyebrow">Enciclopedia de Palabra Pura</p>
+        <h1>Agregar video o audio</h1>
+      </div>
+      <div class="bar__actions">
+        <a class="btn" href="./knowledge.html">Ver conocimiento</a>
+        <a class="btn btn--primary" href="../">Ir al chat</a>
+      </div>
+    </header>
+
+    <nav class="dash-nav" aria-label="Secciones">
+      <a href="./">Consultas</a>
+      <a href="./knowledge.html">Conocimiento</a>
+      <a href="./ingest.html" aria-current="page">Agregar video / audio</a>
+      <a href="../">Chat</a>
+    </nav>
+
+    <p class="sub">Pega un link de YouTube o sube un audio/video. Se transcribe, se parte en fragmentos, se vectoriza y queda listo para el chat.</p>
+
+    <section class="card card--wide ingest-form">
+      <h2>Nuevo material</h2>
+      <form data-ingest-form>
+        <label class="field">
+          <span>Título (opcional)</span>
+          <input type="text" name="title" placeholder="Ej. Fe que mueve montañas — parte 2" maxlength="200" />
+        </label>
+
+        <label class="field">
+          <span>Link de YouTube</span>
+          <input type="url" name="url" placeholder="https://www.youtube.com/watch?v=…" />
+        </label>
+
+        <p class="or">— o —</p>
+
+        <label class="field">
+          <span>Archivo de audio o video</span>
+          <input type="file" name="file" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv" />
+        </label>
+
+        <p class="card__hint">Si el video de YouTube no tiene subtítulos, hace falta yt-dlp en el servidor (incluido en la imagen Docker). Un archivo local siempre se manda a Whisper.</p>
+
+        <div class="form-actions">
+          <button class="btn btn--primary" type="submit" data-submit>Indexar</button>
+          <p class="form-msg" data-form-msg hidden></p>
+        </div>
+      </form>
+    </section>
+
+    <section class="card card--wide" style="margin-top:14px">
+      <div class="card-head">
+        <h2>Cola de trabajos</h2>
+        <button class="btn" type="button" data-refresh-jobs>Actualizar</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Cuándo</th>
+              <th>Fuente</th>
+              <th>Título</th>
+              <th>Estado</th>
+              <th>Detalle</th>
+            </tr>
+          </thead>
+          <tbody data-jobs></tbody>
+        </table>
+      </div>
+      <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de ingesta.</p>
+    </section>
+
+    <p class="foot">Requiere <code>GROQ_API_KEY</code> (Whisper) y <code>GEMINI_API_KEY</code> (embeddings) en el entorno del contenedor web.</p>
+  </div>
+  <script type="module" src="./ingest-page.js"></script>
+</body>
+</html>

@@ -40,7 +40,11 @@ const REF_PATTERN =
 
 /** En los videos las citas se dicen en voz alta: "Juan capítulo 3 versículo 16". */
 const SPOKEN_REF_PATTERN =
-  /\b((?:[1-3]\s+)?[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s+cap[íi]tulo\s+(\d{1,3})(?:[^0-9]{0,40}?)vers[íi]culos?\s+(\d{1,3})/gi;
+  /\b((?:[1-3]\s+)?[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s+(?:en\s+el\s+|del\s+)?cap[íi]tulo\s+(\d{1,3})(?:[^0-9]{0,48}?)vers[íi]culos?\s+(\d{1,3})/gi;
+
+/** Variante: "libro de Mateo en el capítulo 6, en el versículo 33". */
+const SPOKEN_BOOK_REF_PATTERN =
+  /\blibro\s+de\s+((?:[1-3]\s+)?[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+)\s+(?:en\s+el\s+|del\s+)?cap[íi]tulo\s+(\d{1,3})(?:[^0-9]{0,48}?)vers[íi]culos?\s+(\d{1,3})/gi;
 
 /**
  * Palabras útiles de la pregunta, recortadas a su raíz.
@@ -350,6 +354,134 @@ export async function suggestTopics(db, question, limit = 6) {
   return ranked.slice(0, limit).map((t) => t.label);
 }
 
+/**
+ * Contenido relacionado para cuando no hay respuesta directa:
+ * fragmentos cercanos a la pregunta + temas confirmados con un audio de muestra.
+ * Cada ítem trae preview/video para mostrarlo al elegir, sin repreguntar al LLM.
+ */
+export async function suggestRelatedContent(db, question, limit = 6) {
+  if (!db) return [];
+  const out = [];
+  const seen = new Set();
+
+  const push = (item) => {
+    if (!item?.label || out.length >= limit) return;
+    const key = `${item.video?.youtube_id || ""}|${item.video?.start_second ?? 0}|${item.label}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(item);
+  };
+
+  const terms = searchTerms(question);
+  if (terms.length) {
+    try {
+      const { rows } = await db.query(
+        `WITH q AS (SELECT to_tsquery('spanish', $1) AS tsq)
+         SELECT f.id, f.content, f.start_second, v.title, v.episode, v.youtube_id,
+                ts_rank_cd(
+                  to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')),
+                  q.tsq
+                ) AS score
+           FROM fragment f
+           JOIN video v ON v.id = f.video_id, q
+          WHERE to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, '')) @@ q.tsq
+            AND coalesce(trim(f.content), '') <> ''
+          ORDER BY score DESC
+          LIMIT $2`,
+        [prefixQuery(terms), Math.max(limit * 2, 8)],
+      );
+      for (const row of rows) {
+        const preview =
+          trimRelevantExcerpt(row.content, question, 220) ||
+          buildExcerpt(row.content, 220);
+        if (!preview) continue;
+        const series = seriesFromTitle(row.title);
+        push({
+          id: `f-${row.id}`,
+          label: series,
+          title: row.title,
+          preview,
+          ask: `enséñame sobre ${series}`,
+          excerpt: preview,
+          video: {
+            title: row.title,
+            episode: row.episode,
+            youtube_id: row.youtube_id,
+            start_second: row.start_second ?? 0,
+          },
+          source: "video",
+          answer: `Aquí tienes una enseñanza relacionada sobre «${series}» que puede interesarte:`,
+        });
+      }
+    } catch (err) {
+      console.error("[suggestRelatedContent] fts", err.message);
+    }
+  }
+
+  if (out.length < limit) {
+    const topics = await suggestTopics(db, question, limit);
+    for (const label of topics) {
+      if (out.length >= limit) break;
+      try {
+        const stems = TOPIC_CANDIDATES.find((t) => t.label === label)?.stems || [label];
+        const term = String(stems[0] || label)
+          .trim()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-z0-9]+/g, " ")
+          .trim()
+          .split(/\s+/)[0];
+        if (!term || term.length < 3) continue;
+
+        const { rows } = await db.query(
+          `SELECT f.id, f.content, f.start_second, v.title, v.episode, v.youtube_id
+             FROM fragment f
+             JOIN video v ON v.id = f.video_id
+            WHERE to_tsvector('spanish', coalesce(f.content, '') || ' ' || coalesce(v.title, ''))
+                  @@ to_tsquery('spanish', $1)
+              AND coalesce(trim(f.content), '') <> ''
+            ORDER BY f.start_second ASC NULLS LAST
+            LIMIT 1`,
+          [`${term}:*`],
+        );
+        const row = rows[0];
+        if (!row) {
+          push({
+            id: `t-${label}`,
+            label,
+            title: label,
+            preview: `Tema disponible en los audios: ${label}`,
+            ask: `qué enseña el ministerio sobre ${label}`,
+          });
+          continue;
+        }
+        const preview = String(row.content || "").replace(/\s+/g, " ").trim().slice(0, 220);
+        push({
+          id: `t-${row.id}`,
+          label,
+          title: row.title,
+          preview,
+          ask: `qué enseña el ministerio sobre ${label}`,
+          excerpt: preview,
+          video: {
+            title: row.title,
+            episode: row.episode,
+            youtube_id: row.youtube_id,
+            start_second: row.start_second ?? 0,
+          },
+          source: "video",
+          answer: `Sobre «${label}», esto es lo que se enseña en los audios:`,
+        });
+      } catch (err) {
+        console.error("[suggestRelatedContent] topic", label, err.message);
+      }
+    }
+  }
+
+  return out;
+}
+
 /** Referencias bíblicas citadas en el fragmento, en orden de aparición. */
 export function findReferences(text) {
   const refs = [];
@@ -366,6 +498,9 @@ export function findReferences(text) {
     push(m[1], m[2], m[3], m[4]);
   }
   for (const m of String(text).matchAll(SPOKEN_REF_PATTERN)) {
+    push(m[1], m[2], m[3]);
+  }
+  for (const m of String(text).matchAll(SPOKEN_BOOK_REF_PATTERN)) {
     push(m[1], m[2], m[3]);
   }
   return [...new Set(refs)];

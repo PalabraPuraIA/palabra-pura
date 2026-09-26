@@ -112,6 +112,27 @@ export class ChatService {
       suggestions: Array.isArray(data.suggestions) ? data.suggestions : undefined,
       lifeArea: data.lifeArea ?? undefined,
       mode: data.mode ?? undefined,
+      knowledgeId: data.knowledgeId ?? undefined,
+      fromKnowledge: Boolean(data.fromKnowledge),
+      articles: Array.isArray(data.articles) ? data.articles : undefined,
     };
+  }
+
+  /**
+   * Envía feedback (útil / no útil) para la base de conocimiento.
+   * @param {{ vote: string, question: string, knowledgeId?: number, payload?: object, articles?: object[] }} body
+   */
+  async sendFeedback(body) {
+    try {
+      const res = await fetch("/api/knowledge/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) return { ok: false };
+      return res.json();
+    } catch {
+      return { ok: false };
+    }
   }
 }

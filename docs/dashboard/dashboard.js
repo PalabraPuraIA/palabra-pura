@@ -1,3 +1,13 @@
+const API_BASE = (() => {
+  if (typeof location !== "undefined" && /github\.io$/i.test(location.hostname)) {
+    return "https://earrings-balance-towers-bid.trycloudflare.com";
+  }
+  return "";
+})();
+function apiUrl(path) {
+  return `${API_BASE}${path}`;
+}
+
 const TOPIC_LABELS = {
   fe: "Fe y confianza",
   oracion: "Oración",
@@ -171,11 +181,8 @@ function renderRecentCard(record) {
   </details>`;
 }
 
-async function loadFromLocal(serverBase = null) {
-  const url = serverBase
-    ? `${serverBase.replace(/\/+$/, "")}/api/analytics/summary`
-    : "/api/analytics/summary";
-  const res = await fetch(url, { cache: "no-store" });
+async function loadFromLocal() {
+  const res = await fetch(apiUrl("/api/analytics/summary", { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -216,31 +223,11 @@ async function loadFromSupabase() {
 }
 
 async function load() {
-  // Nube primero; server Fintek solo de reserva.
   try {
-    return await loadFromSupabase();
-  } catch (_) {}
-
-  const candidates = [];
-  try {
-    const pub = await fetch(`../public-url.json?_=${Date.now()}`, { cache: "no-store" });
-    if (pub.ok) {
-      const data = await pub.json();
-      const base = String(data.serverBaseUrl || data.baseUrl || "").replace(/\/+$/, "");
-      if (base && !/supabase\.co/.test(base)) candidates.push(base);
-    }
-  } catch (_) {}
-  candidates.push("https://trends-then-pipe-airlines.trycloudflare.com");
-
-  for (const base of candidates) {
-    try {
-      const health = await fetch(`${base}/api/health`, { cache: "no-store" });
-      if (!health.ok) continue;
-      return await loadFromLocal(base);
-    } catch (_) {}
+    return await loadFromLocal();
+  } catch (_) {
+    return loadFromSupabase();
   }
-
-  return loadFromLocal();
 }
 
 function render(data) {

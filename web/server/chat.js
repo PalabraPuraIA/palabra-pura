@@ -11,13 +11,14 @@
 
 import pg from "pg";
 
-import { answerBySearch, relatedVerses, graceBibleVerses, answerByTitleSearch, findReferences, suggestTopics } from "./chat-search.js";
+import { answerBySearch, relatedVerses, graceBibleVerses, answerByTitleSearch, findReferences, suggestTopics, suggestRelatedContent, citationTextForVideo } from "./chat-search.js";
 import { answerWithSearch, askAnyLLM, hasWriter, explainFromTranscript, answerFromBible } from "./chat-llm.js";
 import { enrichPassagesFromAnswer, resolvePassageWithVersions } from "./bible-versions.js";
 import { detectLifeArea, passagesForLifeArea, resolveAllLifeAreas, resolveLifeArea, getLifeAreaById, topicVersesFor, WELCOME_PROMISES } from "./life-areas.js";
 import { guardQuestion, offTopicAnswer, sanitizeAnswer } from "./chat-guard.js";
 import { formatFragmentsForModel, selectLiteralExcerpt } from "./excerpt.js";
-import { retrieveTranscriptContext } from "./chat-retrieve.js";
+import { retrieveTranscriptContext, hasStrongVideoEvidence } from "./chat-retrieve.js";
+import { historyBlock, normalizeHistory, retrievalQuestion } from "./chat-context.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
@@ -51,27 +52,32 @@ Marco doctrinal obligatorio — dispensacion de la gracia:
 - Divide correctamente la Palabra: no apliques mandatos del Antiguo Testamento sin la luz del Nuevo y de la gracia.
 - Cada respuesta debe sonar a evangelio de la gracia, no a ministerio de condenacion de la ley.`;
 
-const SYSTEM_VIDEO = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
+const SYSTEM_VIDEO = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
 ${GRACE_LENS}
 NUNCA uses groserias, insultos, palabras soeces ni tono agresivo.
+Tono: amable, cercano y claro. PROHIBIDO usar en la respuesta las palabras "humilde", "humildad", "humildemente" o frases como "con humildad te digo" / "con mucha humildad". Se amable sin decir que eres humilde.
 Si la pregunta es una bobada, broma, groseria o algo SIN relacion con la Escuela Biblica, la fe, la Biblia o las ensenanzas del ministerio, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
+Si solo hay una MENCION BREVE del tema (por ejemplo aparece "boda judia" de pasada) pero NO hay ensenanza que responda de verdad la pregunta, responde EXACTAMENTE con: {"found": false}
+Mencionar palabras clave NO basta: debe haber explicacion o ensenanza sustancial sobre lo preguntado.
 Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
 {"found": true, "answer": "tu respuesta en 2 a 4 frases bajo la dispensacion de la gracia", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 En "evidence", elige un rango continuo de las oraciones numeradas que realmente sustente la respuesta.
-Tono: sencillo, calido y respetuoso, en espanol. Responde SOLO con el objeto JSON, sin texto adicional.`;
+Responde SOLO con el objeto JSON, sin texto adicional.`;
 
-const SYSTEM_BIBLE = `Eres una guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
+const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
 ${GRACE_LENS}
 NUNCA uses groserias, insultos ni palabras soeces.
+Tono: amable, cercano y claro. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo". Se amable sin nombrar la humildad.
 Si la pregunta no tiene relacion con la fe, la Biblia o la Escuela Biblica, responde: {"answer": "", "reference": "", "off_topic": true}
-Si el contexto no contiene la respuesta, dilo con humildad y no inventes nada.
-Tono: sencillo, calido y respetuoso, en espanol, en 2 a 4 frases bajo la dispensacion de la gracia.
+Si el contexto no contiene la respuesta, dilo con claridad (sin inventar) y no inventes nada. No digas que lo dices "con humildad".
+Si solo hay una mencion de pasada sin ensenanza que responda la pregunta, no inventes: indica que no alcanza el contexto.
+Responde en 2 a 4 frases bajo la dispensacion de la gracia.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
@@ -237,28 +243,68 @@ async function askLLM(system, userContent) {
 }
 
 /** Pipeline completo: primero videos, luego Biblia. */
-async function answerLocal(question) {
-  const embedding = await embedQuery(question);
+async function answerLocal(question, history = []) {
+  const searchQ = retrievalQuestion(question, history);
+  const embedding = await embedQuery(searchQ);
   const embStr = JSON.stringify(embedding);
   const db = getPool();
+  const prior = historyBlock(history);
 
-  const fragMatches = await retrieveTranscriptContext(db, embStr, question);
+  const fragMatches = await retrieveTranscriptContext(db, embStr, searchQ);
 
   if (fragMatches.length) {
     const context = formatFragmentsForModel(fragMatches);
     const vid = await askLLM(
       SYSTEM_VIDEO,
-      `Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
+      `${prior}Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
     );
 
-    if (vid.found) {
-      const selected = selectLiteralExcerpt(fragMatches, question, vid.evidence);
+    const accepted =
+      vid &&
+      !vid.off_topic &&
+      vid.found !== false &&
+      Boolean(vid.answer || vid.found === true);
+
+    const strong = hasStrongVideoEvidence(fragMatches, question);
+    if (accepted || (strong && !vid?.off_topic)) {
+      let answer = accepted ? (vid.answer ?? "") : "";
+      let reference = accepted ? (vid.reference ?? "") : "";
+      const selected = selectLiteralExcerpt(
+        fragMatches,
+        question,
+        accepted ? vid.evidence : null,
+      );
       const top = selected.fragment || fragMatches[0];
+
+      // Si el modelo rechazó pero el audio sí habla del tema, no caemos a Biblia a ciegas.
+      if (!accepted || !answer) {
+        console.warn("[chat] recovery: strong video evidence after LLM decline");
+        const explained = await explainFromTranscript(
+          question,
+          selected.excerpt || top.content,
+          top.title,
+        );
+        answer =
+          explained?.answer ||
+          "En las enseñanzas del ministerio se habla de esto. Te dejo el fragmento del audio y el video.";
+        if (explained?.reference) reference = explained.reference;
+      }
+
+      let spokenRefs = findReferences(selected.excerpt || "");
+      try {
+        const citeText = await citationTextForVideo(db, top.video_id, 80);
+        if (citeText) {
+          spokenRefs = [...new Set([...spokenRefs, ...findReferences(citeText)])];
+        }
+      } catch {
+        /* optional */
+      }
       return {
-        answer: vid.answer ?? "",
-        passage: (await resolvePassage(vid.reference)) ?? undefined,
+        answer,
+        passage: (await resolvePassage(reference)) ?? undefined,
         excerpt: selected.excerpt,
         retrieval: selected.retrieval,
+        spokenRefs,
         video: {
           title: top.title,
           episode: top.episode,
@@ -299,7 +345,7 @@ async function answerLocal(question) {
 
   const bib = await askLLM(
     SYSTEM_BIBLE,
-    `Contexto biblico:\n${bibleContext}\n\nPregunta: ${question}`,
+    `${prior}Contexto biblico:\n${bibleContext}\n\nPregunta: ${question}`,
   );
 
   return {
@@ -327,23 +373,44 @@ const UPSTREAM_FAILED = /tuve un problema para responder/i;
 
 const NOT_FOUND = {
   answer:
-    "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes elegir un tema de lo que sí está en los audios transcritos:",
+    "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
 };
+
+const SOFT_NOT_FOUND_RE =
+  /todav[ií]a no encuentro|no encuentro material|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n/i;
+
+function looksLikeNotFound(payload) {
+  if (!payload) return true;
+  if (payload === NOT_FOUND || payload.notFound) return true;
+  if (payload.mode === "guard") return true;
+  const answer = String(payload.answer || "");
+  if (!answer.trim()) return true;
+  if (SOFT_NOT_FOUND_RE.test(answer)) return true;
+  if (!payload.video && !payload.passage && !payload.passages?.length) return true;
+  return false;
+}
 
 async function withSuggestions(payload, question) {
   if (!payload) return payload;
-  const needsHelp =
-    payload.mode === "guard" ||
-    payload === NOT_FOUND ||
-    payload.answer === NOT_FOUND.answer ||
-    (!payload.video && !payload.passage && !payload.passages?.length);
-
-  if (!needsHelp && payload.suggestions) return payload;
-  if (!needsHelp) return payload;
+  if (!looksLikeNotFound(payload) && Array.isArray(payload.suggestions) && payload.suggestions.length) {
+    return payload;
+  }
+  if (!looksLikeNotFound(payload)) return payload;
 
   try {
-    const suggestions = await suggestTopics(getPool(), question, 6);
-    if (suggestions.length) return { ...payload, suggestions };
+    const related = await suggestRelatedContent(getPool(), question, 6);
+    if (related.length) return { ...payload, suggestions: related };
+    const topics = await suggestTopics(getPool(), question, 6);
+    if (topics.length) {
+      return {
+        ...payload,
+        suggestions: topics.map((label) => ({
+          id: `topic-${label}`,
+          label,
+          ask: `qué enseña el ministerio sobre ${label}`,
+        })),
+      };
+    }
   } catch (err) {
     console.error("[chat] suggestions", err.message);
   }
@@ -367,9 +434,9 @@ function normalizePayload(payload) {
   return payload;
 }
 
-function answerFor(mode, question) {
-  if (mode === "local") return answerLocal(question);
-  if (mode === "asistida") return answerAssisted(question);
+function answerFor(mode, question, history = []) {
+  if (mode === "local") return answerLocal(question, history);
+  if (mode === "asistida") return answerAssisted(question, history);
   if (mode === "busqueda") return searchOrNothing(question);
   return answerProxy(question);
 }
@@ -381,11 +448,11 @@ function answerFor(mode, question) {
  * respeta: repetir la búsqueda cruda solo devolvería el mismo video que él ya
  * descartó. El respaldo sin IA queda para cuando ningún proveedor contestó.
  */
-async function answerAssisted(question) {
+async function answerAssisted(question, history = []) {
   const greeting = await answerGreeting(question);
   if (greeting) return greeting;
 
-  const written = await answerWithSearch(getPool(), question, resolvePassage);
+  const written = await answerWithSearch(getPool(), question, resolvePassage, history);
   if (written?.off_topic || written?.notFound === "off_topic") return offTopicAnswer();
   if (written && !written.notFound) return written;
 
@@ -674,6 +741,7 @@ async function searchFallback(question) {
 /** Handler de Express para POST /api/chat. */
 export async function handleChat(req, res) {
   const question = String(req.body?.question ?? "").trim();
+  const history = normalizeHistory(req.body?.history);
   if (question.length < 2) {
     return res.status(400).json({ answer: "Escríbeme una pregunta y con gusto te acompaño." });
   }
@@ -700,7 +768,7 @@ export async function handleChat(req, res) {
   }
 
   try {
-    let payload = await answerFor(mode, question);
+    let payload = await answerFor(mode, question, history);
 
     // La Edge Function contesta 200 con su propio texto de error: no sirve.
     if (mode === "proxy" && UPSTREAM_FAILED.test(payload?.answer ?? "")) {
@@ -726,7 +794,7 @@ export async function handleChat(req, res) {
     if (payload?.matchedByTitle) delete payload.matchedByTitle;
     if (payload?.answer) payload.answer = sanitizeAnswer(payload.answer);
 
-    if (!payload?.video && !payload?.passage && !payload?.passages?.length) {
+    if (looksLikeNotFound(payload) || (!payload?.video && !payload?.passage && !payload?.passages?.length)) {
       payload = await withSuggestions(payload, question);
     }
     res.json(payload);

@@ -27,6 +27,7 @@ import {
   formatFragmentsForModel,
   selectLiteralExcerpt,
 } from "./excerpt.js";
+import { historyBlock, retrievalQuestion } from "./chat-context.js";
 
 /** Marco doctrinal que toda respuesta debe respetar. */
 const GRACE_LENS = `
@@ -50,7 +51,10 @@ Reglas:
 - Si preguntan "que es X" y X es el titulo de una ensenanza, RESUME lo que el pastor enseno en ese audio; NO des una definicion de diccionario ni otra explicacion ajena a la transcripcion.
 - Si la pregunta es una bobada, broma, groseria o algo SIN relacion con la Escuela Biblica, la fe, la Biblia o las ensenanzas del ministerio, responde EXACTAMENTE con: {"found": false, "off_topic": true}
 - Si el audio solo menciona palabras parecidas por casualidad (comida, chistes, ejemplos del supermercado, etc.) pero NO ensena sobre lo que preguntaron, responde EXACTAMENTE con: {"found": false, "off_topic": true}
+- Si solo hay una MENCION BREVE del tema sin ensenanza que responda de verdad la pregunta, responde EXACTAMENTE con: {"found": false}
+- Mencionar palabras clave NO basta: debe haber explicacion sustancial en el audio.
 - Si el audio no alcanza para responder la pregunta, responde EXACTAMENTE con: {"found": false}
+- Tono amable y cercano. PROHIBIDO en "answer": "humilde", "humildad", "humildemente", "con humildad te digo" o similares.
 - Si SI puedes responder, responde con:
 {"found": true, "answer": "explicacion breve en 2 a 3 frases (NO copies la transcripcion; el sistema mostrara un recorte del audio aparte)", "reference": "SOLO una referencia biblica si el AUDIO la menciona textualmente; si el audio no cita ningun versiculo, cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
@@ -194,7 +198,7 @@ const SYSTEM_BIBLE = `Eres Grace, guia calida de la Escuela Biblica de Palabra P
 Responde la pregunta del usuario con base en los pasajes biblicos que se te entregan (Reina-Valera Antigua).
 ${GRACE_LENS}
 Responde de forma clara, intuitiva y directa, en 3 a 5 frases bajo la dispensacion de la gracia. No uses frases vacias.
-Si los pasajes hablan del tema aunque sea en parte, explica lo que dicen con humildad desde gracia, no desde ley.
+Si los pasajes hablan del tema aunque sea en parte, explica lo que dicen desde gracia, no desde ley. Tono amable y claro; PROHIBIDO decir "humilde/humildad/con humildad".
 Responde found:false SOLO si ningun pasaje tiene relacion con la pregunta.
 Si puedes responder, responde con:
 {"found": true, "answer": "tu explicacion bajo gracia", "reference": "referencia principal Libro Capitulo:Versiculo"}
@@ -228,15 +232,17 @@ export async function explainFromTranscript(question, transcript, videoTitle = "
  * Prioridad: fragmentos de transcripción (minuto exacto + citas del audio).
  * Si no hay fragmentos, cae a coincidencia por título de serie.
  */
-export async function answerWithSearch(db, question, resolvePassage) {
-  const ranked = await contextFragments(db, question, 6);
+export async function answerWithSearch(db, question, resolvePassage, history = []) {
+  const searchQ = retrievalQuestion(question, history);
+  const prior = historyBlock(history);
+  const ranked = await contextFragments(db, searchQ, 6);
   if (ranked.length) {
     const fragments = await expandAdjacentFragments(db, ranked.slice(0, 3), 1, 8);
     const context = formatFragmentsForModel(fragments);
 
     const reply = await askAnyLLM(
       SYSTEM,
-      `Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
+      `${prior}Contexto de los videos:\n${context}\n\nPregunta: ${question}`,
     );
     if (!reply) return null;
     if (reply.off_topic) return { notFound: "off_topic", off_topic: true };

@@ -26,7 +26,34 @@
   box-shadow: var(--shadow-soft), var(--shadow-inner);
 }
 
-/* Solo el nombre, sin logotipo. */
+/* Marca: logo animado + nombre */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brand__logo {
+  animation: blaze-spin 14s linear infinite;
+  mix-blend-mode: lighten;
+  transform-origin: 50% 50%;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  object-fit: contain;
+  /* El PNG viene con fondo negro: en UI oscura se funde */
+  mix-blend-mode: lighten;
+  animation: brand-spin 14s linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+.brand__text {
+  min-width: 0;
+  line-height: 1.15;
+}
+
 .brand__name {
   font-weight: 700;
   font-size: .95rem;
@@ -42,6 +69,17 @@
   text-transform: uppercase;
   color: var(--c-rose);
   font-weight: 700;
+}
+
+@keyframes brand-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand__logo {
+    animation: none;
+  }
 }
 
 .topbar__actions {
@@ -365,3 +403,5 @@
   .footer { padding: var(--sp-3) var(--sp-2) 20px; }
   .status-pill { padding: 5px 10px; }
 }
+
+@keyframes blaze-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
