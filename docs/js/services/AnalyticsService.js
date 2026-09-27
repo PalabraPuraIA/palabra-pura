@@ -79,7 +79,27 @@ export class AnalyticsService {
     };
 
     try {
-      // 1) Nube primero
+      const onPages =
+        typeof window !== "undefined" &&
+        /github\.io$/i.test(window.location?.hostname || "");
+      const backend = await resolveBackend();
+      const eventUrl = backend.serverBase
+        ? `${backend.serverBase}/api/analytics/event`
+        : !onPages
+          ? "/api/analytics/event"
+          : null;
+
+      // Contenedor: local primero. Pages: nube primero.
+      if (!onPages && eventUrl) {
+        const local = await fetch(eventUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyLocal),
+          keepalive: true,
+        }).catch(() => null);
+        if (local?.ok) return;
+      }
+
       if (config.publishableKey) {
         const cloud = await fetch(supabaseUrl("chat_interactions"), {
           method: "POST",
@@ -90,19 +110,14 @@ export class AnalyticsService {
         if (cloud?.ok) return;
       }
 
-      // 2) Reserva: server Fintek
-      const backend = await resolveBackend();
-      const eventUrl = backend.serverBase
-        ? `${backend.serverBase}/api/analytics/event`
-        : null;
-      if (!eventUrl) return;
-
-      await fetch(eventUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyLocal),
-        keepalive: true,
-      }).catch(() => null);
+      if (onPages && eventUrl) {
+        await fetch(eventUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyLocal),
+          keepalive: true,
+        }).catch(() => null);
+      }
     } catch (err) {
       console.warn("[AnalyticsService]", err);
     }
