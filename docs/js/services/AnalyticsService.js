@@ -1,5 +1,5 @@
 /**
- * AnalyticsService.js — Registra consultas.
+ * AnalyticsService.js — Registra consultas y calificaciones.
  * Prefiere Supabase nube; el server Fintek queda de reserva.
  */
 
@@ -41,17 +41,26 @@ function supabaseUrl(path) {
   return `${base}/rest/v1/${path}`;
 }
 
+function onGitHubPages() {
+  return (
+    typeof window !== "undefined" &&
+    /github\.io$/i.test(window.location?.hostname || "")
+  );
+}
+
 export class AnalyticsService {
   /**
    * @param {string} question
    * @param {object} [response]
+   * @param {string} [id]
+   * @returns {Promise<string|null>}
    */
-  async trackQuestion(question, response = {}) {
+  async trackQuestion(question, response = {}, id = null) {
     const q = String(question || "").trim();
-    if (!q || q.length < 2) return;
+    if (!q || q.length < 2) return null;
 
     const payload = {
-      id: crypto.randomUUID(),
+      id: id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`),
       question: q.slice(0, 500),
       answer: String(response?.answer || "").trim().slice(0, 8000) || null,
       excerpt: String(response?.excerpt || "").trim().slice(0, 4000) || null,
@@ -68,6 +77,7 @@ export class AnalyticsService {
     };
 
     const bodyLocal = {
+      id: payload.id,
       question: payload.question,
       answer: payload.answer,
       excerpt: payload.excerpt,
@@ -79,9 +89,7 @@ export class AnalyticsService {
     };
 
     try {
-      const onPages =
-        typeof window !== "undefined" &&
-        /github\.io$/i.test(window.location?.hostname || "");
+      const onPages = onGitHubPages();
       const backend = await resolveBackend();
       const eventUrl = backend.serverBase
         ? `${backend.serverBase}/api/analytics/event`
@@ -89,7 +97,6 @@ export class AnalyticsService {
           ? "/api/analytics/event"
           : null;
 
-      // Contenedor: local primero. Pages: nube primero.
       if (!onPages && eventUrl) {
         const local = await fetch(eventUrl, {
           method: "POST",
@@ -97,7 +104,7 @@ export class AnalyticsService {
           body: JSON.stringify(bodyLocal),
           keepalive: true,
         }).catch(() => null);
-        if (local?.ok) return;
+        if (local?.ok) return payload.id;
       }
 
       if (config.publishableKey) {
@@ -107,19 +114,98 @@ export class AnalyticsService {
           body: JSON.stringify(payload),
           keepalive: true,
         }).catch(() => null);
-        if (cloud?.ok) return;
+        if (cloud?.ok) return payload.id;
       }
 
       if (onPages && eventUrl) {
-        await fetch(eventUrl, {
+        const fallback = await fetch(eventUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyLocal),
           keepalive: true,
         }).catch(() => null);
+        if (fallback?.ok) return payload.id;
       }
     } catch (err) {
       console.warn("[AnalyticsService]", err);
     }
+    return payload.id;
+  }
+
+  /**
+   * @param {string} interactionId
+   * @param {"useful"|"not_useful"} vote
+   * @param {{ question?: string }} [extra]
+   */
+  async rateAnswer(interactionId, vote, extra = {}) {
+    const id = String(interactionId || "").trim();
+    const v = vote === "not_useful" ? "not_useful" : "useful";
+    if (!id) return false;
+
+    const payload = {
+      interaction_id: id,
+      vote: v,
+      question: String(extra.question || "").trim().slice(0, 500) || null,
+    };
+
+    let ok = false;
+    try {
+      const onPages = onGitHubPages();
+      const backend = await resolveBackend();
+      const rateUrl = backend.serverBase
+        ? `${backend.serverBase}/api/analytics/rate`
+        : !onPages
+          ? "/api/analytics/rate"
+          : null;
+
+      if (!onPages && rateUrl) {
+        const local = await fetch(rateUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, vote: v, question: payload.question }),
+        }).catch(() => null);
+        if (local?.ok) ok = true;
+      }
+
+      const rateFn =
+        config.fallbackEndpoint ||
+        config.endpoint ||
+        `${String(config.supabaseUrl || "").replace(/\/+$/, "")}/functions/v1/chatbot-iglesia-palabra-pura`;
+      if (rateFn && /supabase\.co/.test(rateFn) && config.publishableKey) {
+        const viaFn = await fetch(rateFn, {
+          method: "POST",
+          headers: supabaseHeaders(),
+          body: JSON.stringify({
+            action: "rate",
+            id,
+            interaction_id: id,
+            vote: v,
+            question: payload.question,
+          }),
+        }).catch(() => null);
+        if (viaFn?.ok) ok = true;
+      }
+
+      if (!ok && config.publishableKey) {
+        const cloud = await fetch(supabaseUrl("chat_ratings"), {
+          method: "POST",
+          headers: supabaseHeaders(),
+          body: JSON.stringify(payload),
+        }).catch(() => null);
+        if (cloud?.ok) ok = true;
+      }
+
+      if (!ok && onPages && rateUrl) {
+        const fallback = await fetch(rateUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, vote: v, question: payload.question }),
+        }).catch(() => null);
+        if (fallback?.ok) ok = true;
+      }
+    } catch (err) {
+      console.warn("[AnalyticsService] rate", err);
+    }
+    return ok;
   }
 }

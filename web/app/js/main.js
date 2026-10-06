@@ -76,6 +76,12 @@ class App {
         return;
       }
 
+      const rateBtn = event.target.closest("[data-rate]");
+      if (rateBtn) {
+        this.#handleRating(rateBtn);
+        return;
+      }
+
       const go = event.target.closest("[data-suggest-go]");
       if (go) {
         const box = go.closest("[data-suggest-box]");
@@ -152,6 +158,45 @@ class App {
     this.#handleQuestion(item.ask || item.label);
   }
 
+  async #handleRating(button) {
+    const box = button.closest("[data-rate-box]");
+    const id = box?.dataset.interactionId;
+    const vote = button.dataset.rate;
+    if (!box || !id || !vote || box.dataset.busy === "1") return;
+
+    box.dataset.busy = "1";
+    box.querySelectorAll("[data-rate]").forEach((btn) => {
+      btn.disabled = true;
+    });
+
+    let question = "";
+    try {
+      question = decodeURIComponent(box.dataset.question || "");
+    } catch {
+      question = "";
+    }
+
+    const ok = await this.#analytics.rateAnswer(id, vote, { question });
+    const label = box.querySelector(".msg__rate-label");
+    if (ok) {
+      box.classList.add("msg__rate--done");
+      if (label) {
+        label.textContent =
+          vote === "useful"
+            ? "Gracias. Esto nos ayuda a ver qué responde bien."
+            : "Gracias. Revisaremos esta pregunta en el dashboard.";
+      }
+      return;
+    }
+
+    box.dataset.busy = "";
+    box.classList.add("msg__rate--error");
+    box.querySelectorAll("[data-rate]").forEach((btn) => {
+      btn.disabled = false;
+    });
+    if (label) label.textContent = "No se pudo guardar la calificación. Inténtalo de nuevo.";
+  }
+
   /** Flujo de una pregunta, de principio a fin. */
   async #handleQuestion(question) {
     if (this.#busy) return; // evita envíos dobles
@@ -169,8 +214,12 @@ class App {
     ]);
 
     this.#view.hideTyping();
-    this.#view.addBotMessage(response);
-    this.#analytics.trackQuestion(question, response);
+    const interactionId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}`;
+    this.#view.addBotMessage({ ...response, interactionId, question });
+    this.#analytics.trackQuestion(question, response, interactionId);
 
     if (response?.video?.youtube_id) {
       this.#player.load(response.video, { autoplay: false });

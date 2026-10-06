@@ -81,6 +81,20 @@ function renderSuggestions(suggestions) {
     </div>`;
 }
 
+function renderRating(response) {
+  const id = String(response?.interactionId || "").trim();
+  if (!id) return "";
+  const question = encodeURIComponent(String(response?.question || "").slice(0, 500));
+  return `
+    <div class="msg__rate" data-rate-box data-interaction-id="${escapeHtml(id)}" data-question="${question}">
+      <p class="msg__rate-label">¿Esta respuesta te sirvió?</p>
+      <div class="msg__rate-actions">
+        <button type="button" class="msg__rate-btn msg__rate-btn--up" data-rate="useful">Útil</button>
+        <button type="button" class="msg__rate-btn msg__rate-btn--down" data-rate="not_useful">No útil</button>
+      </div>
+    </div>`;
+}
+
 export class ChatView {
   #root;
   #typingEl = null;
@@ -125,6 +139,7 @@ export class ChatView {
             ? `<p class="msg__hint">Abre el menú y elige un contenido relacionado.</p>`
             : "";
 
+    const rating = renderRating(response);
     const answerBlock = hasAnswer
       ? `<div class="msg__bubble msg__bubble--answer">
            ${showLabel ? `<p class="msg__label">${answerLabel}</p>` : ""}
@@ -132,10 +147,13 @@ export class ChatView {
            ${lifePromise}
            <p class="msg__answer">${escapeHtml(response.answer)}</p>
            ${tips}
+           ${rating}
          </div>`
       : tips
-        ? `<div class="msg__bubble msg__bubble--answer">${tips}</div>`
-        : "";
+        ? `<div class="msg__bubble msg__bubble--answer">${tips}${rating}</div>`
+        : rating
+          ? `<div class="msg__bubble msg__bubble--answer">${rating}</div>`
+          : "";
 
     const el = createEl("div", {
       className: "msg msg--bot",

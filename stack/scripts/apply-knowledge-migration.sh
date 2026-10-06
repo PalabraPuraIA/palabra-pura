@@ -13,4 +13,5 @@ apply() {
 apply "$ROOT/db/migrations/20260926_knowledge_base.sql"
 apply "$ROOT/db/migrations/20260926_ingest_jobs.sql"
 apply "$ROOT/db/migrations/20260926_knowledge_facts.sql"
+apply "$ROOT/db/migrations/20261006_chat_ratings.sql"
 echo "OK"

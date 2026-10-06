@@ -30,6 +30,7 @@ import {
 import {
   initConversationStore,
   migrateLegacyEvents,
+  rateConversation,
   readConversationEvents,
   recordConversation,
 } from "./conversation-store.js";
@@ -149,12 +150,15 @@ function buildSummary(store) {
       video: e.video ?? null,
       passages: e.passages ?? null,
       retrieval: e.retrieval ?? null,
+      rating: e.rating ?? null,
       at: e.at,
       topics: e.topics,
     }));
 
   const total = events.length;
   const last24h = events.filter((e) => Date.now() - Date.parse(e.at) < 24 * 3600 * 1000).length;
+  const useful = events.filter((e) => e.rating === "useful");
+  const notUseful = events.filter((e) => e.rating === "not_useful");
 
   return {
     totalQuestions: total,
@@ -162,6 +166,10 @@ function buildSummary(store) {
     topics,
     topTerms,
     recent,
+    ratedUseful: useful.length,
+    ratedNotUseful: notUseful.length,
+    bestRated: useful.slice(0, 12),
+    worstRated: notUseful.slice(0, 12),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -469,6 +477,7 @@ app.post("/api/analytics/event", async (req, res) => {
   const topics = detectTopics(question);
   try {
     const id = await recordConversation({
+      id: req.body?.id,
       question,
       response: req.body?.response || {
         answer: req.body?.answer,
@@ -498,6 +507,25 @@ app.post("/api/analytics/event", async (req, res) => {
   if (store.events.length > 5000) store.events = store.events.slice(-5000);
   writeStore(store);
   res.status(201).json({ ok: true, id: event.id, topics: event.topics });
+});
+
+app.post("/api/analytics/rate", async (req, res) => {
+  const id = String(req.body?.id || req.body?.interaction_id || "").trim();
+  const vote = String(req.body?.vote || "").trim();
+  if (!id || !vote) {
+    return res.status(400).json({ ok: false, error: "id and vote required" });
+  }
+  if (vote !== "useful" && vote !== "not_useful") {
+    return res.status(400).json({ ok: false, error: "invalid vote" });
+  }
+  try {
+    const saved = await rateConversation(id, vote, req.body?.question);
+    if (!saved) return res.status(503).json({ ok: false, error: "conversation store unavailable" });
+    res.json({ ok: true, id: saved, vote });
+  } catch (err) {
+    console.warn("[conversations] rate", err.message);
+    res.status(503).json({ ok: false, error: "conversation store unavailable" });
+  }
 });
 
 app.get("/api/analytics/summary", async (_req, res) => {

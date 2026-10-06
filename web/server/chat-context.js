@@ -3,7 +3,7 @@
  * para entender seguimientos sin cambiar los system prompts.
  */
 
-const MAX_HISTORY_TURNS = 6;
+const MAX_HISTORY_TURNS = 12;
 
 export function normalizeHistory(raw) {
   if (!Array.isArray(raw)) return [];
@@ -32,21 +32,29 @@ export function looksLikeFollowUp(question) {
 export function retrievalQuestion(question, history) {
   const q = String(question ?? "").trim();
   const hist = normalizeHistory(history);
-  if (!q || !hist.length || !looksLikeFollowUp(q)) return q;
+  if (!q || !hist.length) return q;
+  if (!looksLikeFollowUp(q) && q.length > 48) return q;
 
   const lastUser = [...hist].reverse().find((turn) => turn.role === "user");
-  if (!lastUser?.content) return q;
-  if (lastUser.content.toLowerCase() === q.toLowerCase()) return q;
-  return `${lastUser.content}\n${q}`;
+  const lastBot = [...hist].reverse().find((turn) => turn.role === "assistant");
+  const parts = [];
+  if (lastUser?.content && lastUser.content.toLowerCase() !== q.toLowerCase()) {
+    parts.push(lastUser.content);
+  }
+  if (lastBot?.content && q.length <= 48) {
+    parts.push(lastBot.content.slice(0, 220));
+  }
+  parts.push(q);
+  return parts.join("\n");
 }
 
 /** Bloque corto para el mensaje al LLM (no altera el system prompt). */
 export function historyBlock(history) {
-  const hist = normalizeHistory(history).slice(-4);
+  const hist = normalizeHistory(history).slice(-8);
   if (!hist.length) return "";
   const lines = hist.map((turn) => {
-    const who = turn.role === "user" ? "Usuario" : "Grace";
+    const who = turn.role === "user" ? "Usuario" : "Blaze";
     return `${who}: ${turn.content}`;
   });
-  return `Conversacion reciente (solo para entender el seguimiento; responde con base en el contexto de audio/Biblia de esta vuelta):\n${lines.join("\n")}\n\n`;
+  return `Conversacion reciente (usa este hilo para entender seguimientos, pronombres y "eso"; responde con base en el audio/Biblia de esta vuelta):\n${lines.join("\n")}\n\n`;
 }

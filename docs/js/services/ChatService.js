@@ -13,7 +13,7 @@ const NETWORK_ERROR_MESSAGE =
   "No pude conectar con el chatbot. Revisa que la URL sea correcta y que la función esté desplegada, " +
   "y vuelve a intentarlo.";
 
-const MAX_HISTORY = 6;
+const MAX_HISTORY = 12;
 
 function isGitHubPages() {
   return (

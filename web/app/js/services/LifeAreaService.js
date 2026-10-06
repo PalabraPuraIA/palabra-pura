@@ -1,14 +1,27 @@
 /**
- * LifeAreaService.js — Promesas y versículos por área de vida (TLA).
+ * LifeAreaService.js — Promesas y versículos por área de vida.
+ * En GitHub Pages usa el catálogo local. En el contenedor, el API
+ * puede enriquecer los textos si está disponible.
  */
 
 import { config } from "../config.js";
+import { LIFE_AREAS, detectLifeArea, toPanelAreas } from "../data/lifeAreasCatalog.js";
+
+function isGitHubPages() {
+  return (
+    typeof window !== "undefined" &&
+    /github\.io$/i.test(window.location?.hostname || "")
+  );
+}
 
 export class LifeAreaService {
   #cache = null;
 
   async loadAll() {
     if (this.#cache) return this.#cache;
+    this.#cache = toPanelAreas(LIFE_AREAS);
+
+    if (isGitHubPages() && !config.lifeAreasApiUrl) return this.#cache;
 
     try {
       const url = new URL(config.lifeAreasApiUrl || "/api/life-areas", window.location.origin);
@@ -16,20 +29,27 @@ export class LifeAreaService {
         headers: { Accept: "application/json" },
         cache: "no-store",
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) return this.#cache;
 
       const data = await response.json();
-      this.#cache = Array.isArray(data?.areas) ? data.areas : [];
-      return this.#cache;
+      if (Array.isArray(data?.areas) && data.areas.length) {
+        this.#cache = data.areas;
+      }
     } catch (error) {
       console.warn("[LifeAreaService]", error);
-      return [];
     }
+    return this.#cache;
   }
 
   async matchQuestion(question) {
     const q = String(question ?? "").trim();
     if (!q) return null;
+
+    const areas = this.#cache || toPanelAreas(LIFE_AREAS);
+    const local = detectLifeArea(q);
+    if (local) return areas.find((a) => a.id === local.id) || local;
+
+    if (isGitHubPages() && !config.lifeAreasApiUrl) return null;
 
     try {
       const url = new URL(config.lifeAreasApiUrl || "/api/life-areas", window.location.origin);

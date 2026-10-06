@@ -71,7 +71,7 @@ export class LifeAreasPanel {
           ${
             featured
               ? `<div class="life-card__featured">
-                  <span class="life-card__badge">TLA</span>
+                  <span class="life-card__badge">${escapeHtml(featured.bible_version === "Reina-Valera Antigua" ? "RVA" : featured.bible_version || "RVA")}</span>
                   <span class="life-card__ref">${escapeHtml(featured.reference)}</span>
                   <span class="life-card__verse-title">${escapeHtml(featured.title)}</span>
                   ${featured.text ? `<p class="life-card__text">“${escapeHtml(truncate(featured.text, 180))}”</p>` : ""}

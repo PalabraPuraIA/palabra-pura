@@ -141,6 +141,32 @@ export async function recordConversation({ question, response, topics = [], id, 
   return eventId;
 }
 
+export async function rateConversation(id, vote, question = null) {
+  const db = getPool();
+  if (!db || !(await initConversationStore())) return null;
+
+  const eventId = cleanText(id, 160);
+  const v = vote === "not_useful" ? "not_useful" : "useful";
+  if (!eventId) return null;
+
+  try {
+    await db.query(
+      `INSERT INTO public.chat_ratings (interaction_id, question, vote)
+       VALUES ($1, $2, $3)`,
+      [eventId, cleanText(question, 500), v],
+    );
+  } catch (err) {
+    if (!/chat_ratings/i.test(err.message)) throw err;
+    await db.query(
+      `UPDATE public.chat_interactions
+          SET rating = $2, rated_at = now()
+        WHERE id = $1 AND rating IS NULL`,
+      [eventId, v],
+    );
+  }
+  return eventId;
+}
+
 export async function migrateLegacyEvents(events) {
   if (!Array.isArray(events) || !events.length) return 0;
   let migrated = 0;
@@ -162,14 +188,28 @@ export async function readConversationEvents(limit = MAX_EVENTS) {
   const db = getPool();
   if (!db || !(await initConversationStore())) return null;
   const safeLimit = Math.min(MAX_EVENTS, Math.max(1, Number(limit) || MAX_EVENTS));
-  const { rows } = await db.query(
-    `SELECT id, question, answer, excerpt, source, mode, topics,
-            video, passages, retrieval_meta AS retrieval, created_at AS at
-       FROM public.chat_interactions
-      ORDER BY created_at DESC
-      LIMIT $1`,
-    [safeLimit],
-  );
+  let rows;
+  try {
+    ({ rows } = await db.query(
+      `SELECT id, question, answer, excerpt, source, mode, topics,
+              video, passages, retrieval_meta AS retrieval, created_at AS at,
+              rating, rated_at
+         FROM public.chat_interactions
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [safeLimit],
+    ));
+  } catch (err) {
+    if (!/rating/i.test(err.message)) throw err;
+    ({ rows } = await db.query(
+      `SELECT id, question, answer, excerpt, source, mode, topics,
+              video, passages, retrieval_meta AS retrieval, created_at AS at
+         FROM public.chat_interactions
+        ORDER BY created_at DESC
+        LIMIT $1`,
+      [safeLimit],
+    ));
+  }
   return rows.map((row) => ({
     ...row,
     at: row.at instanceof Date ? row.at.toISOString() : row.at,

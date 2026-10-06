@@ -973,6 +973,46 @@
 }
 .msg__life-promise strong { color: var(--c-ink); }
 
+.msg__rate {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, .12);
+}
+.msg__rate-label {
+  margin: 0 0 8px;
+  font-size: var(--t-xs);
+  color: var(--c-ink-muted, rgba(255, 255, 255, .68));
+}
+.msg__rate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.msg__rate-btn {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, .22);
+  background: rgba(255, 255, 255, .08);
+  color: inherit;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.msg__rate-btn:hover,
+.msg__rate-btn:focus-visible {
+  border-color: rgba(255, 255, 255, .45);
+  background: rgba(255, 255, 255, .14);
+  outline: none;
+}
+.msg__rate-btn--up:hover { border-color: #7dcea0; }
+.msg__rate-btn--down:hover { border-color: #f5b7b1; }
+.msg__rate-btn:disabled { opacity: .55; cursor: default; }
+.msg__rate--done .msg__rate-actions { display: none; }
+.msg__rate--done .msg__rate-label { color: #b8e0c8; }
+.msg__rate--error .msg__rate-label { color: #f5b7b1; }
+
 /* ---------- Artículos relacionados (WordPress público) ---------- */
 .articles {
   margin-top: var(--sp-2);

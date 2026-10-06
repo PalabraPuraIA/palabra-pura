@@ -105,12 +105,20 @@ function buildSummary(events) {
     (e) => Date.now() - Date.parse(e.at) < 24 * 3600 * 1000,
   ).length;
 
+  const byTime = (a, b) => String(b.at || "").localeCompare(String(a.at || ""));
+  const useful = events.filter((e) => e.rating === "useful").sort(byTime);
+  const notUseful = events.filter((e) => e.rating === "not_useful").sort(byTime);
+
   return {
     totalQuestions: events.length,
     last24h,
     topics,
     topTerms,
     recent,
+    ratedUseful: useful.length,
+    ratedNotUseful: notUseful.length,
+    bestRated: useful.slice(0, 12),
+    worstRated: notUseful.slice(0, 12),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -120,6 +128,12 @@ function renderRecentCard(record) {
     .map((id) => `<span class="tag">${escapeHtml(TOPIC_LABELS[id] || id)}</span>`)
     .join("");
   const source = sourceLabel(record.source, record.mode);
+  const rating =
+    record.rating === "useful"
+      ? `<span class="tag tag--good">Útil</span>`
+      : record.rating === "not_useful"
+        ? `<span class="tag tag--bad">No útil</span>`
+        : "";
   const answer = record.answer
     ? `<section class="qa-card__section">
          <h3>Respuesta de Blaze</h3>
@@ -158,6 +172,7 @@ function renderRecentCard(record) {
       <span class="qa-card__question">${escapeHtml(record.question)}</span>
       <span class="qa-card__summary-meta">
         <span class="qa-card__source">${escapeHtml(source)}</span>
+        ${rating}
         ${tags}
       </span>
       <span class="qa-card__chevron" aria-hidden="true">⌄</span>
@@ -180,25 +195,84 @@ async function loadFromLocal(serverBase = null) {
   return res.json();
 }
 
+function supabaseHeaders() {
+  return {
+    apikey: PUBLISHABLE_KEY,
+    Authorization: `Bearer ${PUBLISHABLE_KEY}`,
+    Accept: "application/json",
+  };
+}
+
+async function loadRatingsMap() {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/chat_ratings`);
+  url.searchParams.set("select", "interaction_id,vote,created_at");
+  url.searchParams.set("order", "created_at.desc");
+  url.searchParams.set("limit", "1000");
+  const res = await fetch(url.toString(), {
+    headers: supabaseHeaders(),
+    cache: "no-store",
+  }).catch(() => null);
+  if (!res?.ok) return new Map();
+  const rows = await res.json();
+  const map = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (row.interaction_id && !map.has(row.interaction_id)) {
+      map.set(row.interaction_id, row.vote);
+    }
+  }
+  return map;
+}
+
+async function loadCorpusStats() {
+  const countOf = async (table) => {
+    const url = new URL(`${SUPABASE_URL}/rest/v1/${table}`);
+    url.searchParams.set("select", "id");
+    url.searchParams.set("limit", "1");
+    const res = await fetch(url.toString(), {
+      headers: {
+        ...supabaseHeaders(),
+        Prefer: "count=exact",
+        Range: "0-0",
+      },
+      cache: "no-store",
+    }).catch(() => null);
+    if (!res?.ok && res?.status !== 206) return null;
+    const range = res.headers.get("content-range") || "";
+    const total = Number(range.split("/")[1]);
+    return Number.isFinite(total) ? total : null;
+  };
+
+  const [videos, fragments] = await Promise.all([countOf("video"), countOf("fragment")]);
+  if (videos == null && fragments == null) return null;
+  return { videos, fragments };
+}
+
 async function loadFromSupabase() {
   const url = new URL(`${SUPABASE_URL}/rest/v1/chat_interactions`);
   url.searchParams.set(
     "select",
-    "id,question,answer,excerpt,source,mode,topics,video,passages,retrieval_meta,created_at",
+    "id,question,answer,excerpt,source,mode,topics,video,passages,retrieval_meta,rating,rated_at,created_at",
   );
   url.searchParams.set("order", "created_at.desc");
   url.searchParams.set("limit", "500");
 
-  const res = await fetch(url.toString(), {
-    headers: {
-      apikey: PUBLISHABLE_KEY,
-      Authorization: `Bearer ${PUBLISHABLE_KEY}`,
-      Accept: "application/json",
-    },
+  let res = await fetch(url.toString(), {
+    headers: supabaseHeaders(),
     cache: "no-store",
   });
+  if (!res.ok) {
+    url.searchParams.set(
+      "select",
+      "id,question,answer,excerpt,source,mode,topics,video,passages,retrieval_meta,created_at",
+    );
+    res = await fetch(url.toString(), {
+      headers: supabaseHeaders(),
+      cache: "no-store",
+    });
+  }
   if (!res.ok) throw new Error(`Supabase HTTP ${res.status}`);
   const rows = await res.json();
+  const ratings = await loadRatingsMap();
   const events = (Array.isArray(rows) ? rows : []).map((row) => ({
     id: row.id,
     question: row.question,
@@ -210,9 +284,12 @@ async function loadFromSupabase() {
     video: row.video,
     passages: row.passages,
     retrieval: row.retrieval_meta,
+    rating: row.rating || ratings.get(row.id) || null,
     at: row.created_at,
   }));
-  return buildSummary(events);
+  const summary = buildSummary(events);
+  summary.corpus = await loadCorpusStats();
+  return summary;
 }
 
 async function load() {
@@ -243,10 +320,40 @@ async function load() {
   return loadFromLocal();
 }
 
+function renderRatedList(selector, emptySelector, records) {
+  const list = document.querySelector(selector);
+  const empty = document.querySelector(emptySelector);
+  if (!list || !empty) return;
+  if (!records?.length) {
+    list.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  list.innerHTML = records.map(renderRecentCard).join("");
+}
+
 function render(data) {
   document.querySelector("[data-total]").textContent = data.totalQuestions ?? 0;
   document.querySelector("[data-day]").textContent = data.last24h ?? 0;
   document.querySelector("[data-topics-n]").textContent = (data.topics || []).length;
+  const usefulEl = document.querySelector("[data-useful]");
+  const badEl = document.querySelector("[data-not-useful]");
+  if (usefulEl) usefulEl.textContent = data.ratedUseful ?? 0;
+  if (badEl) badEl.textContent = data.ratedNotUseful ?? 0;
+
+  const corpusCard = document.querySelector("[data-corpus]");
+  const corpusLine = document.querySelector("[data-corpus-line]");
+  if (corpusCard && corpusLine) {
+    if (data.corpus && (data.corpus.videos != null || data.corpus.fragments != null)) {
+      corpusCard.hidden = false;
+      const videos = data.corpus.videos ?? "—";
+      const fragments = data.corpus.fragments ?? "—";
+      corpusLine.textContent = `${videos} videos indexados · ${fragments} fragmentos listos para el chat.`;
+    } else {
+      corpusCard.hidden = true;
+    }
+  }
 
   const bars = document.querySelector("[data-topic-bars]");
   const topicsEmpty = document.querySelector("[data-topics-empty]");
@@ -297,6 +404,9 @@ function render(data) {
     recentEmpty.hidden = true;
     tbody.innerHTML = recent.map(renderRecentCard).join("");
   }
+
+  renderRatedList("[data-useful-list]", "[data-useful-empty]", data.bestRated);
+  renderRatedList("[data-bad-list]", "[data-bad-empty]", data.worstRated);
 
   document.querySelector("[data-generated]").textContent =
     `Actualizado: ${fmtWhen(data.generatedAt)}`;

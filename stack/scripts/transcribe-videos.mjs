@@ -42,13 +42,20 @@ loadEnv(process.env.ENV_FILE || path.join(ROOT, "stack/.env"));
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const pool = new pg.Pool({
-  host: process.env.PGHOST || "127.0.0.1",
-  port: Number(process.env.PGPORT || 5488),
-  database: process.env.PGDATABASE || "palabra_pura",
-  user: process.env.PGUSER || "palabra",
-  password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || "",
-});
+function pgConfig() {
+  if (process.env.DATABASE_URL) {
+    return { connectionString: process.env.DATABASE_URL };
+  }
+  return {
+    host: process.env.PGHOST || "127.0.0.1",
+    port: Number(process.env.PGPORT || 5488),
+    database: process.env.PGDATABASE || "palabra_pura",
+    user: process.env.PGUSER || "palabra",
+    password: process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD || "",
+  };
+}
+
+const pool = new pg.Pool(pgConfig());
 
 function loadEnv(file) {
   if (!fs.existsSync(file)) return;
@@ -357,6 +364,16 @@ async function main() {
 
   requireBin("yt-dlp");
   requireBin("ffmpeg");
+
+  const who = await pool.query(
+    `SELECT current_database() AS db, current_user AS usr,
+            coalesce(inet_server_addr()::text, 'local') AS addr`,
+  );
+  const target = who.rows[0];
+  console.log(`Base de transcripción: ${target.db} como ${target.usr} @ ${target.addr}`);
+  if (!process.env.DATABASE_URL && !process.env.PGHOST) {
+    console.warn("Usa DATABASE_URL o PGHOST para no escribir en el host equivocado.");
+  }
 
   const pending = await pendingVideos();
   const todo = pending.slice(0, limit === Infinity ? pending.length : limit);
