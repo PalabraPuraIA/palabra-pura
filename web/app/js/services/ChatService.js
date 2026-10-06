@@ -131,6 +131,7 @@ export class ChatService {
       mode: data.mode ?? undefined,
       knowledgeId: data.knowledgeId ?? undefined,
       fromKnowledge: Boolean(data.fromKnowledge),
+      offer: data.offer ?? undefined,
       articles: Array.isArray(data.articles) ? data.articles : undefined,
     };
   }

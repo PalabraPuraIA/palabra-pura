@@ -132,6 +132,83 @@ function normalizeAlias(value) {
  * Datos puntuales (horarios, pastores, terminología).
  * Se evalúa antes del FAQ y del RAG.
  */
+async function loadActiveFacts(db) {
+  const facts = [];
+  for (const table of ["ministry_fact", "knowledge_fact"]) {
+    try {
+      const { rows } = await db.query(
+        `SELECT id, category, title, content, aliases
+           FROM ${table}
+          WHERE status = 'active'
+          ORDER BY updated_at DESC
+          LIMIT 400`,
+      );
+      facts.push(...rows);
+    } catch (err) {
+      if (!/relation .* does not exist/i.test(err.message)) throw err;
+    }
+  }
+  return facts;
+}
+
+export async function findKnowledgeDocs(embStr) {
+  const db = getPool();
+  if (!db || !embStr) return [];
+  try {
+    const { rows } = await db.query(
+      "SELECT content, document_id, title, category, chunk_pos, similarity FROM match_knowledge_chunks($1::text, $2)",
+      [embStr, 4],
+    );
+    return rows.filter((row) => Number(row.similarity) >= 0.62);
+  } catch (err) {
+    if (!/does not exist|match_knowledge_chunks/i.test(err.message)) {
+      console.error("[knowledge] docs", err.message);
+    }
+    return [];
+  }
+}
+
+export async function paidOfferFor(youtubeId) {
+  const db = getPool();
+  if (!db || !youtubeId) return null;
+  try {
+    const { rows } = await db.query(
+      `SELECT access_mode, offer_url, offer_label, title
+         FROM content_offer
+        WHERE youtube_id = $1
+        LIMIT 1`,
+      [String(youtubeId)],
+    );
+    return rows[0]?.access_mode === "paid" ? rows[0] : null;
+  } catch (err) {
+    if (!/relation .*content_offer.* does not exist/i.test(err.message)) {
+      console.error("[knowledge] offer", err.message);
+    }
+    return null;
+  }
+}
+
+export function paidPayload(video, offer) {
+  const title = offer?.title || video?.title || "esta enseñanza";
+  const label = offer?.offer_label || "Comprar esta enseñanza";
+  const link = offer?.offer_url ? ` ${offer.offer_url}` : "";
+  return {
+    answer: `«${title}» es contenido de pago del ministerio. No puedo entregarte la enseñanza completa aquí; te invitamos a adquirirla${link ? ":" + link : "."}`,
+    source: "oferta",
+    offer: {
+      title,
+      url: offer?.offer_url || "",
+      label,
+    },
+    video: {
+      title: video?.title,
+      episode: video?.episode,
+      youtube_id: video?.youtube_id,
+      start_second: 0,
+    },
+  };
+}
+
 export async function findFact(question) {
   const db = getPool();
   if (!db) return null;
@@ -139,13 +216,7 @@ export async function findFact(question) {
   if (norm.length < 3) return null;
 
   try {
-    const { rows } = await db.query(
-      `SELECT id, category, title, content, aliases
-         FROM knowledge_fact
-        WHERE status = 'active'
-        ORDER BY updated_at DESC
-        LIMIT 300`,
-    );
+    const rows = await loadActiveFacts(db);
     if (!rows.length) return null;
 
     let best = null;

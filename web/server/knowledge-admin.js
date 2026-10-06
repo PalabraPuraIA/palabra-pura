@@ -110,6 +110,8 @@ const FACT_CATEGORIES = new Set([
   "terminologia",
   "lugar",
   "contacto",
+  "redes",
+  "evento",
   "general",
 ]);
 

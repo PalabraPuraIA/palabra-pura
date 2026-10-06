@@ -7,7 +7,7 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js";
+import { renderSourceCard } from "./SourceCard.js?v=kb-hub-1";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
@@ -125,11 +125,12 @@ export class ChatView {
     const tips = renderSuggestions(response.suggestions);
     const showLabel = Boolean(sources) || hasAnswer;
     const isVideo = response.source === "video" && response.video;
+    const isOffer = response.source === "oferta" || Boolean(response.offer);
     const hasVerses = Boolean(response.passage?.reference || response.passages?.length);
     const lifePromise = response.lifeArea?.promise
       ? `<p class="msg__life-promise"><strong>${escapeHtml(response.lifeArea.label)}:</strong> ${escapeHtml(response.lifeArea.promise)}</p>`
       : "";
-    const answerLabel = isVideo ? "En pocas palabras" : "Explicación";
+    const answerLabel = isOffer ? "Contenido de pago" : isVideo ? "En pocas palabras" : "Explicación";
     const answerHint =
       isVideo && response.excerpt
         ? `<p class="msg__hint">Resumen corto.</p>`

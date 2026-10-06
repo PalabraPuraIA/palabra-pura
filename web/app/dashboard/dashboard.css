@@ -370,6 +370,23 @@ th {
 .form-msg { margin: 0; font-size: .9rem; }
 .form-msg--ok { color: #1b7a45; }
 .form-msg--err { color: #b01040; }
+.table-wrap input[type="url"],
+.table-wrap input[type="text"],
+.table-wrap select {
+  width: 100%;
+  font: inherit;
+  font-size: .84rem;
+  padding: 8px 10px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-sm);
+  background: var(--c-surface-2);
+  color: var(--c-ink);
+  margin-bottom: 6px;
+}
+.btn--ghost {
+  background: transparent;
+  border-color: var(--c-line);
+}
 .card-head {
   display: flex;
   align-items: center;

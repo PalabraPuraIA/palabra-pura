@@ -19,6 +19,7 @@ import { guardQuestion, offTopicAnswer, sanitizeAnswer } from "./chat-guard.js";
 import { formatFragmentsForModel, selectLiteralExcerpt } from "./excerpt.js";
 import { retrieveTranscriptContext, hasStrongVideoEvidence } from "./chat-retrieve.js";
 import { historyBlock, normalizeHistory, retrievalQuestion } from "./chat-context.js";
+import { findFact, findKnowledgeDocs, paidOfferFor, paidPayload } from "./knowledge.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
@@ -249,6 +250,7 @@ async function answerLocal(question, history = []) {
   const embStr = JSON.stringify(embedding);
   const db = getPool();
   const prior = historyBlock(history);
+  const docs = await findKnowledgeDocs(embStr);
 
   const fragMatches = await retrieveTranscriptContext(db, embStr, searchQ);
 
@@ -275,6 +277,8 @@ async function answerLocal(question, history = []) {
         accepted ? vid.evidence : null,
       );
       const top = selected.fragment || fragMatches[0];
+      const paid = await paidOfferFor(top?.youtube_id);
+      if (paid) return paidPayload(top, paid);
 
       // Si el modelo rechazó pero el audio sí habla del tema, no caemos a Biblia a ciegas.
       if (!accepted || !answer) {
@@ -312,6 +316,25 @@ async function answerLocal(question, history = []) {
           start_second: top.start_second ?? 0,
         },
         source: "video",
+      };
+    }
+  }
+
+  if (docs.length) {
+    const docContext = docs
+      .map((d) => `Documento «${d.title}»:\n${d.content}`)
+      .join("\n\n---\n\n");
+    const doc = await askLLM(
+      SYSTEM_BIBLE,
+      `${prior}Informacion verificada del ministerio:\n${docContext}\n\nPregunta: ${question}`,
+    );
+    const answer = sanitizeAnswer(doc?.answer ?? "");
+    if (answer && !SOFT_NOT_FOUND_RE.test(answer)) {
+      return {
+        answer,
+        source: "dato",
+        fromKnowledge: true,
+        factTitle: docs[0]?.title,
       };
     }
   }
@@ -768,6 +791,9 @@ export async function handleChat(req, res) {
   }
 
   try {
+    const factHit = await findFact(retrievalQuestion(question, history));
+    if (factHit) return res.json({ ...factHit, mode: "dato" });
+
     let payload = await answerFor(mode, question, history);
 
     // La Edge Function contesta 200 con su propio texto de error: no sirve.
@@ -781,6 +807,14 @@ export async function handleChat(req, res) {
     payload = normalizePayload(payload);
     if (payload?.mode === "guard") {
       return res.json(await withSuggestions(payload, question));
+    }
+
+    if (payload?.source === "video" && payload.video?.youtube_id) {
+      const paid = await paidOfferFor(payload.video.youtube_id);
+      if (paid) return res.json(paidPayload(payload.video, paid));
+    }
+    if (payload?.source === "dato" || payload?.source === "oferta") {
+      return res.json(payload);
     }
 
     // En video no sacamos versículos del texto de Grace: solo de la transcripción.

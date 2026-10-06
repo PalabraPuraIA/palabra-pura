@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/dashboard/dashboard.css" />
+  <link rel="stylesheet" href="../css/tokens.css" />
+  <link rel="stylesheet" href="./dashboard.css?v=facts-2" />
 </head>
 <body>
   <div class="wrap">
@@ -18,16 +18,16 @@
         <h1>Agregar video o audio</h1>
       </div>
       <div class="bar__actions">
-        <a class="btn" href="/dashboard/knowledge.html">Ver conocimiento</a>
-        <a class="btn btn--primary" href="/">Ir al chat</a>
+        <a class="btn" href="./knowledge.html">Base de conocimientos</a>
+        <a class="btn btn--primary" href="../">Ir al chat</a>
       </div>
     </header>
 
     <nav class="dash-nav" aria-label="Secciones">
-      <a href="/dashboard/">Consultas</a>
-      <a href="/dashboard/knowledge.html">Conocimiento</a>
-      <a href="/dashboard/ingest.html" aria-current="page">Agregar video / audio</a>
-      <a href="/">Chat</a>
+      <a href="./">Consultas</a>
+      <a href="./knowledge.html">Base de conocimientos</a>
+      <a href="./ingest.html" aria-current="page">Agregar video / audio</a>
+      <a href="../">Chat</a>
     </nav>
 
     <p class="sub">Pega un link de YouTube o sube un audio/video. Se transcribe, se parte en fragmentos, se vectoriza y queda listo para el chat.</p>
@@ -85,6 +85,6 @@
 
     <p class="foot">Requiere <code>GROQ_API_KEY</code> (Whisper) y <code>GEMINI_API_KEY</code> (embeddings) en el entorno del contenedor web.</p>
   </div>
-  <script type="module" src="/dashboard/ingest-page.js"></script>
+  <script type="module" src="./ingest-page.js"></script>
 </body>
 </html>

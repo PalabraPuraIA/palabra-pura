@@ -166,6 +166,90 @@ async function attachLifeContext(payload: Record<string, unknown>, question: str
   return payload;
 }
 
+function factScore(question: string, fact: { title?: string; aliases?: string[] }) {
+  const normQ = norm(question);
+  const aliases = [norm(fact.title || ""), ...(fact.aliases || []).map(norm)].filter((a) => a.length >= 2);
+  let best = 0;
+  for (const alias of aliases) {
+    if (normQ === alias) best = Math.max(best, 100 + alias.length);
+    else if (normQ.includes(alias) && alias.length >= 4) best = Math.max(best, 60 + Math.min(alias.length, 40));
+    else if (alias.includes(normQ) && normQ.length >= 6) best = Math.max(best, 45);
+    else {
+      const words = alias.split(" ").filter((w) => w.length > 2);
+      if (words.length >= 2 && words.every((w) => normQ.includes(w))) best = Math.max(best, 40 + words.length * 5);
+    }
+  }
+  return best;
+}
+
+async function findMinistryFact(question: string) {
+  const { data, error } = await supabase
+    .from("ministry_fact")
+    .select("id,category,title,content,aliases")
+    .eq("status", "active")
+    .limit(400);
+  if (error || !data?.length) return null;
+  let best = null;
+  let score = 0;
+  for (const row of data) {
+    const s = factScore(question, row);
+    if (s > score) {
+      score = s;
+      best = row;
+    }
+  }
+  if (!best || score < 45) return null;
+  return {
+    answer: best.content,
+    source: "dato",
+    fromKnowledge: true,
+    factCategory: best.category,
+    factTitle: best.title,
+    knowledgeId: `fact-${best.id}`,
+  };
+}
+
+async function findKnowledgeDocs(embStr: string) {
+  const { data, error } = await supabase.rpc("match_knowledge_chunks", {
+    query_embedding: embStr,
+    match_count: 4,
+  });
+  if (error || !data?.length) return [];
+  return data.filter((row: { similarity?: number }) => Number(row.similarity) >= 0.62);
+}
+
+async function paidOfferFor(youtubeId?: string | null) {
+  if (!youtubeId) return null;
+  const { data } = await supabase
+    .from("content_offer")
+    .select("access_mode,offer_url,offer_label,title")
+    .eq("youtube_id", youtubeId)
+    .maybeSingle();
+  if (data?.access_mode !== "paid") return null;
+  return data;
+}
+
+function paidPayload(video: { title?: string; youtube_id?: string; episode?: number }, offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null }) {
+  const title = offer.title || video.title || "esta enseñanza";
+  const label = offer.offer_label || "Comprar esta enseñanza";
+  const link = offer.offer_url ? ` ${offer.offer_url}` : "";
+  return {
+    answer: `«${title}» es contenido de pago del ministerio. No puedo entregarte la enseñanza completa aquí; te invitamos a adquirirla${link ? ":" + link : "."}`,
+    source: "oferta",
+    offer: {
+      title,
+      url: offer.offer_url || "",
+      label,
+    },
+    video: {
+      title: video.title,
+      episode: video.episode,
+      youtube_id: video.youtube_id,
+      start_second: 0,
+    },
+  };
+}
+
 const SOFT_NOT_FOUND_RE =
   /todav[ií]a no encuentro|no encuentro material|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n/i;
 
@@ -473,6 +557,9 @@ Deno.serve(async (req)=>{
     const prior = historyBlock(history);
     const embedding = await embedQuery(searchQ);
     const embStr = JSON.stringify(embedding); // halfvec como texto "[...]"
+    const factHit = await findMinistryFact(searchQ);
+    if (factHit) return json(await attachLifeContext(factHit, searchQ));
+    const docs = await findKnowledgeDocs(embStr);
     // ========== 1) VIDEOS primero ==========
     const fragMatches = await retrieveVideoFragments(embStr);
     const tips = relatedSuggestions(fragMatches, 6);
@@ -481,9 +568,11 @@ Deno.serve(async (req)=>{
       const vid = await askLLM(SYSTEM_VIDEO, `${prior}Contexto de los videos:\n${context}\n\nPregunta actual: ${question}`);
       // Si el LLM pudo responder con los videos, terminamos aqui.
       if (vid.found) {
-        const passage = await resolvePassage(vid.reference);
         const selected = literalExcerpt(fragMatches, vid.evidence);
         const top = selected.fragment;
+        const paid = await paidOfferFor(top?.youtube_id);
+        if (paid) return json(paidPayload(top, paid));
+        const passage = await resolvePassage(vid.reference);
         return json(await attachLifeContext({
           answer: sanitizeAnswer(vid.answer ?? ""),
           passage: passage ? {
@@ -499,6 +588,24 @@ Deno.serve(async (req)=>{
             start_second: top.start_second ?? 0
           },
           source: "video"
+        }, searchQ));
+      }
+    }
+    if (docs.length) {
+      const docContext = docs
+        .map((d: { title?: string; content?: string }) => `Documento «${d.title}»:\n${d.content}`)
+        .join("\n\n---\n\n");
+      const doc = await askLLM(
+        SYSTEM_BIBLE,
+        `${prior}Informacion verificada del ministerio:\n${docContext}\n\nPregunta actual: ${question}`,
+      );
+      const answer = sanitizeAnswer(doc.answer ?? "");
+      if (answer && !SOFT_NOT_FOUND_RE.test(answer)) {
+        return json(await attachLifeContext({
+          answer,
+          source: "dato",
+          fromKnowledge: true,
+          factTitle: docs[0]?.title,
         }, searchQ));
       }
     }

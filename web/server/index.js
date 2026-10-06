@@ -27,6 +27,7 @@ import {
   handleCorpusStats,
   kickWorker,
 } from "./ingest.js";
+import { handleKnowledgeHub } from "./knowledge-hub.js";
 import {
   initConversationStore,
   migrateLegacyEvents,
@@ -416,6 +417,8 @@ app.get("/api/facts", handleFactsList);
 app.post("/api/facts", handleFactCreate);
 app.patch("/api/facts/:id", handleFactPatch);
 app.delete("/api/facts/:id", handleFactDelete);
+app.get("/api/knowledge-hub", handleKnowledgeHub);
+app.post("/api/knowledge-hub", handleKnowledgeHub);
 app.get("/api/corpus", handleCorpusStats);
 
 const upload = multer({

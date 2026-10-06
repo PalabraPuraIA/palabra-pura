@@ -199,10 +199,32 @@ function renderVideo(video) {
     </section>`;
 }
 
+function renderOffer(offer) {
+  if (!offer) return "";
+  const label = offer.label || "Comprar esta enseñanza";
+  const url = String(offer.url || "").trim();
+  const link = url
+    ? `<a class="source__cta source__cta--link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`
+    : `<p class="source__video-hint">${escapeHtml(label)}</p>`;
+  return `
+    <section class="source__panel source__panel--offer" aria-label="Contenido de pago">
+      <h3 class="source__panel-title">Enseñanza de pago</h3>
+      <div class="source__block">
+        <p class="source__video-title">${escapeHtml(offer.title || "Esta enseñanza")}</p>
+        <p class="source__video-hint">Adquiérela para recibir el contenido completo.</p>
+        ${link}
+      </div>
+    </section>`;
+}
+
 /**
- * @param {{ passage?: object, passages?: object[], video?: object, excerpt?: string, source?: string }} response
+ * @param {{ passage?: object, passages?: object[], video?: object, excerpt?: string, source?: string, offer?: object }} response
  */
-export function renderSourceCard({ passage, passages, video, excerpt, source } = {}) {
+export function renderSourceCard({ passage, passages, video, excerpt, source, offer } = {}) {
+  if (source === "oferta" || offer) {
+    return `<div class="source">${renderOffer(offer)}</div>`;
+  }
+
   const demo = isDemoVideo(video);
   const transcript = renderExcerpt(excerpt);
   const verses = renderPassages(passage, passages, demo);
@@ -215,9 +237,11 @@ export function renderSourceCard({ passage, passages, video, excerpt, source } =
       ? `<p class="source__origin">Pasajes bíblicos relacionados con tu pregunta.</p>`
       : source === "video" && verses
         ? `<p class="source__origin">Resumen del audio del ministerio, con versículos citados y el video donde se enseña.</p>`
-        : source === "video"
+      : source === "video"
           ? `<p class="source__origin">Basado en la enseñanza en audio del ministerio.</p>`
-          : "";
+          : source === "dato"
+            ? `<p class="source__origin">Dato verificado de la base de conocimientos del ministerio.</p>`
+            : "";
 
   return `<div class="source">${origin}${transcript}${verses}${vid}</div>`;
 }

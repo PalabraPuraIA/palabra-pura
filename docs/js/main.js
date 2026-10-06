@@ -12,9 +12,9 @@ import {
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
 
-import { ChatService } from "./services/ChatService.js?v=rate-life-1";
+import { ChatService } from "./services/ChatService.js?v=kb-hub-1";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js?v=rate-life-1";
+import { ChatView } from "./ui/ChatView.js?v=kb-hub-1";
 import { Composer } from "./ui/Composer.js";
 import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";

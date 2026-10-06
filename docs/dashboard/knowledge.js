@@ -1,21 +1,28 @@
-const API_BASE = (() => {
-  if (typeof location !== "undefined" && /github\.io$/i.test(location.hostname)) {
-    return "https://earrings-balance-towers-bid.trycloudflare.com";
-  }
-  return "";
-})();
-function apiUrl(path) {
-  return `${API_BASE}${path}`;
-}
+const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
+const SUPABASE_ANON = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
+const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
+const HUB = ON_PAGES ? `${SUPABASE_URL}/functions/v1/knowledge-hub` : "/api/knowledge-hub";
 
-const CATEGORY_LABELS = {
+const CATEGORY_LABEL = {
   horario: "Horario",
-  persona: "Persona",
-  terminologia: "Terminología",
-  lugar: "Lugar",
   contacto: "Contacto",
+  redes: "Redes",
+  evento: "Evento",
+  persona: "Persona",
+  lugar: "Lugar",
+  terminologia: "Término",
   general: "General",
 };
+
+const $ = (sel, root = document) => root.querySelector(sel);
+
+function setMsg(el, text, ok) {
+  if (!el) return;
+  el.hidden = !text;
+  el.textContent = text || "";
+  el.classList.toggle("form-msg--ok", Boolean(ok));
+  el.classList.toggle("form-msg--err", Boolean(text) && !ok);
+}
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -25,240 +32,279 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
-function fmtWhen(iso) {
-  try {
-    return new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
-  } catch {
-    return iso || "—";
+async function hub(action, extra = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (ON_PAGES) {
+    headers.Authorization = `Bearer ${SUPABASE_ANON}`;
+    headers.apikey = SUPABASE_ANON;
   }
-}
-
-function statusBadge(status) {
-  const s = String(status || "—");
-  return `<span class="badge badge--${escapeHtml(s)}">${escapeHtml(s)}</span>`;
-}
-
-async function loadCorpus() {
-  const res = await fetch(apiUrl("/api/corpus", { cache: "no-store" });
-  if (!res.ok) throw new Error(`corpus HTTP ${res.status}`);
-  return res.json();
-}
-
-async function loadKnowledge() {
-  const res = await fetch(apiUrl("/api/knowledge", { cache: "no-store" });
-  if (!res.ok) throw new Error(`knowledge HTTP ${res.status}`);
-  return res.json();
-}
-
-async function loadFacts() {
-  const res = await fetch(apiUrl("/api/facts", { cache: "no-store" });
-  if (!res.ok) throw new Error(`facts HTTP ${res.status}`);
-  return res.json();
-}
-
-function renderCorpus(data) {
-  const st = data.stats || {};
-  document.querySelector("[data-videos]").textContent = st.videos ?? 0;
-
-  const tbody = document.querySelector("[data-videos-body]");
-  const empty = document.querySelector("[data-videos-empty]");
-  const videos = data.videos || [];
-  if (!videos.length) {
-    tbody.innerHTML = "";
-    empty.hidden = false;
-  } else {
-    empty.hidden = true;
-    tbody.innerHTML = videos
-      .map((v) => {
-        const id = v.youtube_id || "";
-        const link = /^[a-zA-Z0-9_-]{11}$/.test(id)
-          ? `<a href="https://www.youtube.com/watch?v=${escapeHtml(id)}" target="_blank" rel="noopener">${escapeHtml(id)}</a>`
-          : escapeHtml(id);
-        return `<tr>
-          <td>${escapeHtml(v.title)}</td>
-          <td>${link}</td>
-          <td>${v.fragments ?? 0}</td>
-          <td class="when">${escapeHtml(fmtWhen(v.updated_at || v.created_at))}</td>
-        </tr>`;
-      })
-      .join("");
+  const res = await fetch(HUB, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ action, ...extra }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || `Error ${res.status}`);
   }
+  return data;
 }
 
-function renderKnowledge(data) {
-  const st = data.stats || {};
-  document.querySelector("[data-kb-total]").textContent = st.total ?? 0;
-
-  const tbody = document.querySelector("[data-kb-body]");
-  const empty = document.querySelector("[data-kb-empty]");
-  const entries = data.entries || [];
-  if (!entries.length) {
-    tbody.innerHTML = "";
-    empty.hidden = false;
-  } else {
-    empty.hidden = true;
-    tbody.innerHTML = entries
-      .map((e) => {
-        const answer = String(e.answer || "").slice(0, 160);
-        return `<tr>
-          <td>
-            <strong>${escapeHtml(e.question_display)}</strong>
-            <div class="muted">${escapeHtml(answer)}${answer.length >= 160 ? "…" : ""}</div>
-            ${e.video_title ? `<div class="muted">Video: ${escapeHtml(e.video_title)}</div>` : ""}
-          </td>
-          <td>${statusBadge(e.status)}</td>
-          <td>+${e.useful_count || 0} / −${e.not_useful_count || 0}</td>
-          <td class="row-actions">
-            <button type="button" class="btn btn--tiny" data-stale="${e.id}">Archivar</button>
-            <button type="button" class="btn btn--tiny btn--danger" data-del="${e.id}">Borrar</button>
-          </td>
-        </tr>`;
-      })
-      .join("");
-  }
+function parseAliases(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 20);
 }
 
-function renderFacts(data) {
-  const st = data.stats || {};
-  document.querySelector("[data-facts-n]").textContent = st.active ?? st.total ?? 0;
-
-  const tbody = document.querySelector("[data-facts-body]");
-  const empty = document.querySelector("[data-facts-empty]");
-  const facts = data.facts || [];
+function renderFacts(facts) {
+  const body = $("[data-facts-body]");
+  const empty = $("[data-facts-empty]");
+  if (!body) return;
+  body.innerHTML = "";
   if (!facts.length) {
-    tbody.innerHTML = "";
-    empty.hidden = false;
+    if (empty) empty.hidden = false;
     return;
   }
-  empty.hidden = true;
-  tbody.innerHTML = facts
-    .map((f) => {
-      const aliases = (f.aliases || []).map((a) => `<span class="tag">${escapeHtml(a)}</span>`).join("");
-      const archived = f.status === "archived";
-      return `<tr class="${archived ? "row--muted" : ""}">
-        <td><span class="badge">${escapeHtml(CATEGORY_LABELS[f.category] || f.category)}</span>
-          ${archived ? statusBadge("archived") : ""}</td>
-        <td>
-          <strong>${escapeHtml(f.title)}</strong>
-          <div class="muted">${escapeHtml(f.content)}</div>
-        </td>
-        <td>${aliases || "—"}</td>
-        <td class="row-actions">
-          ${
-            archived
-              ? `<button type="button" class="btn btn--tiny" data-fact-activate="${f.id}">Activar</button>`
-              : `<button type="button" class="btn btn--tiny" data-fact-archive="${f.id}">Archivar</button>`
-          }
-          <button type="button" class="btn btn--tiny btn--danger" data-fact-del="${f.id}">Borrar</button>
-        </td>
-      </tr>`;
-    })
-    .join("");
-}
-
-async function refresh() {
-  try {
-    const [corpus, kb, facts] = await Promise.all([loadCorpus(), loadKnowledge(), loadFacts()]);
-    renderCorpus(corpus);
-    renderKnowledge(kb);
-    renderFacts(facts);
-    document.querySelector("[data-generated]").textContent =
-      `Actualizado: ${fmtWhen(new Date().toISOString())}`;
-  } catch (err) {
-    console.error(err);
-    document.querySelector("[data-generated]").textContent =
-      "No se pudo cargar. ¿Postgres activo y migraciones aplicadas?";
+  if (empty) empty.hidden = true;
+  for (const fact of facts) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(CATEGORY_LABEL[fact.category] || fact.category)}</td>
+      <td>
+        <strong>${escapeHtml(fact.title)}</strong>
+        <div class="muted">${escapeHtml((fact.content || "").slice(0, 180))}</div>
+      </td>
+      <td>${escapeHtml((fact.aliases || []).join(", "))}</td>
+      <td><button class="btn btn--ghost" type="button" data-del-fact="${escapeHtml(fact.id)}">Quitar</button></td>
+    `;
+    body.appendChild(tr);
   }
 }
 
-document.querySelector("[data-refresh]").addEventListener("click", refresh);
-
-document.querySelector("[data-kb-body]").addEventListener("click", async (ev) => {
-  const stale = ev.target.closest("[data-stale]");
-  const del = ev.target.closest("[data-del]");
-  if (stale) {
-    await fetch(`/api/knowledge/${stale.dataset.stale}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "stale" }),
-    });
-    refresh();
-  }
-  if (del && confirm("¿Borrar esta entrada FAQ?")) {
-    await fetch(`/api/knowledge/${del.dataset.del}`, { method: "DELETE" });
-    refresh();
-  }
-});
-
-document.querySelector("[data-facts-body]").addEventListener("click", async (ev) => {
-  const archive = ev.target.closest("[data-fact-archive]");
-  const activate = ev.target.closest("[data-fact-activate]");
-  const del = ev.target.closest("[data-fact-del]");
-  if (archive) {
-    await fetch(`/api/facts/${archive.dataset.factArchive}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "archived" }),
-    });
-    refresh();
-  }
-  if (activate) {
-    await fetch(`/api/facts/${activate.dataset.factActivate}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "active" }),
-    });
-    refresh();
-  }
-  if (del && confirm("¿Borrar este dato puntual?")) {
-    await fetch(`/api/facts/${del.dataset.factDel}`, { method: "DELETE" });
-    refresh();
-  }
-});
-
-const factForm = document.querySelector("[data-fact-form]");
-const factMsg = document.querySelector("[data-fact-msg]");
-const factSubmit = document.querySelector("[data-fact-submit]");
-
-factForm.addEventListener("submit", async (ev) => {
-  ev.preventDefault();
-  factMsg.hidden = true;
-  const fd = new FormData(factForm);
-  const body = {
-    category: String(fd.get("category") || "general"),
-    title: String(fd.get("title") || "").trim(),
-    content: String(fd.get("content") || "").trim(),
-    aliases: String(fd.get("aliases") || ""),
-  };
-  if (!body.title || !body.content) {
-    factMsg.hidden = false;
-    factMsg.className = "form-msg form-msg--err";
-    factMsg.textContent = "Título y respuesta son obligatorios.";
+function renderDocs(docs) {
+  const body = $("[data-docs-body]");
+  const empty = $("[data-docs-empty]");
+  if (!body) return;
+  body.innerHTML = "";
+  if (!docs.length) {
+    if (empty) empty.hidden = false;
     return;
   }
-  factSubmit.disabled = true;
+  if (empty) empty.hidden = true;
+  for (const doc of docs) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <strong>${escapeHtml(doc.title)}</strong>
+        <div class="muted">${escapeHtml((doc.preview || "").slice(0, 140))}</div>
+      </td>
+      <td>${doc.chunks ?? 0}</td>
+      <td><button class="btn btn--ghost" type="button" data-del-doc="${escapeHtml(doc.id)}">Quitar</button></td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function renderJobs(jobs) {
+  const body = $("[data-jobs-body]");
+  const empty = $("[data-jobs-empty]");
+  if (!body) return;
+  body.innerHTML = "";
+  const queued = jobs.filter((j) => ["queued", "running"].includes(j.status));
+  if (!queued.length) {
+    if (empty) empty.hidden = false;
+    return;
+  }
+  if (empty) empty.hidden = true;
+  for (const job of queued) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(job.youtube_id || "—")}</td>
+      <td>${escapeHtml(job.title || "Sin título")}</td>
+      <td>${escapeHtml(job.status)}</td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+function renderCatalog(videos) {
+  const body = $("[data-catalog-body]");
+  const empty = $("[data-catalog-empty]");
+  if (!body) return;
+  body.innerHTML = "";
+  if (!videos.length) {
+    if (empty) empty.hidden = false;
+    return;
+  }
+  if (empty) empty.hidden = true;
+  for (const video of videos) {
+    const paid = video.access_mode === "paid";
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <strong>${escapeHtml(video.title || "Sin título")}</strong>
+        <div class="muted">${video.episode != null ? `Ep. ${video.episode}` : ""} ${escapeHtml(video.youtube_id || "")}</div>
+      </td>
+      <td>${video.fragments ?? 0}</td>
+      <td>
+        <select data-access="${escapeHtml(video.youtube_id)}">
+          <option value="free" ${paid ? "" : "selected"}>Libre — la IA responde</option>
+          <option value="paid" ${paid ? "selected" : ""}>De pago — invita a comprar</option>
+        </select>
+      </td>
+      <td>
+        <input type="url" data-offer-url="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_url || "")}" placeholder="https://…" />
+        <input type="text" data-offer-label="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_label || "")}" placeholder="Comprar esta enseñanza" />
+      </td>
+      <td><button class="btn btn--primary" type="button" data-save-access="${escapeHtml(video.youtube_id)}">Guardar</button></td>
+    `;
+    body.appendChild(tr);
+  }
+}
+
+async function loadHub() {
+  const data = await hub("list");
+  const facts = data.facts || [];
+  const docs = data.documents || [];
+  const videos = data.videos || [];
+  const jobs = data.jobs || [];
+  renderFacts(facts);
+  renderDocs(docs);
+  renderJobs(jobs);
+  renderCatalog(videos);
+  $("[data-facts-n]").textContent = facts.length;
+  $("[data-docs-n]").textContent = docs.length;
+  $("[data-videos-n]").textContent = videos.length;
+  $("[data-paid-n]").textContent = videos.filter((v) => v.access_mode === "paid").length;
+  $("[data-queued-n]").textContent = jobs.filter((j) => ["queued", "running"].includes(j.status)).length;
+  $("[data-generated]").textContent = `Actualizado ${new Date().toLocaleString("es-CO")}`;
+}
+
+async function onFactSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = $("[data-fact-submit]");
+  const msg = $("[data-fact-msg]");
+  submit.disabled = true;
+  setMsg(msg, "Guardando…", true);
   try {
-    const res = await fetch(apiUrl("/api/facts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+    await hub("saveFact", {
+      category: form.category.value,
+      title: form.title.value,
+      content: form.content.value,
+      aliases: parseAliases(form.aliases.value),
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    factForm.reset();
-    factForm.querySelector('[name="category"]').value = "general";
-    factMsg.hidden = false;
-    factMsg.className = "form-msg form-msg--ok";
-    factMsg.textContent = "Dato guardado. El chat ya puede usarlo.";
-    refresh();
+    form.reset();
+    setMsg(msg, "Dato guardado e indexado.", true);
+    await loadHub();
   } catch (err) {
-    factMsg.hidden = false;
-    factMsg.className = "form-msg form-msg--err";
-    factMsg.textContent = err.message || String(err);
+    setMsg(msg, err.message, false);
   } finally {
-    factSubmit.disabled = false;
+    submit.disabled = false;
+  }
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsText(file);
+  });
+}
+
+async function onDocSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = $("[data-doc-submit]");
+  const msg = $("[data-doc-msg]");
+  submit.disabled = true;
+  setMsg(msg, "Indexando…", true);
+  try {
+    let content = form.content.value.trim();
+    const file = form.file.files[0];
+    if (file) content = (await readFileText(file)).trim() || content;
+    if (!content) throw new Error("Pega un texto o sube un archivo.");
+    await hub("saveDocument", {
+      title: form.title.value,
+      content,
+    });
+    form.reset();
+    setMsg(msg, "Documento indexado.", true);
+    await loadHub();
+  } catch (err) {
+    setMsg(msg, err.message, false);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+async function onVideoSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = $("[data-video-submit]");
+  const msg = $("[data-video-msg]");
+  submit.disabled = true;
+  setMsg(msg, "Encolando…", true);
+  try {
+    await hub("queueVideo", {
+      url: form.url.value,
+      title: form.title.value,
+    });
+    form.reset();
+    setMsg(msg, "Video en cola para transcribir.", true);
+    await loadHub();
+  } catch (err) {
+    setMsg(msg, err.message, false);
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+document.addEventListener("click", async (event) => {
+  const delFact = event.target.closest("[data-del-fact]");
+  if (delFact) {
+    await hub("deleteFact", { id: delFact.getAttribute("data-del-fact") });
+    await loadHub();
+    return;
+  }
+  const delDoc = event.target.closest("[data-del-doc]");
+  if (delDoc) {
+    await hub("deleteDocument", { id: delDoc.getAttribute("data-del-doc") });
+    await loadHub();
+    return;
+  }
+  const save = event.target.closest("[data-save-access]");
+  if (save) {
+    const youtubeId = save.getAttribute("data-save-access");
+    const row = save.closest("tr");
+    const access = row.querySelector("[data-access]")?.value || "free";
+    const offerUrl = row.querySelector("[data-offer-url]")?.value || "";
+    const offerLabel = row.querySelector("[data-offer-label]")?.value || "";
+    save.disabled = true;
+    try {
+      await hub("setVideoAccess", {
+        youtube_id: youtubeId,
+        access_mode: access,
+        offer_url: offerUrl,
+        offer_label: offerLabel,
+      });
+      await loadHub();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      save.disabled = false;
+    }
   }
 });
 
-refresh();
-setInterval(refresh, 20000);
+$("[data-fact-form]")?.addEventListener("submit", onFactSubmit);
+$("[data-doc-form]")?.addEventListener("submit", onDocSubmit);
+$("[data-video-form]")?.addEventListener("submit", onVideoSubmit);
+$("[data-refresh]")?.addEventListener("click", () => loadHub().catch((err) => alert(err.message)));
+
+loadHub().catch((err) => {
+  $("[data-generated]").textContent = err.message;
+});
