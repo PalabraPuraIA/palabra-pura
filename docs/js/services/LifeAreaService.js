@@ -5,7 +5,7 @@
  */
 
 import { config } from "../config.js";
-import { LIFE_AREAS, detectLifeArea, toPanelAreas } from "../data/lifeAreasCatalog.js";
+import { LIFE_AREAS, detectLifeArea, toPanelAreas } from "../data/lifeAreasCatalog.js?v=rate-life-1";
 
 function isGitHubPages() {
   return (

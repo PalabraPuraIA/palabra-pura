@@ -12,17 +12,17 @@ import {
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
 
-import { ChatService } from "./services/ChatService.js";
+import { ChatService } from "./services/ChatService.js?v=rate-life-1";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js";
+import { ChatView } from "./ui/ChatView.js?v=rate-life-1";
 import { Composer } from "./ui/Composer.js";
 import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { VideoPlayer } from "./ui/VideoPlayer.js";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js";
-import { LifeAreasPanel } from "./ui/LifeAreasPanel.js";
-import { LifeAreaService } from "./services/LifeAreaService.js";
-import { AnalyticsService } from "./services/AnalyticsService.js";
+import { LifeAreasPanel } from "./ui/LifeAreasPanel.js?v=rate-life-1";
+import { LifeAreaService } from "./services/LifeAreaService.js?v=rate-life-1";
+import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
 
 class App {
   #service = new ChatService();
