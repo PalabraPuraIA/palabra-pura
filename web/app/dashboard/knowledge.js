@@ -129,6 +129,57 @@ function renderJobs(jobs) {
   }
 }
 
+const openSeries = new Set();
+
+function seriesKey(name) {
+  return String(name || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || "otras";
+}
+
+function seriesFromTitle(title) {
+  const raw = String(title || "").trim();
+  const match = raw.match(/^\s*(.+?)\s*[-–]\s*\d+/);
+  const prefix = (match ? match[1] : "").replace(/\s+/g, " ").trim();
+  const key = seriesKey(prefix || raw);
+  if (key.includes("escuela-biblica")) return "Escuela Bíblica";
+  return prefix || "Otras enseñanzas";
+}
+
+function episodeLabel(video) {
+  const title = String(video.title || "").trim();
+  const match = title.match(/^\s*.+?\s*[-–]\s*(\d+)\s*[-–]\s*(.+)$/);
+  let topic = match
+    ? match[2].replace(/\s*[-–]\s*PASTORES.*$/i, "").trim()
+    : title;
+  const ep = video.episode != null ? video.episode : match?.[1];
+  if (ep != null && topic && topic !== title) return `Ep. ${ep} — ${topic}`;
+  if (ep != null) return `Ep. ${ep} — ${title || "Sin título"}`;
+  return title || "Sin título";
+}
+
+function groupVideosBySeries(videos) {
+  const groups = new Map();
+  for (const video of videos) {
+    const name = seriesFromTitle(video.title);
+    const key = seriesKey(name);
+    if (!groups.has(key)) {
+      groups.set(key, { key, name, videos: [], fragments: 0, paid: 0 });
+    }
+    const group = groups.get(key);
+    group.videos.push(video);
+    group.fragments += Number(video.fragments) || 0;
+    if (video.access_mode === "paid") group.paid += 1;
+  }
+  for (const group of groups.values()) {
+    group.videos.sort((a, b) => (Number(a.episode) || 0) - (Number(b.episode) || 0));
+  }
+  return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));
+}
+
 function renderCatalog(videos) {
   const body = $("[data-catalog-body]");
   const empty = $("[data-catalog-empty]");
@@ -139,28 +190,48 @@ function renderCatalog(videos) {
     return;
   }
   if (empty) empty.hidden = true;
-  for (const video of videos) {
-    const paid = video.access_mode === "paid";
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>
-        <strong>${escapeHtml(video.title || "Sin título")}</strong>
-        <div class="muted">${video.episode != null ? `Ep. ${video.episode}` : ""} ${escapeHtml(video.youtube_id || "")}</div>
+  for (const group of groupVideosBySeries(videos)) {
+    const expanded = openSeries.has(group.key);
+    const head = document.createElement("tr");
+    head.className = "catalog-series";
+    head.innerHTML = `
+      <td colspan="5">
+        <button class="catalog-series__btn" type="button" data-toggle-series="${escapeHtml(group.key)}" aria-expanded="${expanded ? "true" : "false"}">
+          <span class="catalog-series__caret" aria-hidden="true">${expanded ? "▾" : "▸"}</span>
+          <span class="catalog-series__copy">
+            <strong>${escapeHtml(group.name)}</strong>
+            <span class="muted">${group.videos.length} episodio${group.videos.length === 1 ? "" : "s"} · ${group.fragments} fragmentos${group.paid ? ` · ${group.paid} de pago` : ""}</span>
+          </span>
+        </button>
       </td>
-      <td>${video.fragments ?? 0}</td>
-      <td>
-        <select data-access="${escapeHtml(video.youtube_id)}">
-          <option value="free" ${paid ? "" : "selected"}>Libre — la IA responde</option>
-          <option value="paid" ${paid ? "selected" : ""}>De pago — invita a comprar</option>
-        </select>
-      </td>
-      <td>
-        <input type="url" data-offer-url="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_url || "")}" placeholder="https://…" />
-        <input type="text" data-offer-label="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_label || "")}" placeholder="Comprar esta enseñanza" />
-      </td>
-      <td><button class="btn btn--primary" type="button" data-save-access="${escapeHtml(video.youtube_id)}">Guardar</button></td>
     `;
-    body.appendChild(tr);
+    body.appendChild(head);
+    for (const video of group.videos) {
+      const paid = video.access_mode === "paid";
+      const tr = document.createElement("tr");
+      tr.className = "catalog-episode";
+      tr.dataset.seriesEp = group.key;
+      tr.hidden = !expanded;
+      tr.innerHTML = `
+        <td>
+          <strong>${escapeHtml(episodeLabel(video))}</strong>
+          <div class="muted">${escapeHtml(video.youtube_id || "")}</div>
+        </td>
+        <td>${video.fragments ?? 0}</td>
+        <td>
+          <select data-access="${escapeHtml(video.youtube_id)}">
+            <option value="free" ${paid ? "" : "selected"}>Libre — la IA responde</option>
+            <option value="paid" ${paid ? "selected" : ""}>De pago — invita a comprar</option>
+          </select>
+        </td>
+        <td>
+          <input type="url" data-offer-url="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_url || "")}" placeholder="https://…" />
+          <input type="text" data-offer-label="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_label || "")}" placeholder="Comprar esta enseñanza" />
+        </td>
+        <td><button class="btn btn--primary" type="button" data-save-access="${escapeHtml(video.youtube_id)}">Guardar</button></td>
+      `;
+      body.appendChild(tr);
+    }
   }
 }
 
@@ -264,6 +335,20 @@ async function onVideoSubmit(event) {
 }
 
 document.addEventListener("click", async (event) => {
+  const toggle = event.target.closest("[data-toggle-series]");
+  if (toggle) {
+    const key = toggle.getAttribute("data-toggle-series");
+    const open = !openSeries.has(key);
+    if (open) openSeries.add(key);
+    else openSeries.delete(key);
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    const caret = toggle.querySelector(".catalog-series__caret");
+    if (caret) caret.textContent = open ? "▾" : "▸";
+    document.querySelectorAll(`[data-series-ep="${CSS.escape(key)}"]`).forEach((row) => {
+      row.hidden = !open;
+    });
+    return;
+  }
   const delFact = event.target.closest("[data-del-fact]");
   if (delFact) {
     await hub("deleteFact", { id: delFact.getAttribute("data-del-fact") });
