@@ -11,7 +11,7 @@ export class LifeAreaService {
     if (this.#cache) return this.#cache;
 
     try {
-      const url = new URL(config.lifeAreasApiUrl, window.location.origin);
+      const url = new URL(config.lifeAreasApiUrl || "/api/life-areas", window.location.origin);
       const response = await fetch(url.toString(), {
         headers: { Accept: "application/json" },
         cache: "no-store",
@@ -32,7 +32,7 @@ export class LifeAreaService {
     if (!q) return null;
 
     try {
-      const url = new URL(config.lifeAreasApiUrl, window.location.origin);
+      const url = new URL(config.lifeAreasApiUrl || "/api/life-areas", window.location.origin);
       url.searchParams.set("q", q);
       const response = await fetch(url.toString(), {
         headers: { Accept: "application/json" },

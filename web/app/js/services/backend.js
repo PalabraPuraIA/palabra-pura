@@ -1,9 +1,8 @@
 /**
  * backend.js — Elige el backend activo.
  *
- * Orden:
- *  1. Supabase nube (principal, permanente en GitHub Pages)
- *  2. Server Fintek / túnel (reserva si la nube falla o no responde)
+ * - En GitHub Pages: Supabase nube primero; server/túnel de reserva.
+ * - En el contenedor Fintek (same-origin): server local primero; nube de reserva.
  */
 
 import { config } from "../config.js";
@@ -16,12 +15,27 @@ function normalizeBase(url) {
   return String(url || "").trim().replace(/\/+$/, "");
 }
 
-function cloudChatEndpoint() {
+function isGitHubPages() {
   return (
-    config.endpoint ||
-    config.fallbackEndpoint ||
-    `${normalizeBase(config.supabaseUrl)}/functions/v1/chatbot-iglesia-palabra-pura`
+    typeof window !== "undefined" &&
+    /github\.io$/i.test(window.location?.hostname || "")
   );
+}
+
+function cloudChatEndpoint() {
+  const raw =
+    config.fallbackEndpoint ||
+    config.endpoint ||
+    `${normalizeBase(config.supabaseUrl)}/functions/v1/chatbot-iglesia-palabra-pura`;
+  // En el contenedor, config.endpoint puede ser "/api/chat" (local).
+  if (!raw || !/^https?:\/\//i.test(raw) || !/supabase\.co/.test(raw)) {
+    return (
+      config.fallbackEndpoint && /supabase\.co/.test(config.fallbackEndpoint)
+        ? config.fallbackEndpoint
+        : `${normalizeBase(config.supabaseUrl)}/functions/v1/chatbot-iglesia-palabra-pura`
+    );
+  }
+  return raw;
 }
 
 async function probeHealth(base) {
@@ -45,12 +59,10 @@ async function probeHealth(base) {
 
 async function probeCloud() {
   const endpoint = cloudChatEndpoint();
-  if (!endpoint) return false;
+  if (!endpoint || !/^https?:\/\//i.test(endpoint)) return false;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), HEALTH_TIMEOUT_MS);
   try {
-    // OPTIONS/HEAD no siempre están en Edge Functions; un GET corto basta
-    // para saber si el host responde (404/405 = vivo, network error = caído).
     const res = await fetch(endpoint, {
       method: "GET",
       cache: "no-store",
@@ -83,12 +95,12 @@ async function readPublishedUrl() {
   }
 }
 
-async function findReserveServer() {
+async function findLocalServer() {
   const candidates = [];
   if (
     typeof window !== "undefined" &&
     window.location?.origin &&
-    !/github\.io$/i.test(window.location.hostname)
+    !isGitHubPages()
   ) {
     candidates.push(normalizeBase(window.location.origin));
   }
@@ -120,27 +132,70 @@ export async function resolveBackend({ force = false } = {}) {
   }
 
   const cloud = cloudChatEndpoint();
-  const reserveBase = await findReserveServer();
-  const reserveChat = reserveBase ? `${reserveBase}/api/chat` : null;
-  const cloudOk = await probeCloud();
+  const localBase = await findLocalServer();
+  const localChat = localBase
+    ? `${localBase}/api/chat`
+    : !isGitHubPages() && config.endpoint === "/api/chat"
+      ? "/api/chat"
+      : null;
 
-  if (cloudOk || !reserveChat) {
+  // Contenedor / LAN: local primero.
+  if (!isGitHubPages() && localChat && (localBase ? true : await probeHealth(""))) {
+    // If localBase null but endpoint is /api/chat, probe same-origin
+    if (!localBase) {
+      const origin =
+        typeof window !== "undefined" ? normalizeBase(window.location.origin) : "";
+      if (origin && (await probeHealth(origin))) {
+        cached = {
+          at: now,
+          mode: "server",
+          serverBase: origin,
+          chatEndpoint: `${origin}/api/chat`,
+          reserveChatEndpoint: cloud,
+        };
+        return cached;
+      }
+    } else {
+      cached = {
+        at: now,
+        mode: "server",
+        serverBase: localBase,
+        chatEndpoint: localChat,
+        reserveChatEndpoint: cloud,
+      };
+      return cached;
+    }
+  }
+
+  if (!isGitHubPages() && localBase) {
     cached = {
       at: now,
-      mode: "supabase",
-      serverBase: reserveBase,
-      chatEndpoint: cloud,
-      reserveChatEndpoint: reserveChat,
+      mode: "server",
+      serverBase: localBase,
+      chatEndpoint: localChat,
+      reserveChatEndpoint: cloud,
     };
     return cached;
   }
 
-  // Nube caída → reserva (server viejo / túnel)
+  // Pages (o local caído): nube primero.
+  const cloudOk = await probeCloud();
+  if (cloudOk || !localChat) {
+    cached = {
+      at: now,
+      mode: "supabase",
+      serverBase: localBase,
+      chatEndpoint: cloud,
+      reserveChatEndpoint: localChat,
+    };
+    return cached;
+  }
+
   cached = {
     at: now,
     mode: "server",
-    serverBase: reserveBase,
-    chatEndpoint: reserveChat,
+    serverBase: localBase,
+    chatEndpoint: localChat,
     reserveChatEndpoint: cloud,
   };
   return cached;

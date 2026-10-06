@@ -66,42 +66,41 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: radial-gradient(circle at 50% 50%, rgba(255, 120, 40, .28), rgba(255, 40, 20, .08) 62%, transparent 75%);
-  transition: transform var(--transition-slow);
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(255, 140, 40, 0.22),
+    rgba(255, 40, 20, 0.06) 58%,
+    transparent 74%
+  );
 }
 
 .blaze__img {
   display: block;
-  width: 78%;
-  height: 78%;
+  width: 86%;
+  height: 86%;
   object-fit: contain;
-  filter: drop-shadow(0 3px 10px rgba(255, 90, 20, .55));
-  animation: blaze-spin 7s linear infinite, blaze-flicker 2.4s ease-in-out infinite;
+  filter: drop-shadow(0 3px 10px rgba(255, 90, 20, 0.55));
+  animation: blaze-spin 6s linear infinite, blaze-flicker 2.4s ease-in-out infinite;
   transform-origin: 50% 50%;
+  will-change: transform, filter;
 }
 
 .blaze--lg { width: 44px; height: 44px; }
 .blaze--avatar { width: 34px; height: 34px; align-self: flex-start; margin-top: 2px; }
 
-.blaze:hover { transform: translateY(-2px) scale(1.07); }
-.blaze:hover .blaze__img {
-  animation-duration: 3.2s, 1.1s;
-  filter: drop-shadow(0 4px 14px rgba(255, 110, 30, .7));
-}
-
 .blaze--thinking .blaze__img {
-  animation-duration: 2.4s, .9s;
+  animation-duration: 2s, 0.9s;
 }
 
 @keyframes blaze-spin {
-  from { transform: rotate(0deg) scale(1); }
-  to   { transform: rotate(360deg) scale(1); }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 @keyframes blaze-flicker {
-  0%, 100% { filter: drop-shadow(0 3px 8px rgba(255, 90, 20, .45)) brightness(1); }
-  40%      { filter: drop-shadow(0 4px 14px rgba(255, 140, 30, .75)) brightness(1.08); }
-  70%      { filter: drop-shadow(0 2px 9px rgba(255, 60, 10, .55)) brightness(.96); }
+  0%, 100% { filter: drop-shadow(0 3px 8px rgba(255, 90, 20, 0.45)) brightness(1); }
+  40%      { filter: drop-shadow(0 4px 14px rgba(255, 140, 30, 0.75)) brightness(1.08); }
+  70%      { filter: drop-shadow(0 2px 9px rgba(255, 60, 10, 0.55)) brightness(0.96); }
 }
 
 .chat__status {
@@ -240,14 +239,103 @@
 }
 
 .msg__suggestions {
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .msg__suggest-label {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-size: var(--t-xs);
   font-weight: 600;
   color: var(--c-ink-muted, rgba(255, 255, 255, .7));
+}
+
+.msg__suggest-dropdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msg__suggest-toggle {
+  appearance: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  background: rgba(255, 255, 255, .1);
+  color: inherit;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: var(--t-sm);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.msg__suggest-toggle:hover,
+.msg__suggest-toggle:focus-visible {
+  background: rgba(255, 255, 255, .16);
+  border-color: rgba(255, 255, 255, .4);
+  outline: none;
+}
+
+.msg__suggest-toggle[aria-expanded="true"] .msg__suggest-caret {
+  transform: rotate(180deg);
+}
+
+.msg__suggest-caret {
+  display: inline-block;
+  transition: transform .15s ease;
+}
+
+.msg__suggest-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  background: rgba(0, 0, 0, .18);
+}
+
+.msg__suggest-panel[hidden] {
+  display: none;
+}
+
+.msg__suggest-select-label {
+  font-size: var(--t-xs);
+  color: var(--c-ink-muted, rgba(255, 255, 255, .68));
+}
+
+.msg__suggest-select {
+  width: 100%;
+  max-width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  background: rgba(0, 0, 0, .28);
+  color: inherit;
+  font: inherit;
+  font-size: var(--t-sm);
+  padding: 8px 10px;
+}
+
+.msg__suggest-go {
+  appearance: none;
+  align-self: flex-start;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  cursor: pointer;
+  color: #1a1208;
+  background: linear-gradient(135deg, #f0b45a, #e8893a);
+}
+
+.msg__suggest-go:disabled {
+  opacity: .45;
+  cursor: not-allowed;
 }
 
 .msg__suggest-row {

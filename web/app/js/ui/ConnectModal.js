@@ -77,8 +77,12 @@ export class ConnectModal {
     }
     try {
       const backend = await resolveBackend({ force });
-      this.#label.textContent =
-        backend.mode === "server" ? "Reserva · Server" : "Nube · Supabase";
+      const onPages = /github\.io$/i.test(window.location?.hostname || "");
+      if (backend.mode === "server") {
+        this.#label.textContent = onPages ? "Reserva · Server" : "Local · Server";
+      } else {
+        this.#label.textContent = "Nube · Supabase";
+      }
     } catch {
       this.#label.textContent = "Conectado";
     }

@@ -63,6 +63,28 @@ class App {
 
     // Reproducir video, elegir sugerencia o cambiar versión bíblica
     qs("[data-messages]").addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-suggest-toggle]");
+      if (toggle) {
+        const box = toggle.closest("[data-suggest-box]");
+        const panel = box?.querySelector(".msg__suggest-panel");
+        if (panel) {
+          const open = panel.hasAttribute("hidden");
+          if (open) panel.removeAttribute("hidden");
+          else panel.setAttribute("hidden", "");
+          toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        }
+        return;
+      }
+
+      const go = event.target.closest("[data-suggest-go]");
+      if (go) {
+        const box = go.closest("[data-suggest-box]");
+        const select = box?.querySelector("[data-suggest-select]");
+        if (!select || select.value === "") return;
+        this.#handleSuggestionPick(select);
+        return;
+      }
+
       const tip = event.target.closest("[data-suggest]");
       if (tip?.dataset.suggest) {
         this.#handleQuestion(tip.dataset.suggest);
@@ -89,7 +111,45 @@ class App {
       );
     });
 
+    qs("[data-messages]").addEventListener("change", (event) => {
+      const select = event.target.closest("[data-suggest-select]");
+      if (!select) return;
+      const go = select.closest("[data-suggest-box]")?.querySelector("[data-suggest-go]");
+      if (go) go.disabled = select.value === "";
+    });
+
     this.#view.addBotMessage({ answer: config.welcomeMessage });
+  }
+
+  /** Al elegir una opción del desplegable: muestra el contenido o pregunta de nuevo. */
+  #handleSuggestionPick(select) {
+    let items = [];
+    try {
+      items = JSON.parse(decodeURIComponent(select.dataset.suggestItems || "[]"));
+    } catch {
+      items = [];
+    }
+    const item = items[Number(select.value)];
+    if (!item) return;
+
+    if (item.video?.youtube_id || item.excerpt) {
+      const label = item.label || item.title || "este tema";
+      this.#view.addUserMessage(item.ask || label);
+      this.#view.addBotMessage({
+        answer:
+          item.answer ||
+          `Aquí tienes una enseñanza relacionada sobre «${label}» que puede interesarte:`,
+        excerpt: item.excerpt || item.preview || undefined,
+        video: item.video || undefined,
+        source: item.source || (item.video ? "video" : undefined),
+      });
+      if (item.video?.youtube_id) {
+        this.#player.load(item.video, { autoplay: false });
+      }
+      return;
+    }
+
+    this.#handleQuestion(item.ask || item.label);
   }
 
   /** Flujo de una pregunta, de principio a fin. */

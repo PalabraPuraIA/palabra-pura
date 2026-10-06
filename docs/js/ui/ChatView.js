@@ -12,24 +12,72 @@ import { renderSourceCard } from "./SourceCard.js";
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
   return `<span class="blaze blaze--avatar ${modifier}" aria-hidden="true">
-            <img class="blaze__img" src="./assets/blaze-logo.png" alt="" width="34" height="34" />
+            <img class="blaze__img" src="./assets/blaze-logo.png?v=spin2" alt="" width="34" height="34" />
           </span>`;
 }
 
-function renderSuggestions(suggestions) {
-  if (!Array.isArray(suggestions) || !suggestions.length) return "";
+function normalizeSuggestion(item, index = 0) {
+  if (typeof item === "string") {
+    return {
+      id: `s-${index}`,
+      label: item,
+      ask: item,
+    };
+  }
+  if (!item || typeof item !== "object") return null;
+  const label = String(item.label || item.title || item.ask || "").trim();
+  if (!label) return null;
+  return {
+    id: String(item.id || `s-${index}`),
+    label,
+    title: item.title || label,
+    preview: item.preview || item.excerpt || "",
+    ask: item.ask || label,
+    answer: item.answer || "",
+    excerpt: item.excerpt || item.preview || "",
+    video: item.video || null,
+    source: item.source || (item.video ? "video" : undefined),
+  };
+}
 
-  const chips = suggestions
-    .map(
-      (label) =>
-        `<button type="button" class="msg__suggest" data-suggest="${escapeHtml(label)}">${escapeHtml(label)}</button>`,
-    )
+function renderSuggestions(suggestions) {
+  const items = (Array.isArray(suggestions) ? suggestions : [])
+    .map((s, i) => normalizeSuggestion(s, i))
+    .filter(Boolean);
+  if (!items.length) return "";
+
+  const options = items
+    .map((item, i) => {
+      const hint = item.preview
+        ? ` — ${escapeHtml(String(item.preview).slice(0, 72))}${item.preview.length > 72 ? "…" : ""}`
+        : "";
+      return `<option value="${i}">${escapeHtml(item.label)}${hint}</option>`;
+    })
     .join("");
 
+  const payload = encodeURIComponent(JSON.stringify(items));
+
   return `
-    <div class="msg__suggestions" role="group" aria-label="Temas transcritos">
-      <p class="msg__suggest-label">Temas que sí están en los audios:</p>
-      <div class="msg__suggest-row">${chips}</div>
+    <div class="msg__suggestions" data-suggest-box>
+      <p class="msg__suggest-label">Contenido que te puede interesar</p>
+      <div class="msg__suggest-dropdown">
+        <button type="button" class="msg__suggest-toggle" data-suggest-toggle aria-expanded="false">
+          Ver opciones similares
+          <span class="msg__suggest-caret" aria-hidden="true">▾</span>
+        </button>
+        <div class="msg__suggest-panel" hidden>
+          <label class="msg__suggest-select-label">
+            Elige un tema o enseñanza:
+          </label>
+          <select class="msg__suggest-select" data-suggest-select data-suggest-items="${payload}">
+            <option value="">Selecciona una opción…</option>
+            ${options}
+          </select>
+          <button type="button" class="msg__suggest-go" data-suggest-go disabled>
+            Mostrar contenido
+          </button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -74,7 +122,7 @@ export class ChatView {
         : isVideo && hasVerses
           ? `<p class="msg__hint">Lo que enseñó el pastor, con versículos y el video abajo.</p>`
           : tips
-            ? `<p class="msg__hint">Elige una palabra clave para apuntar mejor.</p>`
+            ? `<p class="msg__hint">Abre el menú y elige un contenido relacionado.</p>`
             : "";
 
     const answerBlock = hasAnswer

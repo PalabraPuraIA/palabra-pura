@@ -1,7 +1,8 @@
 /**
  * ChatService.js — Única capa que habla con el backend.
  *
- * Prefiere Supabase nube. Si falla, usa el server Fintek (túnel) de reserva.
+ * - En el server/contenedor: /api/chat local primero.
+ * - En GitHub Pages: Supabase nube primero; server de reserva.
  */
 
 import { config, isConnected } from "../config.js";
@@ -13,6 +14,13 @@ const NETWORK_ERROR_MESSAGE =
   "y vuelve a intentarlo.";
 
 const MAX_HISTORY = 6;
+
+function isGitHubPages() {
+  return (
+    typeof window !== "undefined" &&
+    /github\.io$/i.test(window.location?.hostname || "")
+  );
+}
 
 export class ChatService {
   /** @type {{role: string, content: string}[]} */
@@ -28,22 +36,31 @@ export class ChatService {
     if (!isConnected()) return this.#askDemo(question);
 
     const backend = await resolveBackend();
-    const cloud =
-      config.endpoint ||
+    const cloudCandidate =
       config.fallbackEndpoint ||
+      (config.endpoint && /supabase\.co/.test(config.endpoint)
+        ? config.endpoint
+        : null) ||
       `${String(config.supabaseUrl || "").replace(/\/+$/, "")}/functions/v1/chatbot-iglesia-palabra-pura`;
-    const reserve =
-      backend.serverBase
-        ? `${backend.serverBase}/api/chat`
-        : backend.mode === "server"
-          ? backend.chatEndpoint
-          : backend.reserveChatEndpoint;
+    const cloud = cloudCandidate && /supabase\.co/.test(cloudCandidate) ? cloudCandidate : null;
 
-    // Siempre: nube primero, server viejo de reserva.
+    const local =
+      backend.mode === "server"
+        ? backend.chatEndpoint
+        : backend.serverBase
+          ? `${backend.serverBase}/api/chat`
+          : !isGitHubPages()
+            ? "/api/chat"
+            : null;
+
+    // Pages: nube → local. Contenedor: local → nube.
     const endpoints = [];
-    if (cloud) endpoints.push(cloud);
-    if (reserve && !endpoints.includes(reserve) && !/supabase\.co/.test(reserve)) {
-      endpoints.push(reserve);
+    if (isGitHubPages()) {
+      if (cloud) endpoints.push(cloud);
+      if (local && !endpoints.includes(local)) endpoints.push(local);
+    } else {
+      if (local) endpoints.push(local);
+      if (cloud && !endpoints.includes(cloud)) endpoints.push(cloud);
     }
 
     for (const endpoint of endpoints) {
