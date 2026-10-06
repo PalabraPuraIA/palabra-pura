@@ -228,16 +228,6 @@
   color: var(--c-ink-muted, rgba(255, 255, 255, .62));
 }
 
-.msg__lens {
-  margin: 10px 0 0;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255, 255, 255, .08);
-  font-size: var(--t-xs);
-  line-height: 1.45;
-  color: var(--c-ink-muted, rgba(255, 255, 255, .55));
-  font-style: italic;
-}
-
 .msg__suggestions {
   margin-top: 10px;
 }

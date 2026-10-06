@@ -132,7 +132,6 @@ export class ChatView {
            ${lifePromise}
            <p class="msg__answer">${escapeHtml(response.answer)}</p>
            ${tips}
-           <p class="msg__lens">Enseñanza bajo la dispensación de la gracia.</p>
          </div>`
       : tips
         ? `<div class="msg__bubble msg__bubble--answer">${tips}</div>`
