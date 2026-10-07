@@ -8,9 +8,9 @@ import { contextFragments, expandAdjacentFragments } from "./chat-search.js";
 
 /** Similitud coseno mínima (auditoría: off-topic ~0.59–0.63; temas reales ≥0.67). */
 export const MIN_SIMILARITY = Number(process.env.CHAT_MIN_SIMILARITY || 0.65);
-export const VECTOR_CANDIDATES = 12;
-export const SEED_LIMIT = 4;
-export const CONTEXT_MAX = 8;
+export const VECTOR_CANDIDATES = 20;
+export const SEED_LIMIT = 6;
+export const CONTEXT_MAX = 14;
 
 function fragmentKey(row) {
   if (row?.id != null) return `id:${row.id}`;

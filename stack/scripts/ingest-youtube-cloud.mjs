@@ -42,7 +42,7 @@ const SERIES = {
   globalismo: [
     { youtube_id: "cGMdLR9tS4Y", episode: 1, title: "EL GLOBALISMO FALSO - 001 - PARTE 01 - PASTORA ADRIANA LEMES" },
     { youtube_id: "ON4UW_y5b0o", episode: 2, title: "EL GLOBALISMO FALSO - 002 - PARTE 02 - PASTORA ADRIANA LEMES" },
-    { youtube_id: "pdDRYxbAvj8", episode: 3, title: "EL GLOBALISMO FALSO - 003 - PARTE 03 - PASTORA ADRIANA LEMES" },
+    { youtube_id: "VrrDzKE2Y0Q", episode: 3, title: "EL GLOBALISMO FALSO (PARTE 3) - PASTORA ADRIANA LEMES" },
     { youtube_id: "YgR9SivNOZw", episode: 4, title: "EL GLOBALISMO FALSO - 004 - PARTE 04 - PASTORA ADRIANA LEMES" },
     { youtube_id: "fBkVVmz7ziw", episode: 5, title: "EL GLOBALISMO FALSO - 005 - PARTE 05 - PASTORA ADRIANA LEMES" },
     { youtube_id: "zfDNCMhpXQ8", episode: 6, title: "EL GLOBALISMO FALSO - 006 - PARTE 06 - PASTORA ADRIANA LEMES" },

@@ -15,9 +15,9 @@ const LLM_MODELS = [
 // Cuantos capitulos-padre completos enviar como contexto (control de tokens).
 const MAX_PARENTS = 2;
 const MIN_SIMILARITY = 0.65;
-const VECTOR_CANDIDATES = 12;
-const SEED_LIMIT = 4;
-const CONTEXT_MAX = 8;
+const VECTOR_CANDIDATES = 20;
+const SEED_LIMIT = 6;
+const CONTEXT_MAX = 14;
 const supabase = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"));
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -35,7 +35,7 @@ Si solo hay una MENCION BREVE del tema sin ensenanza sustancial que responda la 
 Mencionar palabras clave NO basta.
 Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
-{"found": true, "answer": "tu respuesta en 2 a 4 frases", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
+{"found": true, "answer": "tu respuesta en 4 a 8 frases, con el contexto de la ensenanza para que se entienda el punto (por que lo dice, a que se refiere, que concluye). No resumas de mas ni inventes", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 En "evidence", elige un rango continuo de oraciones numeradas que sustente la respuesta.
@@ -43,7 +43,7 @@ Responde SOLO con el objeto JSON, sin texto adicional.`;
 // Segunda etapa: contexto biblico ampliado (capitulo completo via parent-child).
 const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega. Si el contexto no contiene la respuesta, dilo con claridad y no inventes nada.
-Tono: amable, cercano y claro, en 2 a 4 frases. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
+Tono: amable, cercano y claro, en 4 a 8 frases, con el contexto necesario para entender el punto. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 Si hay conversacion reciente, interpreta seguimientos y pronombres con ese hilo. No ignores la pregunta actual.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
@@ -420,8 +420,8 @@ async function retrieveVideoFragments(embStr) {
   const filtered = filterBySimilarity(fragMatches || []);
   if (!filtered.length) return [];
   const seeds = filtered.slice(0, SEED_LIMIT);
-  const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 120);
-  return expandAdjacent(seeds, shortHit ? 2 : 1, CONTEXT_MAX);
+  const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 160);
+  return expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX);
 }
 
 // Embebe la pregunta del usuario (rota keys si una falla).
