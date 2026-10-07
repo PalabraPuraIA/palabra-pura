@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-series-2" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-ingest-now" />
 </head>
 <body>
   <div class="wrap">
@@ -37,7 +37,7 @@
       <article class="stat"><p class="stat__label">Documentos</p><p class="stat__value" data-docs-n>—</p></article>
       <article class="stat"><p class="stat__label">Videos</p><p class="stat__value" data-videos-n>—</p></article>
       <article class="stat stat--bad"><p class="stat__label">De pago</p><p class="stat__value" data-paid-n>—</p></article>
-      <article class="stat"><p class="stat__label">En cola</p><p class="stat__value" data-queued-n>—</p></article>
+      <article class="stat"><p class="stat__label">En proceso</p><p class="stat__value" data-queued-n>—</p></article>
     </section>
 
     <section class="card card--wide">
@@ -117,7 +117,7 @@
 
     <section class="card card--wide" style="margin-top:14px">
       <h2>Subir video para transcribir</h2>
-      <p class="card__hint">Pega un link de YouTube. Se transcribe, se parte en fragmentos y se indexa para el chat. Si es una serie, sube cada episodio.</p>
+      <p class="card__hint">Pega un link de YouTube. Se transcribe e indexa aquí mismo para el chat. Si es una serie, sube cada episodio.</p>
       <form class="ingest-form" data-video-form>
         <label class="field">
           <span>Título (opcional)</span>
@@ -128,17 +128,17 @@
           <input type="url" name="url" required placeholder="https://www.youtube.com/watch?v=…" />
         </label>
         <div class="form-actions">
-          <button class="btn btn--primary" type="submit" data-video-submit>Encolar transcripción</button>
+          <button class="btn btn--primary" type="submit" data-video-submit>Indexar ahora</button>
           <p class="form-msg" data-video-msg hidden></p>
         </div>
       </form>
       <div class="table-wrap" style="margin-top:16px">
         <table>
-          <thead><tr><th>Cola</th><th>Título</th><th>Estado</th></tr></thead>
+          <thead><tr><th>Video</th><th>Título</th><th>Estado</th></tr></thead>
           <tbody data-jobs-body></tbody>
         </table>
       </div>
-      <p class="empty" data-jobs-empty hidden>No hay trabajos en cola.</p>
+      <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de indexado.</p>
     </section>
 
     <section class="card card--wide" style="margin-top:14px">
@@ -155,6 +155,6 @@
 
     <p class="foot" data-generated></p>
   </div>
-  <script type="module" src="./knowledge.js?v=kb-series-2"></script>
+  <script type="module" src="./knowledge.js?v=kb-ingest-now"></script>
 </body>
 </html>

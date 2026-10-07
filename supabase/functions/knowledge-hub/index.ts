@@ -1,4 +1,5 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { chunkSegments, episodeFromTitle, loadYoutubeTranscript } from "./youtube-ingest.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -226,13 +227,104 @@ async function saveDocument(body: Record<string, unknown>) {
   return json({ ok: true, document: inserted.data, chunks: chunks.length });
 }
 
-async function queueVideo(body: Record<string, unknown>) {
+async function markJob(
+  jobId: number,
+  fields: Record<string, unknown>,
+) {
+  await supabase.from("ingest_job").update({
+    ...fields,
+    updated_at: new Date().toISOString(),
+  }).eq("id", jobId);
+}
+
+async function processYoutubeJob(opts: {
+  jobId: number;
+  videoId: number;
+  youtubeId: string;
+  title: string;
+}) {
+  const { jobId, videoId, youtubeId: id } = opts;
+  try {
+    await markJob(jobId, { status: "running", progress: "Leyendo subtítulos de YouTube…" });
+    const transcript = await loadYoutubeTranscript(id);
+    const title = opts.title || transcript.title || id;
+    const episode = episodeFromTitle(title);
+    const videoUpdate: Record<string, unknown> = {
+      title,
+      updated_at: new Date().toISOString(),
+    };
+    if (episode != null) videoUpdate.episode = episode;
+    await supabase.from("video").update(videoUpdate).eq("id", videoId);
+
+    const chunks = chunkSegments(transcript.segments);
+    if (!chunks.length) throw new Error("La transcripción quedó vacía");
+
+    await markJob(jobId, {
+      status: "running",
+      title,
+      progress: `Indexando ${chunks.length} fragmentos (${transcript.source})…`,
+    });
+    await supabase.from("fragment").delete().eq("video_id", videoId);
+    for (let i = 0; i < chunks.length; i++) {
+      const embedding = await embedDocument(chunks[i].content);
+      const inserted = await supabase.from("fragment").insert({
+        video_id: videoId,
+        position: i,
+        content: chunks[i].content,
+        embedding,
+        start_second: chunks[i].start_second,
+        word_count: chunks[i].word_count,
+      });
+      if (inserted.error) throw new Error(inserted.error.message);
+      if (i % 5 === 4) await new Promise((r) => setTimeout(r, 350));
+    }
+
+    await markJob(jobId, {
+      status: "done",
+      title,
+      progress: `Listo · ${chunks.length} fragmentos`,
+      fragments_created: chunks.length,
+      error: null,
+      finished_at: new Date().toISOString(),
+    });
+    await supabase
+      .from("ingest_job")
+      .update({
+        status: "done",
+        progress: `Listo · ${chunks.length} fragmentos`,
+        fragments_created: chunks.length,
+        error: null,
+        finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("youtube_id", id)
+      .eq("status", "queued");
+    return { ok: true, video: { id: videoId, youtube_id: id, title }, fragments: chunks.length, source: transcript.source };
+  } catch (err) {
+    const message = String((err as Error)?.message || err).slice(0, 500);
+    await markJob(jobId, {
+      status: "error",
+      progress: "Error",
+      error: message,
+      finished_at: new Date().toISOString(),
+    });
+    throw new Error(message);
+  }
+}
+
+async function ingestVideo(body: Record<string, unknown>) {
   const id = youtubeId(String(body.url || body.youtube_id || ""));
   if (!id) return json({ ok: false, error: "link de YouTube inválido" }, 400);
   const title = String(body.title || "").trim() || await youtubeTitle(id);
+  const episode = episodeFromTitle(title);
   const upsert = await supabase
     .from("video")
-    .upsert({ youtube_id: id, title, updated_at: new Date().toISOString() }, { onConflict: "youtube_id" })
+    .upsert({
+      youtube_id: id,
+      title,
+      ...(episode != null ? { episode } : {}),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "youtube_id" })
     .select("id,youtube_id,title")
     .single();
   if (upsert.error) return json({ ok: false, error: upsert.error.message }, 500);
@@ -245,13 +337,37 @@ async function queueVideo(body: Record<string, unknown>) {
       title,
       youtube_id: id,
       video_id: upsert.data.id,
-      status: "queued",
-      progress: "En cola para transcribir. El script del servidor lo tomará después.",
+      status: "running",
+      progress: "Indexando ahora…",
     })
     .select("*")
     .single();
   if (job.error) return json({ ok: false, error: job.error.message }, 500);
-  return json({ ok: true, video: upsert.data, job: job.data });
+
+  const work = processYoutubeJob({
+    jobId: job.data.id,
+    videoId: upsert.data.id,
+    youtubeId: id,
+    title,
+  });
+
+  const edgeRuntime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } }).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) {
+    edgeRuntime.waitUntil(work.catch((err) => console.error("ingestVideo", err)));
+    return json({
+      ok: true,
+      started: true,
+      video: upsert.data,
+      job: job.data,
+    });
+  }
+
+  try {
+    const result = await work;
+    return json({ ...result, job: { ...job.data, status: "done", fragments_created: result.fragments } });
+  } catch (err) {
+    return json({ ok: false, error: String((err as Error)?.message || err), job: job.data }, 500);
+  }
 }
 
 async function setVideoAccess(body: Record<string, unknown>) {
@@ -304,7 +420,7 @@ Deno.serve(async (req) => {
       if (error) return json({ ok: false, error: error.message }, 500);
       return json({ ok: true });
     }
-    if (action === "queueVideo") return await queueVideo(body);
+    if (action === "queueVideo" || action === "ingestVideo") return await ingestVideo(body);
     if (action === "setVideoAccess") return await setVideoAccess(body);
     return json({ ok: false, error: "acción desconocida" }, 400);
   } catch (err) {

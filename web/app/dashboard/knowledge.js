@@ -112,21 +112,35 @@ function renderJobs(jobs) {
   const empty = $("[data-jobs-empty]");
   if (!body) return;
   body.innerHTML = "";
-  const queued = jobs.filter((j) => ["queued", "running"].includes(j.status));
-  if (!queued.length) {
+  const recent = jobs.filter((j) => ["queued", "running", "done", "error"].includes(j.status)).slice(0, 8);
+  if (!recent.length) {
     if (empty) empty.hidden = false;
     return;
   }
   if (empty) empty.hidden = true;
-  for (const job of queued) {
+  for (const job of recent) {
     const tr = document.createElement("tr");
+    const detail = job.error || job.progress || job.status;
     tr.innerHTML = `
       <td>${escapeHtml(job.youtube_id || "—")}</td>
       <td>${escapeHtml(job.title || "Sin título")}</td>
-      <td>${escapeHtml(job.status)}</td>
+      <td>${escapeHtml(detail)}</td>
     `;
     body.appendChild(tr);
   }
+}
+
+async function waitForJob(jobId, onProgress) {
+  const started = Date.now();
+  while (Date.now() - started < 240000) {
+    const data = await hub("list");
+    const job = (data.jobs || []).find((j) => Number(j.id) === Number(jobId));
+    if (job && typeof onProgress === "function") onProgress(job);
+    if (job?.status === "done") return job;
+    if (job?.status === "error") throw new Error(job.error || "Error al indexar el video");
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  throw new Error("Sigue indexando. Recarga en un minuto y mira el catálogo.");
 }
 
 const openSeries = new Set();
@@ -320,17 +334,25 @@ async function onVideoSubmit(event) {
   const submit = $("[data-video-submit]");
   const msg = $("[data-video-msg]");
   submit.disabled = true;
-  setMsg(msg, "Encolando…", true);
+  setMsg(msg, "Indexando ahora… puede tardar un minuto.", true);
   try {
-    await hub("queueVideo", {
+    const data = await hub("ingestVideo", {
       url: form.url.value,
       title: form.title.value,
     });
+    let job = data.job;
+    if (data.started && job?.id) {
+      job = await waitForJob(job.id, (current) => {
+        setMsg(msg, current.progress || "Indexando…", true);
+      });
+    }
     form.reset();
-    setMsg(msg, "Video en cola para transcribir.", true);
+    const n = job?.fragments_created || data.fragments || 0;
+    setMsg(msg, `Listo. ${n} fragmentos. Ya puedes preguntarle a Blaze.`, true);
     await loadHub();
   } catch (err) {
     setMsg(msg, err.message, false);
+    loadHub().catch(() => {});
   } finally {
     submit.disabled = false;
   }

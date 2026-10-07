@@ -112,6 +112,237 @@ async function embedDocument(text) {
   throw new Error("Gemini embedding: " + String(last).slice(0, 220));
 }
 
+function episodeFromTitle(title) {
+  const numbered = String(title || "").match(/[-–]\s*0*(\d{1,4})\s*[-–]/);
+  if (numbered) return Number(numbered[1]);
+  const parte = String(title || "").match(/\(\s*PARTE\s*0*(\d{1,3})\s*\)/i);
+  if (parte) return Number(parte[1]);
+  return null;
+}
+
+const YT_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15";
+
+function cookieHeader(res) {
+  const raw = typeof res.headers.getSetCookie === "function" ? res.headers.getSetCookie() : [];
+  return raw.map((c) => c.split(";")[0]).filter(Boolean).join("; ");
+}
+
+function extractJsonObject(source, from) {
+  let depth = 0;
+  let inStr = false;
+  let esc = false;
+  for (let i = from; i < source.length; i++) {
+    const ch = source[i];
+    if (inStr) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (ch === "\\") {
+        esc = true;
+        continue;
+      }
+      if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = true;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return source.slice(from, i + 1);
+    }
+  }
+  return "";
+}
+
+function parseJson3(raw) {
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  return (data.events || [])
+    .map((event) => ({
+      start: Number(event.tStartMs || 0) / 1000,
+      text: (event.segs || []).map((s) => s.utf8 || "").join("").replace(/\n/g, " ").trim(),
+    }))
+    .filter((s) => s.text && !/^\[[^\]]+\]$/.test(s.text));
+}
+
+function pickSpanishTrack(tracks) {
+  return [...(tracks || [])]
+    .filter((t) => t.baseUrl)
+    .sort((a, b) => {
+      const score = (t) => {
+        const lang = String(t.languageCode || "").toLowerCase();
+        let n = 0;
+        if (lang === "es" || lang.startsWith("es-")) n += 5;
+        if (t.kind === "asr") n += 1;
+        return n;
+      };
+      return score(b) - score(a);
+    })[0] || null;
+}
+
+async function fetchCaptionUrl(url, cookie) {
+  const u = new URL(url);
+  u.searchParams.set("fmt", "json3");
+  const res = await fetch(u.toString(), {
+    headers: {
+      "User-Agent": YT_UA,
+      Cookie: cookie,
+      Referer: "https://www.youtube.com/",
+      Origin: "https://www.youtube.com",
+    },
+    signal: AbortSignal.timeout(25000),
+  });
+  const text = await res.text();
+  if (!res.ok || text.length < 40) return [];
+  return parseJson3(text);
+}
+
+async function visionosPlayer(youtubeId, cookie, visitor) {
+  const res = await fetch("https://www.youtube.com/youtubei/v1/player?prettyPrint=false", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": YT_UA,
+      Cookie: cookie,
+      "X-Goog-Visitor-Id": visitor,
+      "X-YouTube-Client-Name": "101",
+      "X-YouTube-Client-Version": "1.02",
+      Origin: "https://www.youtube.com",
+    },
+    body: JSON.stringify({
+      context: {
+        client: {
+          clientName: "VISIONOS",
+          clientVersion: "1.02",
+          deviceMake: "Apple",
+          deviceModel: "RealityDevice17,1",
+          osName: "visionOS",
+          osVersion: "26.5.23O471",
+          hl: "es",
+          gl: "CO",
+          visitorData: visitor,
+        },
+      },
+      videoId: youtubeId,
+      contentCheckOk: true,
+      racyCheckOk: true,
+    }),
+    signal: AbortSignal.timeout(25000),
+  });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+function tracksFromPlayer(data) {
+  return data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+}
+
+function chunkSegments(segments, target = 300) {
+  const chunks = [];
+  let buf = [];
+  let words = 0;
+  let start = 0;
+  const flush = () => {
+    if (!buf.length) return;
+    const content = buf.join(" ").replace(/\s+/g, " ").trim();
+    if (!content) return;
+    chunks.push({
+      content,
+      start_second: Math.max(0, Math.floor(start)),
+      word_count: content.split(/\s+/).filter(Boolean).length,
+    });
+    buf = [];
+    words = 0;
+  };
+  for (const seg of segments) {
+    const n = seg.text.split(/\s+/).filter(Boolean).length;
+    if (!buf.length) start = seg.start;
+    if (words && words + n > target) flush();
+    if (!buf.length) start = seg.start;
+    buf.push(seg.text);
+    words += n;
+  }
+  flush();
+  return chunks;
+}
+
+async function hostedTranscript(youtubeId) {
+  const res = await fetch("https://transcribeyoutube.com/api/transcript", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: `https://www.youtube.com/watch?v=${youtubeId}`,
+      lang: "es",
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+  const data = await res.json().catch(() => null);
+  const rows = Array.isArray(data?.transcript) ? data.transcript : [];
+  const segments = rows
+    .map((row) => ({
+      start: Number(row.start) || 0,
+      text: String(row.text || "").replace(/\n/g, " ").trim(),
+    }))
+    .filter((s) => s.text && !/^\[[^\]]+\]$/.test(s.text));
+  if (!segments.length) return null;
+  return { title: String(data?.title || ""), segments };
+}
+
+async function loadYoutubeTranscript(youtubeId) {
+  try {
+    const hosted = await hostedTranscript(youtubeId);
+    if (hosted?.segments.length) return { ...hosted, source: "captions" };
+  } catch {
+    /* YouTube directo más abajo */
+  }
+  const page = await fetch(`https://www.youtube.com/watch?v=${youtubeId}&hl=es&bpctr=9999999999&has_verified=1`, {
+    headers: {
+      "User-Agent": YT_UA,
+      "Accept-Language": "es-419,es;q=0.9,en;q=0.8",
+      Accept: "text/html,application/xhtml+xml",
+    },
+    signal: AbortSignal.timeout(25000),
+  });
+  const html = await page.text();
+  const cookie = cookieHeader(page);
+  const visitor =
+    html.match(/"VISITOR_DATA":"([^"]+)"/)?.[1] ||
+    html.match(/"visitorData":"([^"]+)"/)?.[1] ||
+    "";
+  let title = "";
+  const pageIdx = html.indexOf("ytInitialPlayerResponse");
+  if (pageIdx >= 0) {
+    try {
+      const parsed = JSON.parse(extractJsonObject(html, html.indexOf("{", pageIdx)));
+      title = String(parsed?.videoDetails?.title || "");
+      const track = pickSpanishTrack(tracksFromPlayer(parsed));
+      if (track?.baseUrl) {
+        const segments = await fetchCaptionUrl(track.baseUrl, cookie);
+        if (segments.length) return { title, segments, source: "captions" };
+      }
+    } catch {
+      /* visionos below */
+    }
+  }
+  const player = await visionosPlayer(youtubeId, cookie, visitor);
+  title = title || String(player?.videoDetails?.title || "");
+  const track = pickSpanishTrack(tracksFromPlayer(player));
+  if (track?.baseUrl) {
+    const segments = await fetchCaptionUrl(track.baseUrl, cookie);
+    if (segments.length) return { title, segments, source: "captions" };
+  }
+  throw new Error("No pude leer subtítulos de ese video.");
+}
+
 async function youtubeTitle(id, fallback = "") {
   try {
     const res = await fetch(
@@ -251,24 +482,85 @@ export async function handleKnowledgeHub(req, res) {
       return res.json({ ok: true });
     }
 
-    if (action === "queueVideo") {
+    if (action === "queueVideo" || action === "ingestVideo") {
       const id = youtubeId(String(body.url || body.youtube_id || ""));
       if (!id) return res.status(400).json({ ok: false, error: "link de YouTube inválido" });
-      const title = String(body.title || "").trim() || (await youtubeTitle(id));
+      let title = String(body.title || "").trim() || (await youtubeTitle(id));
+      const episode = episodeFromTitle(title);
       const video = await db.query(
-        `INSERT INTO video (youtube_id, title, updated_at)
-         VALUES ($1, $2, now())
-         ON CONFLICT (youtube_id) DO UPDATE SET title = EXCLUDED.title, updated_at = now()
+        `INSERT INTO video (youtube_id, title, episode, updated_at)
+         VALUES ($1, $2, $3, now())
+         ON CONFLICT (youtube_id) DO UPDATE
+           SET title = EXCLUDED.title,
+               episode = COALESCE(EXCLUDED.episode, video.episode),
+               updated_at = now()
          RETURNING id, youtube_id, title`,
-        [id, title],
+        [id, title, episode],
       );
       const job = await db.query(
         `INSERT INTO ingest_job (source_type, source_url, title, youtube_id, video_id, status, progress)
-         VALUES ('youtube', $1, $2, $3, $4, 'queued', 'En cola para transcribir.')
+         VALUES ('youtube', $1, $2, $3, $4, 'running', 'Indexando ahora…')
          RETURNING *`,
         [`https://www.youtube.com/watch?v=${id}`, title, id, video.rows[0].id],
       );
-      return res.json({ ok: true, video: video.rows[0], job: job.rows[0] });
+      try {
+        const transcript = await loadYoutubeTranscript(id);
+        title = title || transcript.title || id;
+        const chunks = chunkSegments(transcript.segments);
+        if (!chunks.length) throw new Error("La transcripción quedó vacía");
+        await db.query(`DELETE FROM fragment WHERE video_id = $1`, [video.rows[0].id]);
+        for (let i = 0; i < chunks.length; i++) {
+          const embedding = await embedDocument(chunks[i].content);
+          if (!embedding) throw new Error("Falta GEMINI_API_KEY para indexar");
+          await db.query(
+            `INSERT INTO fragment (video_id, position, content, embedding, start_second, word_count)
+             VALUES ($1, $2, $3, $4::halfvec, $5, $6)`,
+            [video.rows[0].id, i, chunks[i].content, embedding, chunks[i].start_second, chunks[i].word_count],
+          );
+        }
+        const done = await db.query(
+          `UPDATE ingest_job
+              SET status = 'done',
+                  title = $2,
+                  progress = $3,
+                  fragments_created = $4,
+                  error = NULL,
+                  finished_at = now(),
+                  updated_at = now()
+            WHERE id = $1
+            RETURNING *`,
+          [job.rows[0].id, title, `Listo · ${chunks.length} fragmentos`, chunks.length],
+        );
+        return res.json({
+          ok: true,
+          video: { ...video.rows[0], title },
+          job: done.rows[0],
+          fragments: chunks.length,
+          source: transcript.source,
+        });
+      } catch (err) {
+        try {
+          const { kickWorker } = await import("./ingest.js");
+          await db.query(
+            `UPDATE ingest_job
+                SET status = 'queued',
+                    progress = 'Sin subtítulos aquí; pasa al worker local.',
+                    error = $2,
+                    updated_at = now()
+              WHERE id = $1`,
+            [job.rows[0].id, String(err.message || err).slice(0, 500)],
+          );
+          kickWorker();
+        } catch {
+          await db.query(
+            `UPDATE ingest_job
+                SET status = 'error', progress = 'Error', error = $2, finished_at = now(), updated_at = now()
+              WHERE id = $1`,
+            [job.rows[0].id, String(err.message || err).slice(0, 500)],
+          );
+        }
+        return res.status(500).json({ ok: false, error: err.message || String(err), job: job.rows[0] });
+      }
     }
 
     if (action === "setVideoAccess") {

@@ -115,18 +115,32 @@ form.addEventListener("submit", async (ev) => {
   }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = "Enviando…";
+  submitBtn.textContent = "Indexando…";
   try {
     const title = String(fd.get("title") || "").trim();
     if (ON_PAGES) {
       if (hasFile) {
         throw new Error("En GitHub Pages sube el video por link de YouTube. El archivo se transcribe en el servidor local.");
       }
-      const data = await hub("queueVideo", { url, title });
-      form.reset();
       msg.hidden = false;
       msg.className = "form-msg form-msg--ok";
-      msg.textContent = `Video en cola${data.job?.id ? ` (#${data.job.id})` : ""}. Se transcribe después.`;
+      msg.textContent = "Indexando ahora… puede tardar un minuto.";
+      const data = await hub("ingestVideo", { url, title });
+      let job = data.job;
+      if (data.started && job?.id) {
+        const startedAt = Date.now();
+        while (Date.now() - startedAt < 240000) {
+          const listed = await hub("list");
+          job = (listed.jobs || []).find((j) => Number(j.id) === Number(job.id)) || job;
+          if (job.progress) msg.textContent = job.progress;
+          if (job.status === "done") break;
+          if (job.status === "error") throw new Error(job.error || "Error al indexar");
+          await new Promise((r) => setTimeout(r, 2500));
+        }
+        if (job.status !== "done") throw new Error("Sigue indexando. Recarga en un minuto.");
+      }
+      form.reset();
+      msg.textContent = `Listo${job?.fragments_created ? ` · ${job.fragments_created} fragmentos` : ""}. Ya puedes preguntarle a Blaze.`;
       refreshJobs();
       return;
     }
