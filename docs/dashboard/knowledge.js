@@ -142,10 +142,12 @@ function seriesKey(name) {
 
 function seriesFromTitle(title) {
   const raw = String(title || "").trim();
-  const match = raw.match(/^\s*(.+?)\s*[-–]\s*\d+/);
-  const prefix = (match ? match[1] : "").replace(/\s+/g, " ").trim();
-  const key = seriesKey(prefix || raw);
+  const numbered = raw.match(/^\s*(.+?)\s*[-–]\s*\d+/);
+  const parte = raw.match(/^\s*(.+?)\s*\(\s*PARTE\s*\d+/i);
+  const prefix = (numbered?.[1] || parte?.[1] || "").replace(/\s+/g, " ").trim();
+  const key = seriesKey(prefix || raw).replace(/^el-/, "");
   if (key.includes("escuela-biblica")) return "Escuela Bíblica";
+  if (key.includes("globalismo-falso")) return "El Globalismo Falso";
   return prefix || "Otras enseñanzas";
 }
 
