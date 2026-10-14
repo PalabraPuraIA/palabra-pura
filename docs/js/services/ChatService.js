@@ -14,6 +14,33 @@ const NETWORK_ERROR_MESSAGE =
   "y vuelve a intentarlo.";
 
 const MAX_HISTORY = 12;
+const SESSION_KEY = "pp-chat-session";
+
+function newSessionId() {
+  return `pp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readTabSession() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return { id: newSessionId(), history: [] };
+    const data = JSON.parse(raw);
+    const history = Array.isArray(data?.history)
+      ? data.history.filter((t) => t && (t.role === "user" || t.role === "assistant") && t.content).slice(-MAX_HISTORY)
+      : [];
+    return { id: String(data?.id || newSessionId()), history };
+  } catch {
+    return { id: newSessionId(), history: [] };
+  }
+}
+
+function writeTabSession(id, history) {
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id, history: history.slice(-MAX_HISTORY) }));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
 
 function isGitHubPages() {
   return (
@@ -23,8 +50,10 @@ function isGitHubPages() {
 }
 
 export class ChatService {
+  /** Historial solo de ESTA pestaña (sessionStorage). Otra pestaña = otra sesión, vacía. */
+  #sessionId = readTabSession().id;
   /** @type {{role: string, content: string}[]} */
-  #history = [];
+  #history = readTabSession().history;
 
   /**
    * Envía una pregunta y devuelve una respuesta normalizada.
@@ -93,6 +122,7 @@ export class ChatService {
       headers,
       body: JSON.stringify({
         question,
+        session_id: this.#sessionId,
         history: history.slice(-MAX_HISTORY),
       }),
     });
@@ -109,6 +139,7 @@ export class ChatService {
     if (this.#history.length > MAX_HISTORY) {
       this.#history = this.#history.slice(-MAX_HISTORY);
     }
+    writeTabSession(this.#sessionId, this.#history);
   }
 
   async #askDemo(question) {

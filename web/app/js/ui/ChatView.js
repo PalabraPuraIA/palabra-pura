@@ -7,7 +7,7 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js?v=kb-hub-1";
+import { renderSourceCard } from "./SourceCard.js?v=kb-sess-1";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
