@@ -89,10 +89,17 @@ function normalizeHistory(raw: unknown) {
   }
   return out;
 }
+function isStandaloneAsk(question: string) {
+  const q = norm(question);
+  return /^(que|quien|cual|como|cuando|donde|por que)\s+\S{3,}/.test(q)
+    || /^(explica|hablame|cuentame|dime|define)\b/.test(q);
+}
+
 function looksLikeFollowUp(question: string) {
   const q = String(question ?? "").trim();
   if (!q) return false;
-  if (q.length <= 48) return true;
+  if (isStandaloneAsk(q)) return false;
+  if (q.length <= 32) return true;
   return /^(y |entonces |pero |ok |vale |si |sí |no |tambien|también|por que|por qué|y que|y qué)/i.test(q)
     || /\b(eso|esa|ese|eso mismo|aquello|lo anterior|dijiste|mencionaste|antes|seguimiento)\b/i.test(q);
 }
@@ -166,8 +173,11 @@ async function attachLifeContext(payload: Record<string, unknown>, question: str
   return payload;
 }
 
-function factScore(question: string, fact: { title?: string; aliases?: string[] }) {
+function factScore(question: string, fact: { title?: string; aliases?: string[]; category?: string }) {
   const normQ = norm(question);
+  if (fact.category === "horario" && !/\b(hora|horario|horarios|cuando|domingo|miercoles|servicio|servicios)\b/.test(normQ)) {
+    return 0;
+  }
   const aliases = [norm(fact.title || ""), ...(fact.aliases || []).map(norm)].filter((a) => a.length >= 2);
   let best = 0;
   for (const alias of aliases) {
@@ -557,7 +567,7 @@ Deno.serve(async (req)=>{
     const prior = historyBlock(history);
     const embedding = await embedQuery(searchQ);
     const embStr = JSON.stringify(embedding); // halfvec como texto "[...]"
-    const factHit = await findMinistryFact(searchQ);
+    const factHit = await findMinistryFact(question);
     if (factHit) return json(await attachLifeContext(factHit, searchQ));
     const docs = await findKnowledgeDocs(embStr);
     // ========== 1) VIDEOS primero ==========

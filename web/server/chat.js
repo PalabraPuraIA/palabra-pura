@@ -791,7 +791,7 @@ export async function handleChat(req, res) {
   }
 
   try {
-    const factHit = await findFact(retrievalQuestion(question, history));
+    const factHit = await findFact(question);
     if (factHit) return res.json({ ...factHit, mode: "dato" });
 
     let payload = await answerFor(mode, question, history);

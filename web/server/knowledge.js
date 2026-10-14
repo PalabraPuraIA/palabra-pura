@@ -223,6 +223,9 @@ export async function findFact(question) {
     let bestScore = 0;
 
     for (const row of rows) {
+      if (row.category === "horario" && !/\b(hora|horario|horarios|cuando|domingo|miercoles|servicio|servicios)\b/.test(norm)) {
+        continue;
+      }
       const titleNorm = normalizeAlias(row.title);
       const aliases = [
         titleNorm,
