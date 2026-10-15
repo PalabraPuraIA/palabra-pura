@@ -584,6 +584,37 @@ export async function handleKnowledgeHub(req, res) {
       return res.json({ ok: true, offer: rows[0] });
     }
 
+    if (action === "exportTextPage") {
+      const offset = Math.max(0, Number(body.offset) || 0);
+      const limit = Math.min(400, Math.max(50, Number(body.limit) || 250));
+      const page = { ok: true, offset, limit, done: false, fragments: [] };
+      if (offset === 0) {
+        const [facts, documents, videos] = await Promise.all([
+          db.query(`SELECT category, title, content, aliases, status FROM ministry_fact ORDER BY category LIMIT 400`),
+          db.query(`SELECT title, category, source_name, status, content FROM knowledge_document ORDER BY title LIMIT 200`),
+          db.query(`SELECT id, youtube_id, title, episode FROM video ORDER BY id LIMIT 500`),
+        ]);
+        page.facts = facts.rows;
+        page.documents = documents.rows;
+        page.videos = videos.rows;
+      }
+      const { rows } = await db.query(
+        `SELECT video_id, position, content, start_second
+           FROM fragment
+          ORDER BY video_id ASC, position ASC
+          OFFSET $1 LIMIT $2`,
+        [offset, limit],
+      );
+      page.fragments = rows.map((row) => ({
+        video_id: Number(row.video_id),
+        position: Number(row.position) || 0,
+        content: String(row.content || ""),
+        start_second: row.start_second == null ? null : Number(row.start_second),
+      }));
+      page.done = page.fragments.length < limit;
+      return res.json(page);
+    }
+
     return res.status(400).json({ ok: false, error: "acción desconocida" });
   } catch (err) {
     console.error("[knowledge-hub]", err.message);

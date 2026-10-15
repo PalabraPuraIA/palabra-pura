@@ -482,11 +482,134 @@ function showKbPanel(id) {
   }
 }
 
+function mmss(sec) {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n < 0) return "";
+  const m = Math.floor(n / 60);
+  const s = Math.floor(n % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function buildExportText({ facts, documents, videos, fragments }) {
+  const byVideo = new Map();
+  for (const row of fragments) {
+    const id = Number(row.video_id);
+    if (!byVideo.has(id)) byVideo.set(id, []);
+    byVideo.get(id).push(row);
+  }
+  for (const list of byVideo.values()) {
+    list.sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0));
+  }
+  const lines = [];
+  const now = new Date().toLocaleString("es-CO");
+  lines.push("ENCICLOPEDIA DE PALABRA PURA");
+  lines.push("Texto indexado para la IA (transcripciones y datos). No incluye la Biblia completa.");
+  lines.push(`Generado: ${now}`);
+  lines.push(`Videos: ${videos.length} · Fragmentos: ${fragments.length}`);
+  lines.push("");
+
+  lines.push("========== DATOS DEL MINISTERIO ==========");
+  lines.push("");
+  if (!facts.length) lines.push("(No hay datos verificados.)");
+  for (const fact of facts) {
+    lines.push(`[${fact.category || "general"}] ${fact.title || ""}`);
+    if (fact.status && fact.status !== "active") lines.push(`Estado: ${fact.status}`);
+    if ((fact.aliases || []).length) lines.push(`Claves: ${(fact.aliases || []).join(", ")}`);
+    lines.push(String(fact.content || "").trim());
+    lines.push("");
+  }
+
+  lines.push("========== DOCUMENTOS ==========");
+  lines.push("");
+  if (!documents.length) lines.push("(No hay documentos.)");
+  for (const doc of documents) {
+    lines.push(`# ${doc.title || "Documento"}`);
+    if (doc.source_name) lines.push(`Fuente: ${doc.source_name}`);
+    lines.push(String(doc.content || "").trim());
+    lines.push("");
+  }
+
+  const groups = groupVideosBySeries(videos);
+  lines.push("========== ENSEÑANZAS POR SERIE ==========");
+  lines.push("");
+  for (const group of groups) {
+    lines.push(`##### SERIE: ${group.name} (${group.videos.length} episodios)`);
+    lines.push("");
+    for (const video of group.videos) {
+      const frags = byVideo.get(Number(video.id)) || [];
+      lines.push(`--- ${episodeLabel(video)} ---`);
+      if (video.youtube_id) {
+        lines.push(`YouTube: https://www.youtube.com/watch?v=${video.youtube_id}`);
+      }
+      if (video.title) lines.push(`Título: ${video.title}`);
+      lines.push("");
+      if (!frags.length) {
+        lines.push("(Sin transcripción indexada.)");
+        lines.push("");
+        continue;
+      }
+      for (const frag of frags) {
+        const t = mmss(frag.start_second);
+        lines.push(t ? `[${t}]` : `[frag ${Number(frag.position) + 1}]`);
+        lines.push(String(frag.content || "").replace(/\s+/g, " ").trim());
+        lines.push("");
+      }
+    }
+  }
+  return lines.join("\n");
+}
+
+function saveTextFile(filename, text) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadAllText() {
+  const btn = $("[data-export-text]");
+  const msg = $("[data-export-msg]");
+  if (btn) btn.disabled = true;
+  setMsg(msg, "Preparando descarga…", true);
+  try {
+    let offset = 0;
+    let facts = [];
+    let documents = [];
+    let videos = [];
+    const fragments = [];
+    while (true) {
+      const page = await hub("exportTextPage", { offset, limit: 250 });
+      if (page.facts) facts = page.facts;
+      if (page.documents) documents = page.documents;
+      if (page.videos) videos = page.videos;
+      fragments.push(...(page.fragments || []));
+      setMsg(msg, `Bajando transcripciones… ${fragments.length} fragmentos`, true);
+      if (page.done || !(page.fragments || []).length) break;
+      offset += page.fragments.length;
+      if (offset > 20000) break;
+    }
+    const text = buildExportText({ facts, documents, videos, fragments });
+    const day = new Date().toISOString().slice(0, 10);
+    saveTextFile(`palabra-pura-conocimientos-${day}.txt`, text);
+    setMsg(msg, `Listo. ${videos.length} videos, ${fragments.length} fragmentos.`, true);
+  } catch (err) {
+    setMsg(msg, err.message || String(err), false);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 $("[data-fact-form]")?.addEventListener("submit", onFactSubmit);
 $("[data-doc-form]")?.addEventListener("submit", onDocSubmit);
 $("[data-video-form]")?.addEventListener("submit", onVideoSubmit);
 $("[data-refresh]")?.addEventListener("click", () => loadHub().catch((err) => alert(err.message)));
 $("[data-catalog-filter]")?.addEventListener("input", () => renderCatalog(lastVideos));
+$("[data-export-text]")?.addEventListener("click", () => downloadAllText());
 
 document.querySelectorAll("[data-kb-nav]").forEach((btn) => {
   btn.addEventListener("click", () => showKbPanel(btn.getAttribute("data-kb-nav")));

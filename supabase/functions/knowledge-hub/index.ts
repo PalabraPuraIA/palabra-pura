@@ -171,6 +171,54 @@ async function listAll() {
   };
 }
 
+async function exportTextPage(body: Record<string, unknown>) {
+  const offset = Math.max(0, Number(body.offset) || 0);
+  const limit = Math.min(400, Math.max(50, Number(body.limit) || 250));
+  const page: {
+    ok: true;
+    offset: number;
+    limit: number;
+    done: boolean;
+    facts?: unknown[];
+    documents?: unknown[];
+    videos?: unknown[];
+    fragments: { video_id: number; position: number; content: string; start_second: number | null }[];
+  } = {
+    ok: true,
+    offset,
+    limit,
+    done: false,
+    fragments: [],
+  };
+
+  if (offset === 0) {
+    const [facts, documents, videos] = await Promise.all([
+      supabase.from("ministry_fact").select("category,title,content,aliases,status").order("category").limit(400),
+      supabase.from("knowledge_document").select("title,category,source_name,status,content").order("title").limit(200),
+      supabase.from("video").select("id,youtube_id,title,episode").order("id").limit(500),
+    ]);
+    page.facts = facts.data || [];
+    page.documents = documents.data || [];
+    page.videos = videos.data || [];
+  }
+
+  const { data, error } = await supabase
+    .from("fragment")
+    .select("video_id,position,content,start_second")
+    .order("video_id", { ascending: true })
+    .order("position", { ascending: true })
+    .range(offset, offset + limit - 1);
+  if (error) throw new Error(error.message);
+  page.fragments = (data || []).map((row) => ({
+    video_id: Number(row.video_id),
+    position: Number(row.position) || 0,
+    content: String(row.content || ""),
+    start_second: row.start_second == null ? null : Number(row.start_second),
+  }));
+  page.done = page.fragments.length < limit;
+  return page;
+}
+
 async function saveFact(body: Record<string, unknown>) {
   const category = String(body.category || "general").trim().toLowerCase();
   const title = String(body.title || "").trim();
@@ -422,6 +470,7 @@ Deno.serve(async (req) => {
     }
     if (action === "queueVideo" || action === "ingestVideo") return await ingestVideo(body);
     if (action === "setVideoAccess") return await setVideoAccess(body);
+    if (action === "exportTextPage") return json(await exportTextPage(body));
     return json({ ok: false, error: "acción desconocida" }, 400);
   } catch (err) {
     console.error(err);
