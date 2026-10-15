@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-7" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-8" />
 </head>
 <body>
   <div class="wrap dash-compact">
@@ -68,15 +68,8 @@
 
     <section class="card card--wide" style="margin-top:14px">
       <h2>Preguntas que más se repiten</h2>
-      <p class="card__hint">Las mismas preguntas hechas varias veces (útil para mejorar respuestas o datos verificados).</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Pregunta</th><th>Veces</th><th>Última</th></tr>
-          </thead>
-          <tbody data-repeated-body></tbody>
-        </table>
-      </div>
+      <p class="card__hint">Toca una pregunta para ver cuántas veces se hizo y la última fecha.</p>
+      <div class="repeat-list" data-repeated-body></div>
       <p class="empty" data-repeated-empty hidden>Todavía no hay preguntas repetidas.</p>
     </section>
 
@@ -100,6 +93,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="./dashboard.js?v=kb-compact-7"></script>
+  <script type="module" src="./dashboard.js?v=kb-compact-8"></script>
 </body>
 </html>

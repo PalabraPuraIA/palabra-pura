@@ -305,11 +305,17 @@ function renderRepeated(items) {
   empty.hidden = true;
   body.innerHTML = items
     .map(
-      (r) => `<tr>
-        <td>${escapeHtml(r.question)}</td>
-        <td><strong>${r.count}</strong></td>
-        <td class="when">${escapeHtml(fmtWhen(r.lastAt))}</td>
-      </tr>`,
+      (r) => `<details class="repeat-item">
+        <summary>
+          <span class="repeat-item__q">${escapeHtml(r.question)}</span>
+          <span class="repeat-item__count">×${r.count}</span>
+          <span class="repeat-item__chevron" aria-hidden="true">⌄</span>
+        </summary>
+        <div class="repeat-item__body">
+          <p><strong>${r.count}</strong> veces preguntada</p>
+          <p class="when">Última: ${escapeHtml(fmtWhen(r.lastAt))}</p>
+        </div>
+      </details>`,
     )
     .join("");
 }
