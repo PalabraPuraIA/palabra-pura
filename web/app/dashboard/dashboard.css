@@ -79,17 +79,70 @@ h1 {
 .stats--wide {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
+.stats--compact {
+  gap: 6px;
+  margin-bottom: 10px;
+}
 .stats--compact .stat {
-  padding: 8px 10px;
-  border-radius: var(--r-md);
+  padding: 6px 10px;
+  border-radius: 10px;
+  box-shadow: none;
 }
 .stats--compact .stat__label {
-  font-size: .62rem;
+  font-size: .58rem;
   letter-spacing: .06em;
 }
 .stats--compact .stat__value {
-  margin-top: 2px;
-  font-size: 1.15rem;
+  margin-top: 1px;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+/* Compact cards across dashboard pages */
+.dash-compact .card {
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+}
+.dash-compact .card h2 {
+  font-size: .92rem;
+}
+.dash-compact .card__hint {
+  margin: 2px 0 8px;
+  font-size: .78rem;
+}
+.dash-compact .sub {
+  margin: 0 0 12px;
+  font-size: .88rem;
+}
+.dash-compact .grid {
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dash-compact .bar-row {
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.dash-compact .bar-row__label {
+  font-size: .78rem;
+}
+.dash-compact .chips li {
+  padding: 4px 8px;
+  font-size: .75rem;
+}
+.dash-compact .qa-card summary {
+  padding: 8px 10px;
+  gap: 6px;
+}
+.dash-compact .qa-card__question {
+  font-size: .88rem;
+}
+.dash-compact .stat {
+  padding: 6px 10px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+.dash-compact .stat__value {
+  font-size: 1.05rem;
 }
 
 .stat {
