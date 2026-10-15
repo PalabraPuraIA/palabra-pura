@@ -3,22 +3,45 @@ import { apiUrl, setToken, getToken } from "./auth-client.js";
 // En GitHub Pages, el API vive en el túnel Fintek (si config lo define).
 async function resolveApiBase() {
   if (!/github\.io$/i.test(location.hostname)) return;
+  let base = "";
   try {
     const mod = await import("./config.js");
-    const base = mod.config?.fintekBaseUrl || "";
-    if (base) window.__PP_API_BASE__ = String(base).replace(/\/+$/, "");
+    base = mod.config?.fintekBaseUrl || mod.config?.serverBaseUrl || "";
   } catch {
-    /* config opcional */
+    /* config puede fallar; seguimos con public-url */
   }
+  if (!base) {
+    try {
+      const res = await fetch(new URL("./public-url.json", location.href).href, {
+        cache: "no-store",
+      });
+      const data = await res.json();
+      base = data?.baseUrl || "";
+    } catch {
+      /* ignore */
+    }
+  }
+  if (base) window.__PP_API_BASE__ = String(base).replace(/\/+$/, "");
 }
 
 function nextTarget() {
   const params = new URLSearchParams(location.search);
-  const next = params.get("next") || "/dashboard/";
+  const onPages = /github\.io$/i.test(location.hostname);
+  const fallback = onPages ? new URL("./dashboard/", location.href).href : "/dashboard/";
+  let next = params.get("next") || fallback;
   // Evitar open redirect
-  if (!next.startsWith("/") && !next.includes("/dashboard")) return "/dashboard/";
   if (next.includes("://") && !next.includes(location.host) && !/github\.io/.test(next)) {
-    return "/dashboard/";
+    return fallback;
+  }
+  if (onPages) {
+    if (next.startsWith("/dashboard")) {
+      return new URL("." + next, location.href).href;
+    }
+    if (next === "/" || next === "/login.html") {
+      return fallback;
+    }
+  } else if (!next.startsWith("/") && !next.includes("/dashboard")) {
+    return fallback;
   }
   return next;
 }

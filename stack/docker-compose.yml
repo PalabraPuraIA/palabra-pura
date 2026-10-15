@@ -87,7 +87,7 @@ services:
       SUPABASE_CHAT_URL: ${SUPABASE_CHAT_URL:-https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
       ADMIN_USER: ${ADMIN_USER:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-palabra}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Palabra123*}
       AUTH_SECRET: ${AUTH_SECRET:-}
     volumes:
       # Live UI updates without rebuild (optional in prod)

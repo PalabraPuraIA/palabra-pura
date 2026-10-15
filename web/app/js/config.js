@@ -11,6 +11,9 @@ const isGitHubPages =
   typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
 
 export const config = {
+  fintekBaseUrl: isGitHubPages
+    ? "https://herbs-thomson-promo-painting.trycloudflare.com"
+    : "",
   serverBaseUrl: "",
 
   endpoint: isGitHubPages
