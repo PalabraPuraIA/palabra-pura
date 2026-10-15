@@ -128,27 +128,87 @@ function normalizeAlias(value) {
   return normalizeQuestion(value);
 }
 
-/** Frases demasiado genéricas: no deben activar un dato puntual. */
-const WEAK_ALIASES = new Set([
-  "que", "que es", "que significa", "como", "cual", "cuales", "quien", "quienes",
-  "donde", "cuando", "por que", "porque", "hola", "gracias", "dios", "jesus",
-  "biblia", "iglesia", "pregunta", "respuesta", "blaze", "palabra", "pura",
-]);
-
-function isUsefulAlias(alias) {
-  if (!alias || alias.length < 5) return false;
-  if (WEAK_ALIASES.has(alias)) return false;
-  // Evita activadores tipo "que es el" / "como se"
-  if (/^(que|como|cual|quien|donde|cuando)\b/.test(alias) && alias.split(" ").length <= 3) {
-    return false;
-  }
-  return true;
-}
-
 /**
  * Datos puntuales (horarios, pastores, terminología).
  * Se evalúa antes del FAQ y del RAG.
  */
+async function loadActiveFacts(db) {
+  const facts = [];
+  for (const table of ["ministry_fact", "knowledge_fact"]) {
+    try {
+      const { rows } = await db.query(
+        `SELECT id, category, title, content, aliases
+           FROM ${table}
+          WHERE status = 'active'
+          ORDER BY updated_at DESC
+          LIMIT 400`,
+      );
+      facts.push(...rows);
+    } catch (err) {
+      if (!/relation .* does not exist/i.test(err.message)) throw err;
+    }
+  }
+  return facts;
+}
+
+export async function findKnowledgeDocs(embStr) {
+  const db = getPool();
+  if (!db || !embStr) return [];
+  try {
+    const { rows } = await db.query(
+      "SELECT content, document_id, title, category, chunk_pos, similarity FROM match_knowledge_chunks($1::text, $2)",
+      [embStr, 4],
+    );
+    return rows.filter((row) => Number(row.similarity) >= 0.62);
+  } catch (err) {
+    if (!/does not exist|match_knowledge_chunks/i.test(err.message)) {
+      console.error("[knowledge] docs", err.message);
+    }
+    return [];
+  }
+}
+
+export async function paidOfferFor(youtubeId) {
+  const db = getPool();
+  if (!db || !youtubeId) return null;
+  try {
+    const { rows } = await db.query(
+      `SELECT access_mode, offer_url, offer_label, title
+         FROM content_offer
+        WHERE youtube_id = $1
+        LIMIT 1`,
+      [String(youtubeId)],
+    );
+    return rows[0]?.access_mode === "paid" ? rows[0] : null;
+  } catch (err) {
+    if (!/relation .*content_offer.* does not exist/i.test(err.message)) {
+      console.error("[knowledge] offer", err.message);
+    }
+    return null;
+  }
+}
+
+export function paidPayload(video, offer) {
+  const title = offer?.title || video?.title || "esta enseñanza";
+  const label = offer?.offer_label || "Comprar esta enseñanza";
+  const link = offer?.offer_url ? ` ${offer.offer_url}` : "";
+  return {
+    answer: `«${title}» es contenido de pago del ministerio. No puedo entregarte la enseñanza completa aquí; te invitamos a adquirirla${link ? ":" + link : "."}`,
+    source: "oferta",
+    offer: {
+      title,
+      url: offer?.offer_url || "",
+      label,
+    },
+    video: {
+      title: video?.title,
+      episode: video?.episode,
+      youtube_id: video?.youtube_id,
+      start_second: 0,
+    },
+  };
+}
+
 export async function findFact(question) {
   const db = getPool();
   if (!db) return null;
@@ -156,34 +216,33 @@ export async function findFact(question) {
   if (norm.length < 3) return null;
 
   try {
-    const { rows } = await db.query(
-      `SELECT id, category, title, content, aliases
-         FROM knowledge_fact
-        WHERE status = 'active'
-        ORDER BY updated_at DESC
-        LIMIT 300`,
-    );
+    const rows = await loadActiveFacts(db);
     if (!rows.length) return null;
 
     let best = null;
     let bestScore = 0;
 
     for (const row of rows) {
+      if (row.category === "horario" && !/\b(hora|horario|horarios|cuando|domingo|miercoles|servicio|servicios)\b/.test(norm)) {
+        continue;
+      }
       const titleNorm = normalizeAlias(row.title);
       const aliases = [
         titleNorm,
         ...(Array.isArray(row.aliases) ? row.aliases.map(normalizeAlias) : []),
-      ].filter(isUsefulAlias);
+      ].filter((a) => a.length >= 2);
 
       let score = 0;
       for (const alias of aliases) {
         if (norm === alias) score = Math.max(score, 100 + alias.length);
-        else if (norm.includes(alias) && alias.length >= 6) {
-          score = Math.max(score, 70 + Math.min(alias.length, 40));
+        else if (norm.includes(alias) && alias.length >= 4) {
+          score = Math.max(score, 60 + Math.min(alias.length, 40));
+        } else if (alias.includes(norm) && norm.length >= 6) {
+          score = Math.max(score, 45);
         } else {
-          const words = alias.split(" ").filter((w) => w.length > 3);
+          const words = alias.split(" ").filter((w) => w.length > 2);
           if (words.length >= 2 && words.every((w) => norm.includes(w))) {
-            score = Math.max(score, 55 + words.length * 5);
+            score = Math.max(score, 40 + words.length * 5);
           }
         }
       }
@@ -194,8 +253,8 @@ export async function findFact(question) {
       }
     }
 
-    // Umbral alto: solo coincidencias claras de horario/nombre/término.
-    if (!best || bestScore < 70) return null;
+    // Umbral: evita disparar con palabras sueltas demasiado cortas.
+    if (!best || bestScore < 45) return null;
 
     return {
       answer: best.content,
