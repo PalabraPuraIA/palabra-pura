@@ -1,7 +1,18 @@
 * { box-sizing: border-box; }
+
+/* Escala tipográfica unificada del panel */
+:root {
+  --dash-text: .88rem;
+  --dash-title: 1.2rem;
+  --dash-section: .9rem;
+  --dash-label: .72rem;
+  --dash-meta: .75rem;
+}
+
 body {
   margin: 0;
   font-family: var(--f-body);
+  font-size: var(--dash-text);
   color: var(--c-ink);
   background:
     radial-gradient(1200px 500px at 10% -10%, rgba(139, 123, 255, .16), transparent 60%),
@@ -34,8 +45,10 @@ body {
 
 h1 {
   margin: 4px 0 0;
-  font-size: clamp(1.5rem, 3vw, 2rem);
+  font-size: var(--dash-title);
+  font-weight: 700;
   letter-spacing: -.01em;
+  line-height: 1.25;
 }
 
 .bar__actions { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -102,8 +115,12 @@ h1 {
 }
 .stats--compact .stat__value {
   margin-top: 1px;
-  font-size: 1.05rem;
+  font-size: var(--dash-section);
+  font-weight: 700;
   line-height: 1.15;
+}
+.dash-compact .stat__value {
+  font-size: var(--dash-section);
 }
 
 /* Compact cards across dashboard pages */
@@ -111,16 +128,20 @@ h1 {
   padding: 12px 14px;
   border-radius: var(--r-md);
 }
-.dash-compact .card h2 {
-  font-size: .92rem;
+.dash-compact .card h2,
+.dash-compact .kb-panel__head h2 {
+  font-size: var(--dash-section);
+  font-weight: 650;
+  line-height: 1.3;
 }
-.dash-compact .card__hint {
+.dash-compact .card__hint,
+.dash-compact .kb-panel__head .card__hint {
   margin: 2px 0 8px;
-  font-size: .78rem;
+  font-size: var(--dash-meta);
 }
 .dash-compact .sub {
   margin: 0 0 12px;
-  font-size: .88rem;
+  font-size: var(--dash-meta);
 }
 .dash-compact .grid {
   gap: 10px;
@@ -191,7 +212,8 @@ h1 {
 .card--wide { margin-bottom: 8px; }
 .card h2 {
   margin: 0;
-  font-size: 1rem;
+  font-size: var(--dash-section);
+  font-weight: 650;
 }
 .card__hint {
   margin: 4px 0 14px;
@@ -251,10 +273,11 @@ th, td {
   vertical-align: top;
 }
 th {
-  font-size: .7rem;
-  letter-spacing: .08em;
+  font-size: var(--dash-label);
+  letter-spacing: .06em;
   text-transform: uppercase;
   color: var(--c-ink-soft);
+  font-weight: 600;
 }
 .tag {
   display: inline-block;
@@ -329,7 +352,7 @@ th {
   border-bottom: 1px solid var(--c-line);
 }
 .dash-nav a {
-  font-size: .86rem;
+  font-size: var(--dash-text);
   font-weight: 600;
   color: var(--c-ink-soft);
   text-decoration: none;
@@ -404,8 +427,9 @@ th {
   gap: 6px;
   margin-bottom: 14px;
 }
-.ingest-form .field span {
-  font-size: .78rem;
+.ingest-form .field span,
+.field > span {
+  font-size: var(--dash-label);
   font-weight: 600;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -710,11 +734,12 @@ th {
   text-decoration: none;
 }
 .kb-side__item strong {
-  font-size: .84rem;
+  font-size: var(--dash-section);
   font-weight: 650;
+  line-height: 1.25;
 }
 .kb-side__item span {
-  font-size: .7rem;
+  font-size: var(--dash-meta);
   color: var(--c-ink-soft);
   line-height: 1.3;
 }
@@ -749,7 +774,11 @@ th {
   padding: 14px 16px 10px;
   border-bottom: 1px solid var(--c-line-soft);
 }
-.kb-panel__head h2 { margin: 0; font-size: .98rem; }
+.kb-panel__head h2 {
+  margin: 0;
+  font-size: var(--dash-section);
+  font-weight: 650;
+}
 .kb-panel__head .card__hint { margin: 4px 0 0; }
 .kb-panel__scroll {
   flex: 1 1 auto;
