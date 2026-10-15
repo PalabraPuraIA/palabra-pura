@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-side-1" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-2" />
 </head>
 <body>
   <div class="wrap wrap--wide">
@@ -31,9 +31,9 @@
       <a href="../">Chat</a>
     </nav>
 
-    <p class="sub">Elige a la izquierda qué quieres ver o subir. A la derecha aparece solo esa sección.</p>
+    <p class="sub">Izquierda: sección. Derecha: cuadrito con el contenido (scroll interno, sin bajar tanto).</p>
 
-    <section class="stats stats--wide">
+    <section class="stats stats--wide stats--compact">
       <article class="stat"><p class="stat__label">Datos activos</p><p class="stat__value" data-facts-n>—</p></article>
       <article class="stat"><p class="stat__label">Documentos</p><p class="stat__value" data-docs-n>—</p></article>
       <article class="stat"><p class="stat__label">Videos</p><p class="stat__value" data-videos-n>—</p></article>
@@ -60,32 +60,39 @@
           <strong>Subir video</strong>
           <span>YouTube → transcribir e indexar</span>
         </button>
-        <a class="kb-side__item kb-side__item--link" href="./ingest.html">
+        <a class="kb-side__item kb-side__item--link" href="./ingest.html#file">
           <strong>Audio / archivo</strong>
           <span>Subir mp3, mp4 u otro medio</span>
         </a>
       </aside>
 
       <div class="kb-main">
-        <section class="card card--wide kb-panel" data-kb-panel="catalog">
-          <h2>Catálogo: series y episodios</h2>
-          <p class="card__hint">Globalismo, El Amor No Es Aceptación, Escuela Bíblica y más. Filtra o toca una serie para ver episodios.</p>
-          <label class="field" style="max-width:420px;margin:0 0 12px">
-            <span>Buscar serie</span>
-            <input type="search" data-catalog-filter placeholder="Ej. globalismo, escuela…" />
-          </label>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Serie / episodio</th><th>Fragmentos</th><th>Acceso</th><th>Link de compra</th><th></th></tr></thead>
-              <tbody data-catalog-body></tbody>
-            </table>
+        <section class="card kb-panel" data-kb-panel="catalog">
+          <div class="kb-panel__head">
+            <h2>Catálogo: series y episodios</h2>
+            <p class="card__hint">Filtra o toca una serie para ver episodios.</p>
+            <label class="field" style="max-width:420px;margin:8px 0 0">
+              <span>Buscar serie</span>
+              <input type="search" data-catalog-filter placeholder="Ej. globalismo, escuela…" />
+            </label>
           </div>
-          <p class="empty" data-catalog-empty hidden>No hay videos en el índice.</p>
+          <div class="kb-panel__scroll">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Serie / episodio</th><th>Fragmentos</th><th>Acceso</th><th>Link de compra</th><th></th></tr></thead>
+                <tbody data-catalog-body></tbody>
+              </table>
+            </div>
+            <p class="empty" data-catalog-empty hidden>No hay videos en el índice.</p>
+          </div>
         </section>
 
-        <section class="card card--wide kb-panel" data-kb-panel="facts" hidden>
-          <h2>Dato verificado del ministerio</h2>
-          <p class="card__hint">Horarios, teléfonos, redes, eventos. Blaze lo usa al instante.</p>
+        <section class="card kb-panel" data-kb-panel="facts" hidden>
+          <div class="kb-panel__head">
+            <h2>Dato verificado del ministerio</h2>
+            <p class="card__hint">Horarios, teléfonos, redes, eventos. Blaze lo usa al instante.</p>
+          </div>
+          <div class="kb-panel__scroll">
           <form class="ingest-form fact-form" data-fact-form>
             <div class="fact-form__grid">
               <label class="field">
@@ -126,11 +133,15 @@
             </table>
           </div>
           <p class="empty" data-facts-empty hidden>Todavía no hay datos verificados.</p>
+          </div>
         </section>
 
-        <section class="card card--wide kb-panel" data-kb-panel="docs" hidden>
-          <h2>Documento o archivo de texto</h2>
-          <p class="card__hint">Pega un texto o sube .txt / .md. Se parte y se embebe para el chat.</p>
+        <section class="card kb-panel" data-kb-panel="docs" hidden>
+          <div class="kb-panel__head">
+            <h2>Documento o archivo de texto</h2>
+            <p class="card__hint">Pega un texto o sube .txt / .md. Se parte y se embebe para el chat.</p>
+          </div>
+          <div class="kb-panel__scroll">
           <form class="ingest-form" data-doc-form>
             <label class="field">
               <span>Título</span>
@@ -156,11 +167,15 @@
             </table>
           </div>
           <p class="empty" data-docs-empty hidden>No hay documentos indexados.</p>
+          </div>
         </section>
 
-        <section class="card card--wide kb-panel" data-kb-panel="video" hidden>
-          <h2>Subir video para transcribir</h2>
-          <p class="card__hint">Pega un link de YouTube. Se transcribe e indexa. Si es una serie, sube cada episodio.</p>
+        <section class="card kb-panel" data-kb-panel="video" hidden>
+          <div class="kb-panel__head">
+            <h2>Subir video para transcribir</h2>
+            <p class="card__hint">Pega un link de YouTube. Se transcribe e indexa. Si es una serie, sube cada episodio.</p>
+          </div>
+          <div class="kb-panel__scroll">
           <form class="ingest-form" data-video-form>
             <label class="field">
               <span>Título (opcional)</span>
@@ -182,12 +197,13 @@
             </table>
           </div>
           <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de indexado.</p>
+          </div>
         </section>
       </div>
     </div>
 
     <p class="foot" data-generated></p>
   </div>
-  <script type="module" src="./knowledge.js?v=kb-side-1"></script>
+  <script type="module" src="./knowledge.js?v=kb-compact-2"></script>
 </body>
 </html>

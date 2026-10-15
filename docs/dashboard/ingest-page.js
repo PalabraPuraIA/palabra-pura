@@ -41,9 +41,23 @@ function statusBadge(status) {
   return `<span class="badge badge--${escapeHtml(s)}">${escapeHtml(s)}</span>`;
 }
 
-const form = document.querySelector("[data-ingest-form]");
-const msg = document.querySelector("[data-form-msg]");
-const submitBtn = document.querySelector("[data-submit]");
+function showIngestPanel(id) {
+  const target = String(id || "youtube");
+  document.querySelectorAll("[data-ingest-panel]").forEach((panel) => {
+    panel.hidden = panel.getAttribute("data-ingest-panel") !== target;
+  });
+  document.querySelectorAll("[data-ingest-nav]").forEach((btn) => {
+    const active = btn.getAttribute("data-ingest-nav") === target;
+    btn.classList.toggle("is-active", active);
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+  try {
+    history.replaceState(null, "", `#${target}`);
+  } catch {
+    /* ignore */
+  }
+}
 
 async function loadJobs() {
   if (ON_PAGES) {
@@ -90,42 +104,31 @@ async function refreshJobs() {
     renderJobs(await loadJobs());
   } catch (err) {
     console.error(err);
-    document.querySelector("[data-jobs-empty]").hidden = false;
-    document.querySelector("[data-jobs-empty]").textContent =
-      "No se pudo cargar la cola de la nube.";
+    const empty = document.querySelector("[data-jobs-empty]");
+    empty.hidden = false;
+    empty.textContent = "No se pudo cargar la cola.";
   }
 }
 
-form.addEventListener("submit", async (ev) => {
+async function submitYoutube(ev) {
   ev.preventDefault();
+  const form = ev.currentTarget;
+  const msg = form.querySelector("[data-form-msg]");
+  const submitBtn = form.querySelector("[data-submit]");
   msg.hidden = true;
   const fd = new FormData(form);
   const url = String(fd.get("url") || "").trim();
-  const file = fd.get("file");
-  const hasFile = file && file.size > 0;
-  if (!url && !hasFile) {
+  const title = String(fd.get("title") || "").trim();
+  if (!url) {
     msg.hidden = false;
-    msg.textContent = "Pega un link de YouTube o elige un archivo.";
     msg.className = "form-msg form-msg--err";
-    return;
-  }
-  if (url && hasFile) {
-    msg.hidden = false;
-    msg.textContent = "Usa solo link o solo archivo, no ambos a la vez.";
-    msg.className = "form-msg form-msg--err";
-    return;
-  }
-  if (ON_PAGES && hasFile) {
-    msg.hidden = false;
-    msg.textContent = "En GitHub Pages pega el link de YouTube. El archivo local solo funciona en el servidor.";
-    msg.className = "form-msg form-msg--err";
+    msg.textContent = "Pega un link de YouTube.";
     return;
   }
 
   submitBtn.disabled = true;
   submitBtn.textContent = "Enviando…";
   try {
-    const title = String(fd.get("title") || "").trim();
     if (ON_PAGES) {
       const data = await hub("ingestVideo", { url, title });
       form.reset();
@@ -134,26 +137,23 @@ form.addEventListener("submit", async (ev) => {
       const n = data.job?.fragments_created || data.fragments || 0;
       msg.textContent = n
         ? `Listo. ${n} fragmentos en la nube.`
-        : "Indexando en la nube. Recarga en un momento.";
+        : "Indexando en la nube. Mira la cola en un momento.";
       refreshJobs();
       return;
     }
 
     const body = new FormData();
     if (title) body.append("title", title);
-    if (hasFile) body.append("file", file);
-    else body.append("url", url);
-
+    body.append("url", url);
     const res = await adminFetch("/api/ingest", { method: "POST", body });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || `HTTP ${res.status}`);
-    }
+    if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
     form.reset();
     msg.hidden = false;
     msg.className = "form-msg form-msg--ok";
-    msg.textContent = `Trabajo #${data.job.id} en cola. Se procesa en segundo plano.`;
+    msg.textContent = `Trabajo #${data.job.id} en cola.`;
     refreshJobs();
+    showIngestPanel("jobs");
   } catch (err) {
     msg.hidden = false;
     msg.className = "form-msg form-msg--err";
@@ -162,8 +162,63 @@ form.addEventListener("submit", async (ev) => {
     submitBtn.disabled = false;
     submitBtn.textContent = "Indexar";
   }
-});
+}
 
-document.querySelector("[data-refresh-jobs]").addEventListener("click", refreshJobs);
+async function submitFile(ev) {
+  ev.preventDefault();
+  const form = ev.currentTarget;
+  const msg = form.querySelector("[data-form-msg-file]");
+  const submitBtn = form.querySelector("[data-submit-file]");
+  msg.hidden = true;
+  const fd = new FormData(form);
+  const title = String(fd.get("title") || "").trim();
+  const file = fd.get("file");
+  if (!file || !file.size) {
+    msg.hidden = false;
+    msg.className = "form-msg form-msg--err";
+    msg.textContent = "Elige un archivo.";
+    return;
+  }
+  if (ON_PAGES) {
+    msg.hidden = false;
+    msg.className = "form-msg form-msg--err";
+    msg.textContent = "En GitHub Pages usa el panel YouTube. El archivo local solo funciona en el servidor.";
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Enviando…";
+  try {
+    const body = new FormData();
+    if (title) body.append("title", title);
+    body.append("file", file);
+    const res = await adminFetch("/api/ingest", { method: "POST", body });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    form.reset();
+    msg.hidden = false;
+    msg.className = "form-msg form-msg--ok";
+    msg.textContent = `Trabajo #${data.job.id} en cola.`;
+    refreshJobs();
+    showIngestPanel("jobs");
+  } catch (err) {
+    msg.hidden = false;
+    msg.className = "form-msg form-msg--err";
+    msg.textContent = err.message || String(err);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Indexar archivo";
+  }
+}
+
+document.querySelectorAll("[data-ingest-nav]").forEach((btn) => {
+  btn.addEventListener("click", () => showIngestPanel(btn.getAttribute("data-ingest-nav")));
+});
+document.querySelector("[data-ingest-form]")?.addEventListener("submit", submitYoutube);
+document.querySelector("[data-ingest-form-file]")?.addEventListener("submit", submitFile);
+document.querySelector("[data-refresh-jobs]")?.addEventListener("click", refreshJobs);
+
+const hash = String(location.hash || "").replace(/^#/, "");
+showIngestPanel(["youtube", "file", "jobs"].includes(hash) ? hash : "youtube");
 refreshJobs();
 setInterval(refreshJobs, 5000);

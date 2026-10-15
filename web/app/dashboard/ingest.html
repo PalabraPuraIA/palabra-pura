@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-series-2" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-2" />
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap wrap--wide">
     <header class="bar">
       <div>
         <p class="eyebrow">Enciclopedia de Palabra Pura</p>
@@ -31,61 +31,109 @@
       <a href="../">Chat</a>
     </nav>
 
-    <p class="sub">Pega un link de YouTube. En GitHub Pages se indexa en Supabase de la nube (las series como Globalismo quedan en el catálogo). El archivo local solo aplica en el servidor.</p>
+    <p class="sub">Elige a la izquierda qué vas a subir. A la derecha queda el formulario en un cuadrito, sin bajar tanto.</p>
 
-    <section class="card card--wide ingest-form">
-      <h2>Nuevo material</h2>
-      <form data-ingest-form>
-        <label class="field">
-          <span>Título (opcional)</span>
-          <input type="text" name="title" placeholder="Ej. Fe que mueve montañas — parte 2" maxlength="200" />
-        </label>
+    <div class="kb-layout">
+      <aside class="kb-side" aria-label="Tipo de carga">
+        <p class="kb-side__label">Subir</p>
+        <button class="kb-side__item is-active" type="button" data-ingest-nav="youtube" aria-current="page">
+          <strong>YouTube</strong>
+          <span>Link → transcribir e indexar</span>
+        </button>
+        <button class="kb-side__item" type="button" data-ingest-nav="file">
+          <strong>Audio / video</strong>
+          <span>Archivo local mp3, mp4…</span>
+        </button>
+        <button class="kb-side__item" type="button" data-ingest-nav="jobs">
+          <strong>Cola de trabajos</strong>
+          <span>Estado de lo que se está indexando</span>
+        </button>
+        <a class="kb-side__item kb-side__item--link" href="./knowledge.html#catalog">
+          <strong>Ver catálogo</strong>
+          <span>Series y episodios ya indexados</span>
+        </a>
+      </aside>
 
-        <label class="field">
-          <span>Link de YouTube</span>
-          <input type="url" name="url" placeholder="https://www.youtube.com/watch?v=…" />
-        </label>
+      <div class="kb-main">
+        <section class="card kb-panel" data-ingest-panel="youtube">
+          <div class="kb-panel__head">
+            <h2>Link de YouTube</h2>
+            <p class="card__hint">Pega el link. Si no hay subtítulos, el servidor usa Whisper.</p>
+          </div>
+          <div class="kb-panel__scroll">
+            <form class="ingest-form" data-ingest-form data-mode="youtube">
+              <label class="field">
+                <span>Título (opcional)</span>
+                <input type="text" name="title" placeholder="Ej. Fe que mueve montañas — parte 2" maxlength="200" />
+              </label>
+              <label class="field">
+                <span>Link de YouTube</span>
+                <input type="url" name="url" placeholder="https://www.youtube.com/watch?v=…" />
+              </label>
+              <div class="form-actions">
+                <button class="btn btn--primary" type="submit" data-submit>Indexar</button>
+                <p class="form-msg" data-form-msg hidden></p>
+              </div>
+            </form>
+          </div>
+        </section>
 
-        <p class="or">— o —</p>
+        <section class="card kb-panel" data-ingest-panel="file" hidden>
+          <div class="kb-panel__head">
+            <h2>Archivo de audio o video</h2>
+            <p class="card__hint">En el servidor Fintek se transcribe con Whisper. En Pages solo aplica YouTube vía nube.</p>
+          </div>
+          <div class="kb-panel__scroll">
+            <form class="ingest-form" data-ingest-form-file>
+              <label class="field">
+                <span>Título (opcional)</span>
+                <input type="text" name="title" placeholder="Ej. Conferencia grabada" maxlength="200" />
+              </label>
+              <label class="field">
+                <span>Archivo</span>
+                <input type="file" name="file" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv" required />
+              </label>
+              <div class="form-actions">
+                <button class="btn btn--primary" type="submit" data-submit-file>Indexar archivo</button>
+                <p class="form-msg" data-form-msg-file hidden></p>
+              </div>
+            </form>
+          </div>
+        </section>
 
-        <label class="field">
-          <span>Archivo de audio o video</span>
-          <input type="file" name="file" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv" />
-        </label>
-
-        <p class="card__hint">Si el video de YouTube no tiene subtítulos, hace falta yt-dlp en el servidor (incluido en la imagen Docker). Un archivo local siempre se manda a Whisper.</p>
-
-        <div class="form-actions">
-          <button class="btn btn--primary" type="submit" data-submit>Indexar</button>
-          <p class="form-msg" data-form-msg hidden></p>
-        </div>
-      </form>
-    </section>
-
-    <section class="card card--wide" style="margin-top:14px">
-      <div class="card-head">
-        <h2>Cola de trabajos</h2>
-        <button class="btn" type="button" data-refresh-jobs>Actualizar</button>
+        <section class="card kb-panel" data-ingest-panel="jobs" hidden>
+          <div class="kb-panel__head">
+            <div class="card-head">
+              <div>
+                <h2>Cola de trabajos</h2>
+                <p class="card__hint">Progreso de indexado (YouTube o archivo).</p>
+              </div>
+              <button class="btn" type="button" data-refresh-jobs>Actualizar</button>
+            </div>
+          </div>
+          <div class="kb-panel__scroll">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cuándo</th>
+                    <th>Fuente</th>
+                    <th>Título</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                  </tr>
+                </thead>
+                <tbody data-jobs></tbody>
+              </table>
+            </div>
+            <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de ingesta.</p>
+          </div>
+        </section>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Cuándo</th>
-              <th>Fuente</th>
-              <th>Título</th>
-              <th>Estado</th>
-              <th>Detalle</th>
-            </tr>
-          </thead>
-          <tbody data-jobs></tbody>
-        </table>
-      </div>
-      <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de ingesta.</p>
-    </section>
+    </div>
 
     <p class="foot">En Pages el índice vive en Supabase. Whisper queda de reserva si el video no trae transcripción.</p>
   </div>
-  <script type="module" src="./ingest-page.js?v=kb-series-2"></script>
+  <script type="module" src="./ingest-page.js?v=kb-compact-2"></script>
 </body>
 </html>
