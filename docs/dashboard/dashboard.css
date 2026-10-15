@@ -584,6 +584,12 @@ th {
   font-size: .86rem;
   font-style: italic;
 }
+.catalog-export-tools {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .catalog-pick-label {
   display: inline-flex;
   align-items: center;
@@ -605,13 +611,24 @@ th {
   align-items: center;
   gap: 2px;
 }
-.catalog-series-row .catalog-pick {
+.catalog-series-row .catalog-pick,
+.catalog-check,
+.catalog-pick-col,
+.catalog-episode td:first-child {
+  display: none;
+}
+.is-picking .catalog-series-row .catalog-pick {
+  display: inline-block;
   margin-left: 12px;
 }
-.catalog-check {
+.is-picking .catalog-check {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+}
+.is-picking .catalog-pick-col,
+.is-picking .catalog-episode td:first-child {
+  display: table-cell;
 }
 .catalog-series td {
   padding: 0;

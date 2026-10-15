@@ -147,6 +147,30 @@ async function waitForJob(jobId, onProgress) {
 
 const openSeries = new Set();
 const selectedVideoIds = new Set();
+let picking = false;
+
+function setPicking(on) {
+  picking = Boolean(on);
+  $("[data-kb-panel='catalog']")?.classList.toggle("is-picking", picking);
+  const open = $("[data-export-open]");
+  const tools = $("[data-export-tools]");
+  const hint = $("[data-catalog-hint]");
+  if (open) open.hidden = picking;
+  if (tools) tools.hidden = !picking;
+  if (hint) {
+    hint.textContent = picking
+      ? "Marca las casillas de las series o episodios que quieras. Luego descarga lo marcado o todo."
+      : "Filtra o toca una serie. Para bajar el texto, pulsa Descargar.";
+  }
+  if (!picking) {
+    selectedVideoIds.clear();
+    document.querySelectorAll("[data-select-video], [data-select-series], [data-select-all-videos]").forEach((box) => {
+      box.checked = false;
+      box.indeterminate = false;
+    });
+  }
+  updateSelectionUi();
+}
 
 function videoKey(video) {
   return String(video?.id || video?.youtube_id || "");
@@ -730,6 +754,8 @@ $("[data-doc-form]")?.addEventListener("submit", onDocSubmit);
 $("[data-video-form]")?.addEventListener("submit", onVideoSubmit);
 $("[data-refresh]")?.addEventListener("click", () => loadHub().catch((err) => alert(err.message)));
 $("[data-catalog-filter]")?.addEventListener("input", () => renderCatalog(lastVideos));
+$("[data-export-open]")?.addEventListener("click", () => setPicking(true));
+$("[data-export-cancel]")?.addEventListener("click", () => setPicking(false));
 $("[data-export-text]")?.addEventListener("click", () => downloadAllText());
 $("[data-export-selected]")?.addEventListener("click", () => downloadAllText({ selectedOnly: true }));
 
