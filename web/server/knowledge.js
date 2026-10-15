@@ -128,6 +128,21 @@ function normalizeAlias(value) {
   return normalizeQuestion(value);
 }
 
+const WEAK_ALIASES = new Set([
+  "que", "que es", "que significa", "como", "cual", "cuales", "quien", "quienes",
+  "donde", "cuando", "por que", "porque", "hola", "gracias", "dios", "jesus",
+  "biblia", "iglesia", "pregunta", "respuesta", "blaze", "palabra", "pura",
+]);
+
+function isUsefulAlias(alias) {
+  if (!alias || alias.length < 5) return false;
+  if (WEAK_ALIASES.has(alias)) return false;
+  if (/^(que|como|cual|quien|donde|cuando)\b/.test(alias) && alias.split(" ").length <= 3) {
+    return false;
+  }
+  return true;
+}
+
 /**
  * Datos puntuales (horarios, pastores, terminología).
  * Se evalúa antes del FAQ y del RAG.
@@ -230,13 +245,13 @@ export async function findFact(question) {
       const aliases = [
         titleNorm,
         ...(Array.isArray(row.aliases) ? row.aliases.map(normalizeAlias) : []),
-      ].filter((a) => a.length >= 2);
+      ].filter(isUsefulAlias);
 
       let score = 0;
       for (const alias of aliases) {
         if (norm === alias) score = Math.max(score, 100 + alias.length);
-        else if (norm.includes(alias) && alias.length >= 4) {
-          score = Math.max(score, 60 + Math.min(alias.length, 40));
+        else if (norm.includes(alias) && alias.length >= 6) {
+          score = Math.max(score, 70 + Math.min(alias.length, 40));
         } else if (alias.includes(norm) && norm.length >= 6) {
           score = Math.max(score, 45);
         } else {
@@ -254,7 +269,7 @@ export async function findFact(question) {
     }
 
     // Umbral: evita disparar con palabras sueltas demasiado cortas.
-    if (!best || bestScore < 45) return null;
+    if (!best || bestScore < 70) return null;
 
     return {
       answer: best.content,
