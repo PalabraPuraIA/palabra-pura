@@ -458,6 +458,40 @@ th {
   font-size: .86rem;
   font-style: italic;
 }
+.catalog-series td {
+  padding: 0;
+  background: color-mix(in srgb, var(--c-surface-2) 70%, transparent);
+}
+.catalog-series__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.catalog-series__btn:hover {
+  background: color-mix(in srgb, var(--c-rose) 8%, transparent);
+}
+.catalog-series__caret {
+  width: 1.1em;
+  flex: 0 0 auto;
+  color: var(--c-rose);
+  font-size: 1.05rem;
+}
+.catalog-series__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.catalog-episode td:first-child {
+  padding-left: 36px;
+}
 
 @media (max-width: 800px) {
   .stats, .grid { grid-template-columns: 1fr; }

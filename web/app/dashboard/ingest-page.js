@@ -1,5 +1,25 @@
 import { adminFetch } from "./admin-boot.js";
 
+const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
+const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
+const SUPABASE_ANON = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
+const HUB = `${SUPABASE_URL}/functions/v1/knowledge-hub`;
+
+async function hub(action, extra = {}) {
+  const res = await fetch(HUB, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_ANON}`,
+      apikey: SUPABASE_ANON,
+    },
+    body: JSON.stringify({ action, ...extra }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) throw new Error(data.error || `Error ${res.status}`);
+  return data;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -26,6 +46,10 @@ const msg = document.querySelector("[data-form-msg]");
 const submitBtn = document.querySelector("[data-submit]");
 
 async function loadJobs() {
+  if (ON_PAGES) {
+    const data = await hub("list");
+    return { jobs: data.jobs || [] };
+  }
   const res = await adminFetch("/api/ingest/jobs", { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
@@ -68,7 +92,7 @@ async function refreshJobs() {
     console.error(err);
     document.querySelector("[data-jobs-empty]").hidden = false;
     document.querySelector("[data-jobs-empty]").textContent =
-      "No se pudo cargar la cola. ¿Migración ingest_job aplicada?";
+      "No se pudo cargar la cola de la nube.";
   }
 }
 
@@ -91,12 +115,31 @@ form.addEventListener("submit", async (ev) => {
     msg.className = "form-msg form-msg--err";
     return;
   }
+  if (ON_PAGES && hasFile) {
+    msg.hidden = false;
+    msg.textContent = "En GitHub Pages pega el link de YouTube. El archivo local solo funciona en el servidor.";
+    msg.className = "form-msg form-msg--err";
+    return;
+  }
 
   submitBtn.disabled = true;
   submitBtn.textContent = "Enviando…";
   try {
-    const body = new FormData();
     const title = String(fd.get("title") || "").trim();
+    if (ON_PAGES) {
+      const data = await hub("ingestVideo", { url, title });
+      form.reset();
+      msg.hidden = false;
+      msg.className = "form-msg form-msg--ok";
+      const n = data.job?.fragments_created || data.fragments || 0;
+      msg.textContent = n
+        ? `Listo. ${n} fragmentos en la nube.`
+        : "Indexando en la nube. Recarga en un momento.";
+      refreshJobs();
+      return;
+    }
+
+    const body = new FormData();
     if (title) body.append("title", title);
     if (hasFile) body.append("file", file);
     else body.append("url", url);

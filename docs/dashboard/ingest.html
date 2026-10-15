@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=login-1" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-series-2" />
 </head>
 <body>
   <div class="wrap">
@@ -31,7 +31,7 @@
       <a href="../">Chat</a>
     </nav>
 
-    <p class="sub">Pega un link de YouTube o sube un audio/video. Se transcribe, se parte en fragmentos, se vectoriza y queda listo para el chat.</p>
+    <p class="sub">Pega un link de YouTube. En GitHub Pages se indexa en Supabase de la nube (las series como Globalismo quedan en el catálogo). El archivo local solo aplica en el servidor.</p>
 
     <section class="card card--wide ingest-form">
       <h2>Nuevo material</h2>
@@ -84,8 +84,8 @@
       <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de ingesta.</p>
     </section>
 
-    <p class="foot">Requiere <code>GROQ_API_KEY</code> (Whisper) y <code>GEMINI_API_KEY</code> (embeddings) en el entorno del contenedor web.</p>
+    <p class="foot">En Pages el índice vive en Supabase. Whisper queda de reserva si el video no trae transcripción.</p>
   </div>
-  <script type="module" src="./ingest-page.js"></script>
+  <script type="module" src="./ingest-page.js?v=kb-series-2"></script>
 </body>
 </html>
