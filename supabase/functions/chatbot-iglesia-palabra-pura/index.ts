@@ -449,7 +449,8 @@ async function findVideosByTitle(question: string) {
     scored.push({ ...v, score });
   }
   scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 4);
+  const exactParte = qParte ? scored.filter((v) => String(v.title || "").match(/parte\s*0*(\d+)/i)?.[1] === qParte[1]) : [];
+  return (exactParte.length ? exactParte : scored).slice(0, 3);
 }
 
 async function fragmentsFromVideos(videos: { id: number; title?: string; youtube_id?: string; episode?: number }[]) {
@@ -500,7 +501,7 @@ async function retrieveVideoFragments(embStr, question = "") {
   const expanded = seeds.length ? await expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX) : [];
   const titled = await findVideosByTitle(question);
   const fromTitle = titled.length ? await fragmentsFromVideos(titled) : [];
-  if (fromTitle.length) return mergeFragments(fromTitle, expanded, CONTEXT_MAX);
+  if (fromTitle.length) return fromTitle.slice(0, CONTEXT_MAX);
   return expanded;
 }
 
