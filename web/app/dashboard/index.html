@@ -7,8 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=ratings-1" />
+  <link rel="stylesheet" href="/css/tokens.css" />
+  <link rel="stylesheet" href="/dashboard/dashboard.css" />
 </head>
 <body>
   <div class="wrap">
@@ -19,20 +19,23 @@
       </div>
       <div class="bar__actions">
         <button class="btn" type="button" data-refresh>Actualizar</button>
-        <a class="btn btn--primary" href="../">Ir al chat</a>
+        <a class="btn" href="/dashboard/knowledge.html">Conocimiento</a>
+        <a class="btn" href="/dashboard/ingest.html">Agregar contenido</a>
+        <button class="btn" type="button" data-logout>Salir</button>
+        <a class="btn btn--primary" href="/">Ir al chat</a>
       </div>
     </header>
 
-    <p class="sub">Resumen de lo que la gente pregunta en el chatbot. Las calificaciones de cada respuesta aparecen aquí para ver qué sale bien y qué hay que mejorar.</p>
-
     <nav class="dash-nav" aria-label="Secciones">
-      <a href="./" aria-current="page">Consultas</a>
-      <a href="./knowledge.html">Base de conocimientos</a>
-      <a href="./ingest.html">Agregar video / audio</a>
-      <a href="../">Chat</a>
+      <a href="/dashboard/" aria-current="page">Consultas</a>
+      <a href="/dashboard/knowledge.html">Conocimiento</a>
+      <a href="/dashboard/ingest.html">Agregar video / audio</a>
+      <a href="/">Chat</a>
     </nav>
 
-    <section class="stats stats--wide" data-stats>
+    <p class="sub">Resumen de lo que la gente pregunta en el chatbot. Se actualiza con cada consulta nueva.</p>
+
+    <section class="stats" data-stats>
       <article class="stat">
         <p class="stat__label">Preguntas totales</p>
         <p class="stat__value" data-total>—</p>
@@ -45,20 +48,6 @@
         <p class="stat__label">Temas activos</p>
         <p class="stat__value" data-topics-n>—</p>
       </article>
-      <article class="stat stat--good">
-        <p class="stat__label">Respuestas útiles</p>
-        <p class="stat__value" data-useful>—</p>
-      </article>
-      <article class="stat stat--bad">
-        <p class="stat__label">Respuestas no útiles</p>
-        <p class="stat__value" data-not-useful>—</p>
-      </article>
-    </section>
-
-    <section class="card card--wide corpus" data-corpus hidden>
-      <h2>Base de enseñanzas</h2>
-      <p class="card__hint">Videos y fragmentos indexados en la nube. Si vas a transcribir una serie nueva, estos números deben subir después de sincronizar.</p>
-      <p class="corpus__line" data-corpus-line></p>
     </section>
 
     <div class="grid">
@@ -77,24 +66,9 @@
       </section>
     </div>
 
-    <div class="grid">
-      <section class="card">
-        <h2>Preguntas con buena calificación</h2>
-        <p class="card__hint">La gente marcó estas respuestas como útiles.</p>
-        <div class="qa-list qa-list--compact" data-useful-list></div>
-        <p class="empty" data-useful-empty hidden>Todavía no hay calificaciones positivas.</p>
-      </section>
-      <section class="card">
-        <h2>Preguntas con mala calificación</h2>
-        <p class="card__hint">Estas son las que hay que revisar o mejorar en el material.</p>
-        <div class="qa-list qa-list--compact" data-bad-list></div>
-        <p class="empty" data-bad-empty hidden>Todavía no hay calificaciones negativas.</p>
-      </section>
-    </div>
-
     <section class="card card--wide">
       <h2>Últimas consultas</h2>
-      <p class="card__hint">Abre una ficha para ver la pregunta, la respuesta y la evidencia de la transcripción.</p>
+      <p class="card__hint">De lo más reciente a lo más viejo. Abre una ficha para ver la respuesta y el fragmento de la transcripción.</p>
       <div class="qa-list" data-recent></div>
       <p class="empty" data-recent-empty hidden>Todavía no hay consultas registradas. Prueba el chat y vuelve aquí.</p>
     </section>
@@ -102,6 +76,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="./dashboard.js?v=ratings-1"></script>
+  <script type="module" src="/dashboard/dashboard.js?v=qa-cards-2"></script>
 </body>
 </html>

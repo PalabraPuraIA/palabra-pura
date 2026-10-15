@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Palabra Pura</title>
+  <link rel="icon" type="image/png" href="./assets/logo-icono.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./css/tokens.css" />
+  <link rel="stylesheet" href="./dashboard/dashboard.css" />
+  <style>
+    .login-wrap {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(900px 420px at 10% -10%, rgba(139, 123, 255, .18), transparent 60%),
+        radial-gradient(800px 380px at 100% 0%, rgba(255, 0, 102, .16), transparent 55%),
+        var(--c-bg);
+    }
+    .login-card {
+      width: min(420px, 100%);
+      background: var(--g-surface);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-lg);
+      padding: 28px 24px 22px;
+      box-shadow: var(--shadow-card);
+    }
+    .login-card h1 {
+      margin: 6px 0 4px;
+      font-size: 1.55rem;
+    }
+    .login-card .sub {
+      margin: 0 0 18px;
+      color: var(--c-ink-soft);
+      font-size: .92rem;
+    }
+    .login-card .field { margin-bottom: 12px; }
+    .login-card label span {
+      display: block;
+      margin-bottom: 6px;
+      font-size: .72rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      color: var(--c-ink-soft);
+    }
+    .login-card input {
+      width: 100%;
+      font: inherit;
+      padding: 12px 14px;
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-sm);
+      background: var(--c-surface-2);
+      color: var(--c-ink);
+    }
+    .login-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .login-msg {
+      margin: 10px 0 0;
+      font-size: .88rem;
+    }
+    .login-msg--err { color: #b01040; }
+    .login-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .login-brand img {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-wrap">
+    <form class="login-card" data-login-form>
+      <div class="login-brand">
+        <img src="/assets/logo-icono.png" alt="" width="40" height="40" />
+        <p class="eyebrow" style="margin:0">Enciclopedia de Palabra Pura</p>
+      </div>
+      <h1>Ingresar</h1>
+      <p class="sub">El chat sigue abierto para todos. Este acceso es solo para el panel de administración.</p>
+
+      <label class="field">
+        <span>Usuario</span>
+        <input type="text" name="username" autocomplete="username" required />
+      </label>
+      <label class="field">
+        <span>Contraseña</span>
+        <input type="password" name="password" autocomplete="current-password" required />
+      </label>
+
+      <div class="login-actions">
+        <button class="btn btn--primary" type="submit" data-submit>Entrar</button>
+        <a class="btn" href="./">Ir al chat</a>
+      </div>
+      <p class="login-msg" data-msg hidden></p>
+    </form>
+  </div>
+  <script type="module" src="./js/login-page.js"></script>
+</body>
+</html>

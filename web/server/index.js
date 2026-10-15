@@ -27,14 +27,19 @@ import {
   handleCorpusStats,
   kickWorker,
 } from "./ingest.js";
-import { handleKnowledgeHub } from "./knowledge-hub.js";
 import {
   initConversationStore,
   migrateLegacyEvents,
-  rateConversation,
   readConversationEvents,
   recordConversation,
 } from "./conversation-store.js";
+import {
+  handleLogin,
+  handleLogout,
+  handleMe,
+  requireAuth,
+  requireAuthPage,
+} from "./auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 80);
@@ -151,15 +156,12 @@ function buildSummary(store) {
       video: e.video ?? null,
       passages: e.passages ?? null,
       retrieval: e.retrieval ?? null,
-      rating: e.rating ?? null,
       at: e.at,
       topics: e.topics,
     }));
 
   const total = events.length;
   const last24h = events.filter((e) => Date.now() - Date.parse(e.at) < 24 * 3600 * 1000).length;
-  const useful = events.filter((e) => e.rating === "useful");
-  const notUseful = events.filter((e) => e.rating === "not_useful");
 
   return {
     totalQuestions: total,
@@ -167,10 +169,6 @@ function buildSummary(store) {
     topics,
     topTerms,
     recent,
-    ratedUseful: useful.length,
-    ratedNotUseful: notUseful.length,
-    bestRated: useful.slice(0, 12),
-    worstRated: notUseful.slice(0, 12),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -180,7 +178,7 @@ app.disable("x-powered-by");
 app.set("trust proxy", true);
 app.use(express.json({ limit: "32kb" }));
 
-// Pages (github.io) llama al túnel HTTPS; permitir CORS en API.
+// Pages (github.io) / túnel → CORS para login y panel.
 app.use((req, res, next) => {
   const origin = String(req.headers.origin || "");
   if (
@@ -191,7 +189,11 @@ app.use((req, res, next) => {
   ) {
     res.setHeader("Access-Control-Allow-Origin", origin || "*");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PATCH,DELETE,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, apikey");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, apikey",
+    );
+    res.setHeader("Access-Control-Allow-Credentials", "true");
   }
   if (req.method === "OPTIONS") return res.status(204).end();
   next();
@@ -382,6 +384,11 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true, chatMode: chatMode() });
 });
 
+// Auth del panel (chat público no usa esto).
+app.post("/api/auth/login", handleLogin);
+app.post("/api/auth/logout", handleLogout);
+app.get("/api/auth/me", handleMe);
+
 // Cerebro del chat en el mismo contenedor que la página.
 // Guarda pregunta + respuesta antes de enviarla al cliente (dashboard desplegable).
 app.post("/api/chat", (req, res, next) => {
@@ -410,16 +417,14 @@ app.get("/api/chat/status", handleChatStatus);
 app.get("/api/life-areas", handleLifeAreas);
 app.post("/api/knowledge/feedback", handleKnowledgeFeedback);
 
-app.get("/api/knowledge", handleKnowledgeList);
-app.patch("/api/knowledge/:id", handleKnowledgePatch);
-app.delete("/api/knowledge/:id", handleKnowledgeDelete);
-app.get("/api/facts", handleFactsList);
-app.post("/api/facts", handleFactCreate);
-app.patch("/api/facts/:id", handleFactPatch);
-app.delete("/api/facts/:id", handleFactDelete);
-app.get("/api/knowledge-hub", handleKnowledgeHub);
-app.post("/api/knowledge-hub", handleKnowledgeHub);
-app.get("/api/corpus", handleCorpusStats);
+app.get("/api/knowledge", requireAuth, handleKnowledgeList);
+app.patch("/api/knowledge/:id", requireAuth, handleKnowledgePatch);
+app.delete("/api/knowledge/:id", requireAuth, handleKnowledgeDelete);
+app.get("/api/facts", requireAuth, handleFactsList);
+app.post("/api/facts", requireAuth, handleFactCreate);
+app.patch("/api/facts/:id", requireAuth, handleFactPatch);
+app.delete("/api/facts/:id", requireAuth, handleFactDelete);
+app.get("/api/corpus", requireAuth, handleCorpusStats);
 
 const upload = multer({
   dest: path.join(DATA_DIR, "ingest-tmp"),
@@ -427,9 +432,9 @@ const upload = multer({
 });
 fs.mkdirSync(path.join(DATA_DIR, "ingest-tmp"), { recursive: true });
 
-app.get("/api/ingest/jobs", handleIngestList);
-app.get("/api/ingest/jobs/:id", handleIngestGet);
-app.post("/api/ingest", upload.single("file"), handleIngestCreate);
+app.get("/api/ingest/jobs", requireAuth, handleIngestList);
+app.get("/api/ingest/jobs/:id", requireAuth, handleIngestGet);
+app.post("/api/ingest", requireAuth, upload.single("file"), handleIngestCreate);
 
 /** Current public Cloudflare quick-tunnel URLs (updated by tunnel-watchdog). */
 app.get("/api/public-url", (_req, res) => {
@@ -480,7 +485,6 @@ app.post("/api/analytics/event", async (req, res) => {
   const topics = detectTopics(question);
   try {
     const id = await recordConversation({
-      id: req.body?.id,
       question,
       response: req.body?.response || {
         answer: req.body?.answer,
@@ -512,26 +516,7 @@ app.post("/api/analytics/event", async (req, res) => {
   res.status(201).json({ ok: true, id: event.id, topics: event.topics });
 });
 
-app.post("/api/analytics/rate", async (req, res) => {
-  const id = String(req.body?.id || req.body?.interaction_id || "").trim();
-  const vote = String(req.body?.vote || "").trim();
-  if (!id || !vote) {
-    return res.status(400).json({ ok: false, error: "id and vote required" });
-  }
-  if (vote !== "useful" && vote !== "not_useful") {
-    return res.status(400).json({ ok: false, error: "invalid vote" });
-  }
-  try {
-    const saved = await rateConversation(id, vote, req.body?.question);
-    if (!saved) return res.status(503).json({ ok: false, error: "conversation store unavailable" });
-    res.json({ ok: true, id: saved, vote });
-  } catch (err) {
-    console.warn("[conversations] rate", err.message);
-    res.status(503).json({ ok: false, error: "conversation store unavailable" });
-  }
-});
-
-app.get("/api/analytics/summary", async (_req, res) => {
+app.get("/api/analytics/summary", requireAuth, async (_req, res) => {
   try {
     const events = await readConversationEvents();
     if (events?.length) {
@@ -542,6 +527,9 @@ app.get("/api/analytics/summary", async (_req, res) => {
   }
   res.json(buildSummary(readStore()));
 });
+
+// Panel admin: requiere login (el chat en / sigue público).
+app.use("/dashboard", requireAuthPage);
 
 app.use(express.static(PUBLIC_DIR, {
   extensions: ["html"],

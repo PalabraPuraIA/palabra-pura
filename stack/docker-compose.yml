@@ -86,6 +86,9 @@ services:
       OPENROUTER_MODEL: ${OPENROUTER_MODEL:-google/gemini-2.5-flash}
       SUPABASE_CHAT_URL: ${SUPABASE_CHAT_URL:-https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-palabra}
+      AUTH_SECRET: ${AUTH_SECRET:-}
     volumes:
       # Live UI updates without rebuild (optional in prod)
       - ../web/app:/srv/public:ro

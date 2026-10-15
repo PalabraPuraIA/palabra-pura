@@ -7,11 +7,14 @@
  */
 
 export const config = {
+  fintekBaseUrl: isGitHubPages
+    ? "https://herbs-thomson-promo-painting.trycloudflare.com"
+    : "",
   /**
    * URL pública del contenedor Fintek (túnel) — reserva.
    * Si cambia al reiniciar el túnel, actualiza también docs/public-url.json.
    */
-  serverBaseUrl: "https://trends-then-pipe-airlines.trycloudflare.com",
+  serverBaseUrl: "https://herbs-thomson-promo-painting.trycloudflare.com",
 
   /** Endpoint principal: Edge Function en Supabase nube. */
   endpoint:

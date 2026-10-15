@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=facts-2" />
+  <link rel="stylesheet" href="./dashboard.css?v=login-1" />
 </head>
 <body>
   <div class="wrap">
@@ -18,14 +18,15 @@
         <h1>Agregar video o audio</h1>
       </div>
       <div class="bar__actions">
-        <a class="btn" href="./knowledge.html">Base de conocimientos</a>
+        <a class="btn" href="./knowledge.html">Ver conocimiento</a>
+        <button class="btn" type="button" data-logout>Salir</button>
         <a class="btn btn--primary" href="../">Ir al chat</a>
       </div>
     </header>
 
     <nav class="dash-nav" aria-label="Secciones">
       <a href="./">Consultas</a>
-      <a href="./knowledge.html">Base de conocimientos</a>
+      <a href="./knowledge.html">Conocimiento</a>
       <a href="./ingest.html" aria-current="page">Agregar video / audio</a>
       <a href="../">Chat</a>
     </nav>
@@ -83,8 +84,8 @@
       <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de ingesta.</p>
     </section>
 
-    <p class="foot">En GitHub Pages el video se transcribe e indexa en la nube al enviar el link. No tienes que pegar claves de Gemini ni Whisper aquí.</p>
+    <p class="foot">Requiere <code>GROQ_API_KEY</code> (Whisper) y <code>GEMINI_API_KEY</code> (embeddings) en el entorno del contenedor web.</p>
   </div>
-  <script type="module" src="./ingest-page.js?v=kb-ingest-now"></script>
+  <script type="module" src="./ingest-page.js"></script>
 </body>
 </html>
