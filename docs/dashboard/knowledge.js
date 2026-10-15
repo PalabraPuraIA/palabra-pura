@@ -157,14 +157,32 @@ function seriesKey(name) {
 }
 
 function seriesFromTitle(title) {
-  const raw = String(title || "").trim();
-  const numbered = raw.match(/^\s*(.+?)\s*[-–]\s*\d+/);
-  const parte = raw.match(/^\s*(.+?)\s*\(\s*PARTE\s*\d+/i);
-  const prefix = (numbered?.[1] || parte?.[1] || "").replace(/\s+/g, " ").trim();
+  let raw = String(title || "").trim();
+  raw = raw
+    .replace(/\s*[-–/]\s*PASTOR(?:A|ES)?\b.*$/i, "")
+    .replace(/\s*\/\s*[A-ZÁÉÍÓÚÜÑ][A-ZÁÉÍÓÚÜÑ\s.]{2,}$/u, "")
+    .replace(/\s*\(\s*ROMANOS[^)]*\)\s*/i, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const numbered = raw.match(/^\s*(.+?)\s*[-–]\s*\d{2,4}\b/);
+  const parteParen = raw.match(/^\s*(.+?)\s*\(\s*PARTE\s*\d+/i);
+  const partePlain = raw.match(/^\s*(.+?)\s+PARTE\s*\d+/i);
+  const prefix = (numbered?.[1] || parteParen?.[1] || partePlain?.[1] || "").replace(/\s+/g, " ").trim();
   const key = seriesKey(prefix || raw).replace(/^el-/, "");
   if (key.includes("escuela-biblica")) return "Escuela Bíblica";
-  if (key.includes("globalismo-falso") || key.includes("globalismo")) return "El Globalismo Falso";
+  if (key.includes("globalismo")) return "El Globalismo Falso";
+  if (key.includes("amor") && key.includes("aceptacion")) return "El Amor No Es Aceptación";
+  if (key.includes("lengua") && (key.includes("arma") || key.includes("poderosa"))) {
+    return "La Lengua, un Arma Poderosa";
+  }
   return prefix || "Otras enseñanzas";
+}
+
+function episodeFromTitle(title) {
+  const raw = String(title || "");
+  const parte = raw.match(/PARTE\s*0*(\d+)/i);
+  const numbered = raw.match(/[-–]\s*(\d{2,4})\s*[-–]/);
+  return parte?.[1] || numbered?.[1] || null;
 }
 
 function episodeLabel(video) {
@@ -173,9 +191,11 @@ function episodeLabel(video) {
   let topic = match
     ? match[2].replace(/\s*[-–]\s*PASTORES.*$/i, "").trim()
     : title;
-  const ep = video.episode != null ? video.episode : match?.[1];
-  if (ep != null && topic && topic !== title) return `Ep. ${ep} — ${topic}`;
-  if (ep != null) return `Ep. ${ep} — ${title || "Sin título"}`;
+  const ep = video.episode != null ? video.episode : episodeFromTitle(title);
+  const series = seriesFromTitle(title);
+  if (ep != null && topic && topic !== title) return `Ep. ${Number(ep)} — ${topic}`;
+  if (ep != null && series && series !== "Otras enseñanzas") return `Ep. ${Number(ep)} — ${series}`;
+  if (ep != null) return `Ep. ${Number(ep)} — ${title || "Sin título"}`;
   return title || "Sin título";
 }
 
@@ -193,7 +213,11 @@ function groupVideosBySeries(videos) {
     if (video.access_mode === "paid") group.paid += 1;
   }
   for (const group of groups.values()) {
-    group.videos.sort((a, b) => (Number(a.episode) || 0) - (Number(b.episode) || 0));
+    group.videos.sort((a, b) => {
+      const ae = Number(a.episode != null ? a.episode : episodeFromTitle(a.title)) || 0;
+      const be = Number(b.episode != null ? b.episode : episodeFromTitle(b.title)) || 0;
+      return ae - be;
+    });
     if (!/escuela/i.test(group.name)) openSeries.add(group.key);
   }
   return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name, "es"));

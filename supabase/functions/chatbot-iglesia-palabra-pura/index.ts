@@ -421,17 +421,87 @@ async function expandAdjacent(seeds, radius = 1, max = CONTEXT_MAX) {
   return result.length ? result : seeds;
 }
 
-async function retrieveVideoFragments(embStr) {
+const TITLE_STOP = new Set([
+  "que", "de", "la", "el", "los", "las", "un", "una", "del", "para", "por", "con",
+  "como", "sobre", "serie", "habla", "ensena", "ensenanza", "ensenanzas", "parte",
+  "video", "cual", "cuales", "hay", "esta", "este", "esto", "the", "dice", "dices",
+]);
+
+function titleTokens(s: string) {
+  return norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !TITLE_STOP.has(w));
+}
+
+async function findVideosByTitle(question: string) {
+  const qTokens = titleTokens(question);
+  if (qTokens.length < 2) return [];
+  const { data, error } = await supabase.from("video").select("id,title,youtube_id,episode").limit(400);
+  if (error || !data?.length) return [];
+  const qParte = question.match(/parte\s*0*(\d+)/i);
+  const scored = [];
+  for (const v of data) {
+    const t = titleTokens(v.title || "");
+    const hits = qTokens.filter((w) => t.some((x) => x === w || x.includes(w) || w.includes(x))).length;
+    if (hits < 2) continue;
+    let score = hits;
+    const tParte = String(v.title || "").match(/parte\s*0*(\d+)/i);
+    if (qParte && tParte && qParte[1] === tParte[1]) score += 4;
+    else if (qParte && tParte && qParte[1] !== tParte[1]) score -= 1;
+    scored.push({ ...v, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 4);
+}
+
+async function fragmentsFromVideos(videos: { id: number; title?: string; youtube_id?: string; episode?: number }[]) {
+  if (!videos.length) return [];
+  const ids = videos.map((v) => v.id);
+  const { data, error } = await supabase
+    .from("fragment")
+    .select("id, position, content, start_second, word_count, video_id")
+    .in("video_id", ids)
+    .order("position", { ascending: true })
+    .limit(24);
+  if (error || !data?.length) return [];
+  const byVideo = new Map(videos.map((v) => [Number(v.id), v]));
+  return data.map((row) => {
+    const video = byVideo.get(Number(row.video_id));
+    return {
+      ...row,
+      title: video?.title,
+      episode: video?.episode,
+      youtube_id: video?.youtube_id,
+      similarity: 0.99,
+    };
+  });
+}
+
+function mergeFragments(preferred, fallback, max = CONTEXT_MAX) {
+  const out = [];
+  const seen = new Set();
+  for (const row of [...(preferred || []), ...(fallback || [])]) {
+    const key = row?.id ?? `${row?.video_id}-${row?.position}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+async function retrieveVideoFragments(embStr, question = "") {
   const { data: fragMatches, error: fragErr } = await supabase.rpc("match_fragments", {
     query_embedding: embStr,
     match_count: VECTOR_CANDIDATES,
   });
   if (fragErr) throw new Error("match_fragments: " + fragErr.message);
   const filtered = filterBySimilarity(fragMatches || []);
-  if (!filtered.length) return [];
   const seeds = filtered.slice(0, SEED_LIMIT);
   const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 160);
-  return expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX);
+  const expanded = seeds.length ? await expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX) : [];
+  const titled = await findVideosByTitle(question);
+  const fromTitle = titled.length ? await fragmentsFromVideos(titled) : [];
+  if (fromTitle.length) return mergeFragments(fromTitle, expanded, CONTEXT_MAX);
+  return expanded;
 }
 
 // Embebe la pregunta del usuario (rota keys si una falla).
@@ -571,7 +641,7 @@ Deno.serve(async (req)=>{
     if (factHit) return json(await attachLifeContext(factHit, searchQ));
     const docs = await findKnowledgeDocs(embStr);
     // ========== 1) VIDEOS primero ==========
-    const fragMatches = await retrieveVideoFragments(embStr);
+    const fragMatches = await retrieveVideoFragments(embStr, question);
     const tips = relatedSuggestions(fragMatches, 6);
     if (fragMatches && fragMatches.length > 0) {
       const context = numberedFragments(fragMatches);
