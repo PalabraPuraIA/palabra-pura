@@ -646,7 +646,17 @@ Deno.serve(async (req)=>{
     const tips = relatedSuggestions(fragMatches, 6);
     if (fragMatches && fragMatches.length > 0) {
       const context = numberedFragments(fragMatches);
-      const vid = await askLLM(SYSTEM_VIDEO, `${prior}Contexto de los videos:\n${context}\n\nPregunta actual: ${question}`);
+      let vid = await askLLM(SYSTEM_VIDEO, `${prior}Contexto de los videos:\n${context}\n\nPregunta actual: ${question}`);
+      if (!vid.found) {
+        const titled = await findVideosByTitle(question);
+        if (titled.length) {
+          vid = await askLLM(
+            SYSTEM_VIDEO,
+            `${prior}Estos videos SON la serie o enseñanza que pregunta la persona. Resume lo que enseñan. No respondas found false.\n${context}\n\nPregunta actual: ${question}`,
+          );
+          if (vid.answer) vid.found = true;
+        }
+      }
       // Si el LLM pudo responder con los videos, terminamos aqui.
       if (vid.found) {
         const selected = literalExcerpt(fragMatches, vid.evidence);
