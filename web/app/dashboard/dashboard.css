@@ -170,9 +170,6 @@ h1 {
   border-radius: 10px;
   box-shadow: none;
 }
-.dash-compact .stat__value {
-  font-size: 1.05rem;
-}
 
 .stat {
   background: var(--g-surface);
