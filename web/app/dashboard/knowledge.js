@@ -292,10 +292,12 @@ function renderCatalog(videos) {
           </select>
         </td>
         <td>
-          <input type="url" data-offer-url="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_url || "")}" placeholder="https://…" />
-          <input type="text" data-offer-label="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_label || "")}" placeholder="Comprar esta enseñanza" />
+          <div class="catalog-offer">
+            <input type="url" data-offer-url="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_url || "")}" placeholder="https://…" />
+            <input type="text" data-offer-label="${escapeHtml(video.youtube_id)}" value="${escapeHtml(video.offer_label || "")}" placeholder="Texto del botón" />
+          </div>
         </td>
-        <td><button class="btn btn--primary" type="button" data-save-access="${escapeHtml(video.youtube_id)}">Guardar</button></td>
+        <td><button class="btn btn--primary btn--tiny" type="button" data-save-access="${escapeHtml(video.youtube_id)}">Guardar</button></td>
       `;
       body.appendChild(tr);
     }

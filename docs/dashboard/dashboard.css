@@ -49,10 +49,12 @@ h1 {
   background: var(--c-surface-2);
   color: var(--c-ink);
   font: inherit;
-  font-size: .86rem;
+  font-size: .78rem;
   font-weight: 600;
-  border-radius: var(--r-sm);
-  padding: 10px 14px;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-height: 30px;
+  line-height: 1.2;
   cursor: pointer;
 }
 .btn:hover { border-color: var(--c-rose); color: var(--c-rose); }
@@ -60,9 +62,15 @@ h1 {
   background: var(--g-brand);
   border-color: transparent;
   color: var(--c-white);
-  box-shadow: var(--shadow-rose);
+  box-shadow: 0 8px 18px -12px rgba(255, 0, 102, .55);
 }
-.btn--primary:hover { box-shadow: 0 16px 32px -14px rgba(255, 0, 102, .55); }
+.btn--primary:hover { box-shadow: 0 12px 24px -14px rgba(255, 0, 102, .55); }
+.btn--tiny {
+  padding: 4px 8px;
+  min-height: 26px;
+  font-size: .72rem;
+  border-radius: 7px;
+}
 
 .sub {
   color: var(--c-ink-soft);
@@ -355,11 +363,40 @@ th {
   font-weight: 400;
 }
 .row-actions { white-space: nowrap; }
-.btn--tiny {
-  padding: 6px 10px;
-  font-size: .75rem;
-}
 .btn--danger:hover { color: #b01040; border-color: #b01040; }
+
+/* Compact dark fields (avoid native white inputs) */
+.field input[type="text"],
+.field input[type="url"],
+.field input[type="search"],
+.field select,
+.field textarea,
+.table-wrap input[type="text"],
+.table-wrap input[type="url"],
+.table-wrap select {
+  font: inherit;
+  font-size: .8rem;
+  padding: 6px 9px;
+  min-height: 30px;
+  border: 1px solid var(--c-line);
+  border-radius: 8px;
+  background: var(--c-surface-2);
+  color: var(--c-ink);
+  box-sizing: border-box;
+  width: 100%;
+}
+.field textarea {
+  min-height: 64px;
+  resize: vertical;
+  line-height: 1.4;
+}
+.table-wrap input::placeholder,
+.field input::placeholder {
+  color: var(--c-ink-faint);
+}
+.table-wrap select {
+  max-width: 200px;
+}
 
 .ingest-form .field {
   display: flex;
@@ -557,8 +594,37 @@ th {
   flex-direction: column;
   gap: 2px;
 }
+.catalog-episode td {
+  padding: 6px 8px;
+  vertical-align: middle;
+  font-size: .82rem;
+}
 .catalog-episode td:first-child {
-  padding-left: 36px;
+  padding-left: 28px;
+}
+.catalog-episode .muted {
+  margin-top: 1px;
+  font-size: .72rem;
+}
+.catalog-offer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+}
+.catalog-offer input {
+  font-size: .76rem !important;
+  padding: 5px 8px !important;
+  min-height: 28px !important;
+}
+.catalog-episode select {
+  font-size: .76rem;
+  padding: 5px 8px;
+  min-height: 28px;
+  max-width: 180px;
+}
+.catalog-series__btn {
+  padding: 10px 12px;
 }
 
 .wrap--wide {
