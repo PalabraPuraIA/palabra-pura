@@ -363,10 +363,11 @@ function downloadYoutubeAudio(youtubeId, dir) {
     const outTpl = path.join(dir, `yt-${youtubeId}.%(ext)s`);
     const finalMp3 = path.join(dir, `yt-${youtubeId}.mp3`);
     const bin = process.env.YT_DLP_PATH || "yt-dlp";
+    // Preferir audio chico: Groq Whisper rechaza >~25MB (HTTP 413).
     const args = [
-      "-f", "bestaudio/best",
+      "-f", "bestaudio[filesize<20M]/bestaudio/best",
       "-x", "--audio-format", "mp3",
-      "--audio-quality", "5",
+      "--audio-quality", "9",
       "-o", outTpl,
       "--no-playlist",
       `https://www.youtube.com/watch?v=${youtubeId}`,
@@ -393,10 +394,51 @@ function downloadYoutubeAudio(youtubeId, dir) {
   });
 }
 
-async function transcribeGroq(filePath) {
-  const key = process.env.GROQ_API_KEY;
-  if (!key) throw new Error("Falta GROQ_API_KEY para transcribir audio");
+const GROQ_MAX_BYTES = 20 * 1024 * 1024; // margen bajo el límite ~25MB
+const WHISPER_CHUNK_SEC = 12 * 60; // 12 min por parte
 
+function splitAudioForWhisper(filePath) {
+  const size = fs.statSync(filePath).size;
+  if (size <= GROQ_MAX_BYTES) return [{ path: filePath, offsetSec: 0, cleanup: false }];
+
+  const dir = path.dirname(filePath);
+  const base = path.basename(filePath, path.extname(filePath));
+  const pattern = path.join(dir, `${base}-part-%03d.mp3`);
+  const args = [
+    "-y", "-i", filePath,
+    "-f", "segment",
+    "-segment_time", String(WHISPER_CHUNK_SEC),
+    "-c:a", "libmp3lame",
+    "-b:a", "64k",
+    pattern,
+  ];
+  return new Promise((resolve, reject) => {
+    const child = spawn("ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+    let err = "";
+    child.stderr.on("data", (d) => { err += d.toString(); });
+    child.on("error", (e) => reject(new Error(`ffmpeg no disponible para partir audio: ${e.message}`)));
+    child.on("close", (code) => {
+      if (code !== 0) {
+        return reject(new Error(`ffmpeg falló al partir audio (${code}). ${err.slice(-300)}`));
+      }
+      const parts = fs
+        .readdirSync(dir)
+        .filter((f) => f.startsWith(`${base}-part-`) && f.endsWith(".mp3"))
+        .sort()
+        .map((f, i) => ({
+          path: path.join(dir, f),
+          offsetSec: i * WHISPER_CHUNK_SEC,
+          cleanup: true,
+        }));
+      if (!parts.length) {
+        return reject(new Error("ffmpeg no generó partes de audio"));
+      }
+      resolve(parts);
+    });
+  });
+}
+
+async function transcribeGroqOnce(filePath, key) {
   const buf = fs.readFileSync(filePath);
   const name = path.basename(filePath);
   const form = new FormData();
@@ -423,6 +465,33 @@ async function transcribeGroq(filePath) {
 
   if (!segments.length && data.text) {
     segments.push({ start: 0, end: 0, text: String(data.text).trim() });
+  }
+  return segments;
+}
+
+async function transcribeGroq(filePath) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("Falta GROQ_API_KEY para transcribir audio");
+
+  const parts = await splitAudioForWhisper(filePath);
+  const segments = [];
+  try {
+    for (const part of parts) {
+      const chunkSegs = await transcribeGroqOnce(part.path, key);
+      for (const s of chunkSegs) {
+        segments.push({
+          start: s.start + part.offsetSec,
+          end: s.end + part.offsetSec,
+          text: s.text,
+        });
+      }
+    }
+  } finally {
+    for (const part of parts) {
+      if (part.cleanup) {
+        try { fs.unlinkSync(part.path); } catch { /* ignore */ }
+      }
+    }
   }
   return { segments, title: null };
 }
