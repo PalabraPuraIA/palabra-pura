@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-export-1" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-export-2" />
 </head>
 <body>
   <div class="wrap wrap--wide dash-compact">
@@ -68,20 +68,34 @@
         <section class="card kb-panel" data-kb-panel="catalog">
           <div class="kb-panel__head">
             <h2>Catálogo: series y episodios</h2>
-            <p class="card__hint">Filtra o toca una serie. También puedes bajar todas las transcripciones y datos en un .txt organizado por series.</p>
-            <div class="form-actions" style="margin:8px 0 0;align-items:flex-end;flex-wrap:wrap;gap:12px">
-              <label class="field" style="max-width:420px;margin:0">
+            <p class="card__hint">Marca las casillas de las series o episodios que quieras. Puedes bajar solo eso, o todo el catálogo.</p>
+            <div class="form-actions" style="margin:8px 0 0;align-items:center;flex-wrap:wrap;gap:12px">
+              <label class="field" style="max-width:280px;margin:0">
                 <span>Buscar serie</span>
                 <input type="search" data-catalog-filter placeholder="Ej. globalismo, escuela…" />
               </label>
-              <button class="btn btn--primary" type="button" data-export-text>Descargar todo en texto</button>
+              <label class="catalog-pick-label">
+                <input class="catalog-pick" type="checkbox" data-select-all-videos />
+                Seleccionar todos los videos
+              </label>
+              <label class="catalog-pick-label">
+                <input class="catalog-pick" type="checkbox" data-export-facts checked />
+                Datos del ministerio
+              </label>
+              <label class="catalog-pick-label">
+                <input class="catalog-pick" type="checkbox" data-export-docs checked />
+                Documentos
+              </label>
+              <button class="btn btn--primary" type="button" data-export-selected>Descargar seleccionados</button>
+              <button class="btn" type="button" data-export-text>Descargar todo</button>
+              <span class="muted" data-selected-n>Ninguno marcado</span>
               <p class="form-msg" data-export-msg hidden></p>
             </div>
           </div>
           <div class="kb-panel__scroll">
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Serie / episodio</th><th>Fragmentos</th><th>Acceso</th><th>Link de compra</th><th></th></tr></thead>
+                <thead><tr><th></th><th>Serie / episodio</th><th>Fragmentos</th><th>Acceso</th><th>Link de compra</th><th></th></tr></thead>
                 <tbody data-catalog-body></tbody>
               </table>
             </div>
@@ -206,6 +220,6 @@
 
     <p class="foot" data-generated></p>
   </div>
-  <script type="module" src="./knowledge.js?v=kb-export-1"></script>
+  <script type="module" src="./knowledge.js?v=kb-export-2"></script>
 </body>
 </html>

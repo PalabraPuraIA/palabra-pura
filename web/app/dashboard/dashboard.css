@@ -584,6 +584,35 @@ th {
   font-size: .86rem;
   font-style: italic;
 }
+.catalog-pick-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .82rem;
+  color: var(--c-ink);
+  white-space: nowrap;
+}
+.catalog-pick {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--c-rose);
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+.catalog-series-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.catalog-series-row .catalog-pick {
+  margin-left: 12px;
+}
+.catalog-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
 .catalog-series td {
   padding: 0;
   background: color-mix(in srgb, var(--c-surface-2) 70%, transparent);
@@ -621,7 +650,8 @@ th {
   font-size: .82rem;
 }
 .catalog-episode td:first-child {
-  padding-left: 28px;
+  padding-left: 16px;
+  width: 36px;
 }
 .catalog-episode .muted {
   margin-top: 1px;

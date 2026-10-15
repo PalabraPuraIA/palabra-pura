@@ -146,6 +146,37 @@ async function waitForJob(jobId, onProgress) {
 }
 
 const openSeries = new Set();
+const selectedVideoIds = new Set();
+
+function videoKey(video) {
+  return String(video?.id || video?.youtube_id || "");
+}
+
+function videosForSeries(key) {
+  return lastVideos.filter((video) => seriesKey(seriesFromTitle(video.title)) === key);
+}
+
+function updateSelectionUi() {
+  const allIds = lastVideos.map(videoKey).filter(Boolean);
+  const allBox = $("[data-select-all-videos]");
+  if (allBox) {
+    const n = allIds.filter((id) => selectedVideoIds.has(id)).length;
+    allBox.checked = allIds.length > 0 && n === allIds.length;
+    allBox.indeterminate = n > 0 && n < allIds.length;
+  }
+  document.querySelectorAll("[data-select-series]").forEach((box) => {
+    const key = box.getAttribute("data-select-series");
+    const ids = videosForSeries(key).map(videoKey).filter(Boolean);
+    const n = ids.filter((id) => selectedVideoIds.has(id)).length;
+    box.checked = ids.length > 0 && n === ids.length;
+    box.indeterminate = n > 0 && n < ids.length;
+  });
+  const label = $("[data-selected-n]");
+  if (label) {
+    const n = selectedVideoIds.size;
+    label.textContent = n ? `${n} video${n === 1 ? "" : "s"} marcado${n === 1 ? "" : "s"}` : "Ninguno marcado";
+  }
+}
 
 function seriesKey(name) {
   return String(name || "")
@@ -252,34 +283,47 @@ function renderCatalog(videos) {
   if (empty) empty.hidden = true;
   if (!groups.length) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td colspan="5" class="muted">Ninguna serie coincide con «${escapeHtml(q)}».</td>`;
+    tr.innerHTML = `<td colspan="6" class="muted">Ninguna serie coincide con «${escapeHtml(q)}».</td>`;
     body.appendChild(tr);
     return;
   }
   for (const group of groups) {
     if (q) openSeries.add(group.key);
     const expanded = openSeries.has(group.key);
+    const seriesIds = group.videos.map(videoKey).filter(Boolean);
+    const selectedInSeries = seriesIds.filter((id) => selectedVideoIds.has(id)).length;
     const head = document.createElement("tr");
     head.className = "catalog-series";
     head.innerHTML = `
-      <td colspan="5">
-        <button class="catalog-series__btn" type="button" data-toggle-series="${escapeHtml(group.key)}" aria-expanded="${expanded ? "true" : "false"}">
-          <span class="catalog-series__caret" aria-hidden="true">${expanded ? "▾" : "▸"}</span>
-          <span class="catalog-series__copy">
-            <strong>${escapeHtml(group.name)}</strong>
-            <span class="muted">${group.videos.length} episodio${group.videos.length === 1 ? "" : "s"} · ${group.fragments} fragmentos${group.paid ? ` · ${group.paid} de pago` : ""}</span>
-          </span>
-        </button>
+      <td colspan="6">
+        <div class="catalog-series-row">
+          <input class="catalog-pick" type="checkbox" data-select-series="${escapeHtml(group.key)}" ${selectedInSeries === seriesIds.length && seriesIds.length ? "checked" : ""} aria-label="Seleccionar ${escapeHtml(group.name)}" />
+          <button class="catalog-series__btn" type="button" data-toggle-series="${escapeHtml(group.key)}" aria-expanded="${expanded ? "true" : "false"}">
+            <span class="catalog-series__caret" aria-hidden="true">${expanded ? "▾" : "▸"}</span>
+            <span class="catalog-series__copy">
+              <strong>${escapeHtml(group.name)}</strong>
+              <span class="muted">${group.videos.length} episodio${group.videos.length === 1 ? "" : "s"} · ${group.fragments} fragmentos${group.paid ? ` · ${group.paid} de pago` : ""}</span>
+            </span>
+          </button>
+        </div>
       </td>
     `;
     body.appendChild(head);
+    const seriesBox = head.querySelector("[data-select-series]");
+    if (seriesBox) seriesBox.indeterminate = selectedInSeries > 0 && selectedInSeries < seriesIds.length;
     for (const video of group.videos) {
       const paid = video.access_mode === "paid";
+      const id = videoKey(video);
       const tr = document.createElement("tr");
       tr.className = "catalog-episode";
       tr.dataset.seriesEp = group.key;
       tr.hidden = !expanded;
       tr.innerHTML = `
+        <td>
+          <label class="catalog-check">
+            <input class="catalog-pick" type="checkbox" data-select-video="${escapeHtml(id)}" ${selectedVideoIds.has(id) ? "checked" : ""} aria-label="Seleccionar ${escapeHtml(episodeLabel(video))}" />
+          </label>
+        </td>
         <td>
           <strong>${escapeHtml(episodeLabel(video))}</strong>
           <div class="muted">${escapeHtml(video.youtube_id || "")}</div>
@@ -302,6 +346,7 @@ function renderCatalog(videos) {
       body.appendChild(tr);
     }
   }
+  updateSelectionUi();
 }
 
 let lastVideos = [];
@@ -413,7 +458,43 @@ async function onVideoSubmit(event) {
   }
 }
 
+document.addEventListener("change", (event) => {
+  const allBox = event.target.closest("[data-select-all-videos]");
+  if (allBox) {
+    lastVideos.map(videoKey).filter(Boolean).forEach((id) => {
+      if (allBox.checked) selectedVideoIds.add(id);
+      else selectedVideoIds.delete(id);
+    });
+    document.querySelectorAll("[data-select-video]").forEach((box) => {
+      box.checked = allBox.checked;
+    });
+    updateSelectionUi();
+    return;
+  }
+  const seriesBox = event.target.closest("[data-select-series]");
+  if (seriesBox) {
+    const key = seriesBox.getAttribute("data-select-series");
+    videosForSeries(key).map(videoKey).filter(Boolean).forEach((id) => {
+      if (seriesBox.checked) selectedVideoIds.add(id);
+      else selectedVideoIds.delete(id);
+    });
+    document.querySelectorAll(`[data-series-ep="${CSS.escape(key)}"] [data-select-video]`).forEach((box) => {
+      box.checked = seriesBox.checked;
+    });
+    updateSelectionUi();
+    return;
+  }
+  const videoBox = event.target.closest("[data-select-video]");
+  if (videoBox) {
+    const id = videoBox.getAttribute("data-select-video");
+    if (videoBox.checked) selectedVideoIds.add(id);
+    else selectedVideoIds.delete(id);
+    updateSelectionUi();
+  }
+});
+
 document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-select-series], [data-select-video], [data-select-all-videos]")) return;
   const toggle = event.target.closest("[data-toggle-series]");
   if (toggle) {
     const key = toggle.getAttribute("data-toggle-series");
@@ -490,7 +571,7 @@ function mmss(sec) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function buildExportText({ facts, documents, videos, fragments }) {
+function buildExportText({ facts, documents, videos, fragments, includeFacts = true, includeDocs = true, selected = false }) {
   const byVideo = new Map();
   for (const row of fragments) {
     const id = Number(row.video_id);
@@ -505,28 +586,33 @@ function buildExportText({ facts, documents, videos, fragments }) {
   lines.push("ENCICLOPEDIA DE PALABRA PURA");
   lines.push("Texto indexado para la IA (transcripciones y datos). No incluye la Biblia completa.");
   lines.push(`Generado: ${now}`);
+  lines.push(selected ? "Alcance: selección marcada en el catálogo" : "Alcance: catálogo completo");
   lines.push(`Videos: ${videos.length} · Fragmentos: ${fragments.length}`);
   lines.push("");
 
-  lines.push("========== DATOS DEL MINISTERIO ==========");
-  lines.push("");
-  if (!facts.length) lines.push("(No hay datos verificados.)");
-  for (const fact of facts) {
-    lines.push(`[${fact.category || "general"}] ${fact.title || ""}`);
-    if (fact.status && fact.status !== "active") lines.push(`Estado: ${fact.status}`);
-    if ((fact.aliases || []).length) lines.push(`Claves: ${(fact.aliases || []).join(", ")}`);
-    lines.push(String(fact.content || "").trim());
+  if (includeFacts) {
+    lines.push("========== DATOS DEL MINISTERIO ==========");
     lines.push("");
+    if (!facts.length) lines.push("(No hay datos verificados.)");
+    for (const fact of facts) {
+      lines.push(`[${fact.category || "general"}] ${fact.title || ""}`);
+      if (fact.status && fact.status !== "active") lines.push(`Estado: ${fact.status}`);
+      if ((fact.aliases || []).length) lines.push(`Claves: ${(fact.aliases || []).join(", ")}`);
+      lines.push(String(fact.content || "").trim());
+      lines.push("");
+    }
   }
 
-  lines.push("========== DOCUMENTOS ==========");
-  lines.push("");
-  if (!documents.length) lines.push("(No hay documentos.)");
-  for (const doc of documents) {
-    lines.push(`# ${doc.title || "Documento"}`);
-    if (doc.source_name) lines.push(`Fuente: ${doc.source_name}`);
-    lines.push(String(doc.content || "").trim());
+  if (includeDocs) {
+    lines.push("========== DOCUMENTOS ==========");
     lines.push("");
+    if (!documents.length) lines.push("(No hay documentos.)");
+    for (const doc of documents) {
+      lines.push(`# ${doc.title || "Documento"}`);
+      if (doc.source_name) lines.push(`Fuente: ${doc.source_name}`);
+      lines.push(String(doc.content || "").trim());
+      lines.push("");
+    }
   }
 
   const groups = groupVideosBySeries(videos);
@@ -571,10 +657,18 @@ function saveTextFile(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-async function downloadAllText() {
-  const btn = $("[data-export-text]");
+async function downloadAllText({ selectedOnly = false } = {}) {
+  const includeFacts = selectedOnly ? Boolean($("[data-export-facts]")?.checked) : true;
+  const includeDocs = selectedOnly ? Boolean($("[data-export-docs]")?.checked) : true;
+  const allBtn = $("[data-export-text]");
+  const selBtn = $("[data-export-selected]");
   const msg = $("[data-export-msg]");
-  if (btn) btn.disabled = true;
+  if (selectedOnly && !selectedVideoIds.size && !includeFacts && !includeDocs) {
+    setMsg(msg, "Marca al menos una serie, un episodio, o datos / documentos.", false);
+    return;
+  }
+  if (allBtn) allBtn.disabled = true;
+  if (selBtn) selBtn.disabled = true;
   setMsg(msg, "Preparando descarga…", true);
   try {
     let offset = 0;
@@ -593,14 +687,41 @@ async function downloadAllText() {
       offset += page.fragments.length;
       if (offset > 20000) break;
     }
-    const text = buildExportText({ facts, documents, videos, fragments });
+    if (selectedOnly) {
+      videos = videos.filter((video) => selectedVideoIds.has(videoKey(video)));
+      const keep = new Set(videos.map((video) => Number(video.id)));
+      fragments.splice(0, fragments.length, ...fragments.filter((row) => keep.has(Number(row.video_id))));
+    }
+    if (!includeFacts) facts = [];
+    if (!includeDocs) documents = [];
+    if (!videos.length && !facts.length && !documents.length) {
+      setMsg(msg, "No hay nada para descargar con esa selección.", false);
+      return;
+    }
+    const text = buildExportText({
+      facts,
+      documents,
+      videos,
+      fragments,
+      includeFacts,
+      includeDocs,
+      selected: selectedOnly,
+    });
     const day = new Date().toISOString().slice(0, 10);
-    saveTextFile(`palabra-pura-conocimientos-${day}.txt`, text);
-    setMsg(msg, `Listo. ${videos.length} videos, ${fragments.length} fragmentos.`, true);
+    saveTextFile(
+      selectedOnly ? `palabra-pura-seleccion-${day}.txt` : `palabra-pura-conocimientos-${day}.txt`,
+      text,
+    );
+    setMsg(
+      msg,
+      `Listo. ${videos.length} video${videos.length === 1 ? "" : "s"}, ${fragments.length} fragmento${fragments.length === 1 ? "" : "s"}.`,
+      true,
+    );
   } catch (err) {
     setMsg(msg, err.message || String(err), false);
   } finally {
-    if (btn) btn.disabled = false;
+    if (allBtn) allBtn.disabled = false;
+    if (selBtn) selBtn.disabled = false;
   }
 }
 
@@ -610,6 +731,7 @@ $("[data-video-form]")?.addEventListener("submit", onVideoSubmit);
 $("[data-refresh]")?.addEventListener("click", () => loadHub().catch((err) => alert(err.message)));
 $("[data-catalog-filter]")?.addEventListener("input", () => renderCatalog(lastVideos));
 $("[data-export-text]")?.addEventListener("click", () => downloadAllText());
+$("[data-export-selected]")?.addEventListener("click", () => downloadAllText({ selectedOnly: true }));
 
 document.querySelectorAll("[data-kb-nav]").forEach((btn) => {
   btn.addEventListener("click", () => showKbPanel(btn.getAttribute("data-kb-nav")));
