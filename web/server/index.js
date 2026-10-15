@@ -145,7 +145,6 @@ function buildSummary(store) {
 
   const recent = [...events]
     .sort((a, b) => String(b.at).localeCompare(String(a.at)))
-    .slice(0, 40)
     .map((e) => ({
       id: e.id,
       question: e.question,
@@ -160,6 +159,32 @@ function buildSummary(store) {
       topics: e.topics,
     }));
 
+  const repeatedMap = new Map();
+  for (const ev of events) {
+    const key = String(ev.question || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!key || key.length < 4) continue;
+    const prev = repeatedMap.get(key);
+    if (prev) {
+      prev.count += 1;
+      if (String(ev.at) > String(prev.lastAt || "")) {
+        prev.question = ev.question;
+        prev.lastAt = ev.at;
+      }
+    } else {
+      repeatedMap.set(key, { question: ev.question, count: 1, lastAt: ev.at });
+    }
+  }
+  const repeatedQuestions = [...repeatedMap.values()]
+    .filter((r) => r.count >= 2)
+    .sort((a, b) => b.count - a.count || String(b.lastAt).localeCompare(String(a.lastAt)))
+    .slice(0, 25);
+
   const total = events.length;
   const last24h = events.filter((e) => Date.now() - Date.parse(e.at) < 24 * 3600 * 1000).length;
 
@@ -169,6 +194,7 @@ function buildSummary(store) {
     topics,
     topTerms,
     recent,
+    repeatedQuestions,
     generatedAt: new Date().toISOString(),
   };
 }

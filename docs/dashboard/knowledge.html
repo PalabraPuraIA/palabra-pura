@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-series-3" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-side-1" />
 </head>
 <body>
-  <div class="wrap">
+  <div class="wrap wrap--wide">
     <header class="bar">
       <div>
         <p class="eyebrow">Enciclopedia de Palabra Pura</p>
@@ -31,7 +31,7 @@
       <a href="../">Chat</a>
     </nav>
 
-    <p class="sub">El catálogo sale de Supabase en la nube (los mismos videos que usa el chat). Las series se agrupan: toca una para ver los episodios.</p>
+    <p class="sub">Elige a la izquierda qué quieres ver o subir. A la derecha aparece solo esa sección.</p>
 
     <section class="stats stats--wide">
       <article class="stat"><p class="stat__label">Datos activos</p><p class="stat__value" data-facts-n>—</p></article>
@@ -41,125 +41,153 @@
       <article class="stat"><p class="stat__label">En proceso</p><p class="stat__value" data-queued-n>—</p></article>
     </section>
 
-    <section class="card card--wide">
-      <h2>Catálogo: series y episodios</h2>
-      <p class="card__hint">Aquí están Globalismo, El Amor No Es Aceptación, La Lengua un Arma Poderosa y Escuela Bíblica. Escribe para filtrar. Toca una serie para abrir los episodios.</p>
-      <label class="field" style="max-width:420px;margin:0 0 12px">
-        <span>Buscar serie</span>
-        <input type="search" data-catalog-filter placeholder="Ej. globalismo, escuela…" />
-      </label>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Serie / episodio</th><th>Fragmentos</th><th>Acceso</th><th>Link de compra</th><th></th></tr></thead>
-          <tbody data-catalog-body></tbody>
-        </table>
-      </div>
-      <p class="empty" data-catalog-empty hidden>No hay videos en el índice.</p>
-    </section>
+    <div class="kb-layout">
+      <aside class="kb-side" aria-label="Secciones de conocimiento">
+        <p class="kb-side__label">Contenido</p>
+        <button class="kb-side__item is-active" type="button" data-kb-nav="catalog" aria-current="page">
+          <strong>Catálogo</strong>
+          <span>Series y episodios indexados</span>
+        </button>
+        <button class="kb-side__item" type="button" data-kb-nav="facts">
+          <strong>Dato verificado</strong>
+          <span>Horarios, contactos, eventos</span>
+        </button>
+        <button class="kb-side__item" type="button" data-kb-nav="docs">
+          <strong>Documentos</strong>
+          <span>Textos .txt / .md pegados</span>
+        </button>
+        <button class="kb-side__item" type="button" data-kb-nav="video">
+          <strong>Subir video</strong>
+          <span>YouTube → transcribir e indexar</span>
+        </button>
+        <a class="kb-side__item kb-side__item--link" href="./ingest.html">
+          <strong>Audio / archivo</strong>
+          <span>Subir mp3, mp4 u otro medio</span>
+        </a>
+      </aside>
 
-    <section class="card card--wide" style="margin-top:14px">
-      <h2>Dato verificado del ministerio</h2>
-      <p class="card__hint">Horarios de domingo y miércoles, teléfonos, redes, próximos eventos. Se indexa para que Blaze lo use al instante.</p>
-      <form class="ingest-form fact-form" data-fact-form>
-        <div class="fact-form__grid">
-          <label class="field">
-            <span>Tipo</span>
-            <select name="category">
-              <option value="horario">Horario de servicio</option>
-              <option value="contacto">Contacto</option>
-              <option value="redes">Redes sociales</option>
-              <option value="evento">Próximo evento</option>
-              <option value="persona">Persona / pastor</option>
-              <option value="lugar">Lugar / sede</option>
-              <option value="terminologia">Terminología</option>
-              <option value="general" selected>General</option>
-            </select>
+      <div class="kb-main">
+        <section class="card card--wide kb-panel" data-kb-panel="catalog">
+          <h2>Catálogo: series y episodios</h2>
+          <p class="card__hint">Globalismo, El Amor No Es Aceptación, Escuela Bíblica y más. Filtra o toca una serie para ver episodios.</p>
+          <label class="field" style="max-width:420px;margin:0 0 12px">
+            <span>Buscar serie</span>
+            <input type="search" data-catalog-filter placeholder="Ej. globalismo, escuela…" />
           </label>
-          <label class="field">
-            <span>Título</span>
-            <input type="text" name="title" placeholder="Ej. Horarios de Escuela Bíblica" maxlength="200" required />
-          </label>
-        </div>
-        <label class="field">
-          <span>Información exacta</span>
-          <textarea name="content" rows="3" placeholder="Ej. Domingos 10:00 a.m. y miércoles 7:00 p.m. en el templo principal." maxlength="8000" required></textarea>
-        </label>
-        <label class="field">
-          <span>Palabras clave (coma)</span>
-          <input type="text" name="aliases" placeholder="horario, domingo, miércoles, a qué hora, servicio" />
-        </label>
-        <div class="form-actions">
-          <button class="btn btn--primary" type="submit" data-fact-submit>Guardar e indexar</button>
-          <p class="form-msg" data-fact-msg hidden></p>
-        </div>
-      </form>
-      <div class="table-wrap" style="margin-top:16px">
-        <table>
-          <thead><tr><th>Tipo</th><th>Dato</th><th>Claves</th><th></th></tr></thead>
-          <tbody data-facts-body></tbody>
-        </table>
-      </div>
-      <p class="empty" data-facts-empty hidden>Todavía no hay datos verificados.</p>
-    </section>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Serie / episodio</th><th>Fragmentos</th><th>Acceso</th><th>Link de compra</th><th></th></tr></thead>
+              <tbody data-catalog-body></tbody>
+            </table>
+          </div>
+          <p class="empty" data-catalog-empty hidden>No hay videos en el índice.</p>
+        </section>
 
-    <section class="card card--wide" style="margin-top:14px">
-      <h2>Documento o archivo de texto</h2>
-      <p class="card__hint">Pega un texto o sube .txt / .md. Se parte y se embebe para que el chat lo recupere.</p>
-      <form class="ingest-form" data-doc-form>
-        <label class="field">
-          <span>Título</span>
-          <input type="text" name="title" placeholder="Ej. Contactos y redes 2026" maxlength="200" required />
-        </label>
-        <label class="field">
-          <span>Archivo de texto (opcional)</span>
-          <input type="file" name="file" accept=".txt,.md,.csv,text/plain" />
-        </label>
-        <label class="field">
-          <span>Texto</span>
-          <textarea name="content" rows="6" placeholder="Pega aquí el contenido verificado…"></textarea>
-        </label>
-        <div class="form-actions">
-          <button class="btn btn--primary" type="submit" data-doc-submit>Indexar documento</button>
-          <p class="form-msg" data-doc-msg hidden></p>
-        </div>
-      </form>
-      <div class="table-wrap" style="margin-top:16px">
-        <table>
-          <thead><tr><th>Documento</th><th>Fragmentos</th><th></th></tr></thead>
-          <tbody data-docs-body></tbody>
-        </table>
-      </div>
-      <p class="empty" data-docs-empty hidden>No hay documentos indexados.</p>
-    </section>
+        <section class="card card--wide kb-panel" data-kb-panel="facts" hidden>
+          <h2>Dato verificado del ministerio</h2>
+          <p class="card__hint">Horarios, teléfonos, redes, eventos. Blaze lo usa al instante.</p>
+          <form class="ingest-form fact-form" data-fact-form>
+            <div class="fact-form__grid">
+              <label class="field">
+                <span>Tipo</span>
+                <select name="category">
+                  <option value="horario">Horario de servicio</option>
+                  <option value="contacto">Contacto</option>
+                  <option value="redes">Redes sociales</option>
+                  <option value="evento">Próximo evento</option>
+                  <option value="persona">Persona / pastor</option>
+                  <option value="lugar">Lugar / sede</option>
+                  <option value="terminologia">Terminología</option>
+                  <option value="general" selected>General</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Título</span>
+                <input type="text" name="title" placeholder="Ej. Horarios de Escuela Bíblica" maxlength="200" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>Información exacta</span>
+              <textarea name="content" rows="3" placeholder="Ej. Domingos 10:00 a.m. y miércoles 7:00 p.m." maxlength="8000" required></textarea>
+            </label>
+            <label class="field">
+              <span>Palabras clave (coma)</span>
+              <input type="text" name="aliases" placeholder="horario, domingo, miércoles" />
+            </label>
+            <div class="form-actions">
+              <button class="btn btn--primary" type="submit" data-fact-submit>Guardar e indexar</button>
+              <p class="form-msg" data-fact-msg hidden></p>
+            </div>
+          </form>
+          <div class="table-wrap" style="margin-top:16px">
+            <table>
+              <thead><tr><th>Tipo</th><th>Dato</th><th>Claves</th><th></th></tr></thead>
+              <tbody data-facts-body></tbody>
+            </table>
+          </div>
+          <p class="empty" data-facts-empty hidden>Todavía no hay datos verificados.</p>
+        </section>
 
-    <section class="card card--wide" style="margin-top:14px">
-      <h2>Subir video para transcribir</h2>
-      <p class="card__hint">Pega un link de YouTube. Se transcribe e indexa en la nube para el chat. Si es una serie, sube cada episodio.</p>
-      <form class="ingest-form" data-video-form>
-        <label class="field">
-          <span>Título (opcional)</span>
-          <input type="text" name="title" maxlength="200" placeholder="Ej. Conferencia de fe — parte 1" />
-        </label>
-        <label class="field">
-          <span>Link de YouTube</span>
-          <input type="url" name="url" required placeholder="https://www.youtube.com/watch?v=…" />
-        </label>
-        <div class="form-actions">
-          <button class="btn btn--primary" type="submit" data-video-submit>Indexar ahora</button>
-          <p class="form-msg" data-video-msg hidden></p>
-        </div>
-      </form>
-      <div class="table-wrap" style="margin-top:16px">
-        <table>
-          <thead><tr><th>Video</th><th>Título</th><th>Estado</th></tr></thead>
-          <tbody data-jobs-body></tbody>
-        </table>
+        <section class="card card--wide kb-panel" data-kb-panel="docs" hidden>
+          <h2>Documento o archivo de texto</h2>
+          <p class="card__hint">Pega un texto o sube .txt / .md. Se parte y se embebe para el chat.</p>
+          <form class="ingest-form" data-doc-form>
+            <label class="field">
+              <span>Título</span>
+              <input type="text" name="title" placeholder="Ej. Contactos y redes 2026" maxlength="200" required />
+            </label>
+            <label class="field">
+              <span>Archivo de texto (opcional)</span>
+              <input type="file" name="file" accept=".txt,.md,.csv,text/plain" />
+            </label>
+            <label class="field">
+              <span>Texto</span>
+              <textarea name="content" rows="6" placeholder="Pega aquí el contenido verificado…"></textarea>
+            </label>
+            <div class="form-actions">
+              <button class="btn btn--primary" type="submit" data-doc-submit>Indexar documento</button>
+              <p class="form-msg" data-doc-msg hidden></p>
+            </div>
+          </form>
+          <div class="table-wrap" style="margin-top:16px">
+            <table>
+              <thead><tr><th>Documento</th><th>Fragmentos</th><th></th></tr></thead>
+              <tbody data-docs-body></tbody>
+            </table>
+          </div>
+          <p class="empty" data-docs-empty hidden>No hay documentos indexados.</p>
+        </section>
+
+        <section class="card card--wide kb-panel" data-kb-panel="video" hidden>
+          <h2>Subir video para transcribir</h2>
+          <p class="card__hint">Pega un link de YouTube. Se transcribe e indexa. Si es una serie, sube cada episodio.</p>
+          <form class="ingest-form" data-video-form>
+            <label class="field">
+              <span>Título (opcional)</span>
+              <input type="text" name="title" maxlength="200" placeholder="Ej. Conferencia de fe — parte 1" />
+            </label>
+            <label class="field">
+              <span>Link de YouTube</span>
+              <input type="url" name="url" required placeholder="https://www.youtube.com/watch?v=…" />
+            </label>
+            <div class="form-actions">
+              <button class="btn btn--primary" type="submit" data-video-submit>Indexar ahora</button>
+              <p class="form-msg" data-video-msg hidden></p>
+            </div>
+          </form>
+          <div class="table-wrap" style="margin-top:16px">
+            <table>
+              <thead><tr><th>Video</th><th>Título</th><th>Estado</th></tr></thead>
+              <tbody data-jobs-body></tbody>
+            </table>
+          </div>
+          <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de indexado.</p>
+        </section>
       </div>
-      <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de indexado.</p>
-    </section>
+    </div>
 
     <p class="foot" data-generated></p>
   </div>
-  <script type="module" src="./knowledge.js?v=kb-series-3"></script>
+  <script type="module" src="./knowledge.js?v=kb-side-1"></script>
 </body>
 </html>

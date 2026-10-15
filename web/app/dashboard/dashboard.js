@@ -32,11 +32,14 @@ const STOPWORDS = new Set([
 
 const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
+const PAGE_SIZE = 20;
+
+let allRecent = [];
+let page = 0;
 
 function fmtWhen(iso) {
   try {
-    const d = new Date(iso);
-    return d.toLocaleString("es-CO", {
+    return new Date(iso).toLocaleString("es-CO", {
       dateStyle: "short",
       timeStyle: "short",
     });
@@ -69,6 +72,38 @@ function normalizeTokens(text) {
     .filter((t) => t.length > 2 && !STOPWORDS.has(t));
 }
 
+function questionKey(q) {
+  return String(q || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function buildRepeated(events) {
+  const map = new Map();
+  for (const ev of events) {
+    const key = questionKey(ev.question);
+    if (!key || key.length < 4) continue;
+    const prev = map.get(key);
+    if (prev) {
+      prev.count += 1;
+      if (String(ev.at) > String(prev.lastAt || "")) {
+        prev.question = ev.question;
+        prev.lastAt = ev.at;
+      }
+    } else {
+      map.set(key, { question: ev.question, count: 1, lastAt: ev.at });
+    }
+  }
+  return [...map.values()]
+    .filter((r) => r.count >= 2)
+    .sort((a, b) => b.count - a.count || String(b.lastAt).localeCompare(String(a.lastAt)))
+    .slice(0, 25);
+}
+
 function buildSummary(events) {
   const topicCounts = Object.fromEntries(TOPICS.map((t) => [t.id, 0]));
   topicCounts.otros = 0;
@@ -99,9 +134,7 @@ function buildSummary(events) {
     .slice(0, 12)
     .map(([term, count]) => ({ term, count }));
 
-  const recent = [...events]
-    .sort((a, b) => String(b.at).localeCompare(String(a.at)))
-    .slice(0, 25);
+  const recent = [...events].sort((a, b) => String(b.at).localeCompare(String(a.at)));
 
   const last24h = events.filter(
     (e) => Date.now() - Date.parse(e.at) < 24 * 3600 * 1000,
@@ -113,6 +146,7 @@ function buildSummary(events) {
     topics,
     topTerms,
     recent,
+    repeatedQuestions: buildRepeated(events),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -186,7 +220,7 @@ async function loadFromSupabase() {
     "id,question,answer,excerpt,source,mode,topics,video,passages,retrieval_meta,created_at",
   );
   url.searchParams.set("order", "created_at.desc");
-  url.searchParams.set("limit", "500");
+  url.searchParams.set("limit", "1000");
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -220,6 +254,64 @@ async function load() {
   } catch (_) {
     return loadFromSupabase();
   }
+}
+
+function pageCount() {
+  return Math.max(1, Math.ceil(allRecent.length / PAGE_SIZE));
+}
+
+function renderRecentPage() {
+  const tbody = document.querySelector("[data-recent]");
+  const recentEmpty = document.querySelector("[data-recent-empty]");
+  const pager = document.querySelector("[data-pager]");
+  const meta = document.querySelector("[data-page-meta]");
+  const label = document.querySelector("[data-page-label]");
+  const prev = document.querySelector("[data-page-prev]");
+  const next = document.querySelector("[data-page-next]");
+
+  const total = allRecent.length;
+  const pages = pageCount();
+  if (page >= pages) page = Math.max(0, pages - 1);
+  const start = page * PAGE_SIZE;
+  const slice = allRecent.slice(start, start + PAGE_SIZE);
+
+  if (!total) {
+    tbody.innerHTML = "";
+    recentEmpty.hidden = false;
+    pager.hidden = true;
+    meta.textContent = "";
+    return;
+  }
+
+  recentEmpty.hidden = true;
+  tbody.innerHTML = slice.map(renderRecentCard).join("");
+  pager.hidden = pages <= 1;
+  const from = start + 1;
+  const to = Math.min(start + PAGE_SIZE, total);
+  meta.textContent = `${from}–${to} de ${total}`;
+  label.textContent = `Página ${page + 1} de ${pages}`;
+  prev.disabled = page <= 0;
+  next.disabled = page >= pages - 1;
+}
+
+function renderRepeated(items) {
+  const body = document.querySelector("[data-repeated-body]");
+  const empty = document.querySelector("[data-repeated-empty]");
+  if (!items.length) {
+    body.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  body.innerHTML = items
+    .map(
+      (r) => `<tr>
+        <td>${escapeHtml(r.question)}</td>
+        <td><strong>${r.count}</strong></td>
+        <td class="when">${escapeHtml(fmtWhen(r.lastAt))}</td>
+      </tr>`,
+    )
+    .join("");
 }
 
 function render(data) {
@@ -266,16 +358,11 @@ function render(data) {
       .join("");
   }
 
-  const tbody = document.querySelector("[data-recent]");
-  const recentEmpty = document.querySelector("[data-recent-empty]");
-  const recent = data.recent || [];
-  if (!recent.length) {
-    tbody.innerHTML = "";
-    recentEmpty.hidden = false;
-  } else {
-    recentEmpty.hidden = true;
-    tbody.innerHTML = recent.map(renderRecentCard).join("");
-  }
+  renderRepeated(data.repeatedQuestions || []);
+
+  allRecent = data.recent || [];
+  page = 0;
+  renderRecentPage();
 
   document.querySelector("[data-generated]").textContent =
     `Actualizado: ${fmtWhen(data.generatedAt)}`;
@@ -295,10 +382,23 @@ async function refresh() {
   } catch (err) {
     console.error(err);
     document.querySelector("[data-generated]").textContent =
-      "No se pudo cargar el resumen desde Supabase.";
+      "No se pudo cargar el resumen.";
   }
 }
 
 document.querySelector("[data-refresh]").addEventListener("click", refresh);
+document.querySelector("[data-page-prev]").addEventListener("click", () => {
+  if (page > 0) {
+    page -= 1;
+    renderRecentPage();
+  }
+});
+document.querySelector("[data-page-next]").addEventListener("click", () => {
+  if (page < pageCount() - 1) {
+    page += 1;
+    renderRecentPage();
+  }
+});
+
 refresh();
-setInterval(refresh, 15000);
+setInterval(refresh, 20000);

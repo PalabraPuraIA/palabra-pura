@@ -462,11 +462,36 @@ document.addEventListener("click", async (event) => {
   }
 });
 
+function showKbPanel(id) {
+  const target = String(id || "catalog");
+  document.querySelectorAll("[data-kb-panel]").forEach((panel) => {
+    panel.hidden = panel.getAttribute("data-kb-panel") !== target;
+  });
+  document.querySelectorAll("[data-kb-nav]").forEach((btn) => {
+    const active = btn.getAttribute("data-kb-nav") === target;
+    btn.classList.toggle("is-active", active);
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+  });
+  try {
+    history.replaceState(null, "", `#${target}`);
+  } catch {
+    /* ignore */
+  }
+}
+
 $("[data-fact-form]")?.addEventListener("submit", onFactSubmit);
 $("[data-doc-form]")?.addEventListener("submit", onDocSubmit);
 $("[data-video-form]")?.addEventListener("submit", onVideoSubmit);
 $("[data-refresh]")?.addEventListener("click", () => loadHub().catch((err) => alert(err.message)));
 $("[data-catalog-filter]")?.addEventListener("input", () => renderCatalog(lastVideos));
+
+document.querySelectorAll("[data-kb-nav]").forEach((btn) => {
+  btn.addEventListener("click", () => showKbPanel(btn.getAttribute("data-kb-nav")));
+});
+
+const hashPanel = String(location.hash || "").replace(/^#/, "");
+showKbPanel(["catalog", "facts", "docs", "video"].includes(hashPanel) ? hashPanel : "catalog");
 
 loadHub().catch((err) => {
   if ($("[data-generated]")) $("[data-generated]").textContent = err.message;
