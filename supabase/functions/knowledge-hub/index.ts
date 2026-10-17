@@ -66,6 +66,15 @@ function youtubeId(raw: string) {
   return "";
 }
 
+/** YouTube clásico o id local de audio (local-…). */
+function contentId(raw: string) {
+  const text = String(raw || "").trim().slice(0, 80);
+  const yt = youtubeId(text);
+  if (yt) return yt;
+  if (/^local-[a-z0-9-]{3,70}$/i.test(text)) return text;
+  return "";
+}
+
 function chunkText(text: string, target = 350) {
   const words = String(text || "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
   const chunks: string[] = [];
@@ -589,7 +598,7 @@ async function ingestVideo(body: Record<string, unknown>) {
 }
 
 async function setVideoAccess(body: Record<string, unknown>) {
-  const id = youtubeId(String(body.youtube_id || body.url || ""));
+  const id = contentId(String(body.youtube_id || body.url || ""));
   if (!id) return json({ ok: false, error: "youtube_id requerido" }, 400);
   const access = body.access_mode === "paid" ? "paid" : "free";
   const offer_url = String(body.offer_url || "").trim().slice(0, 400) || null;
