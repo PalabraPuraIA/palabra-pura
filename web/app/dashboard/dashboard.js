@@ -151,6 +151,25 @@ function buildSummary(events) {
   };
 }
 
+function openKeys(root) {
+  return new Set(
+    [...(root?.querySelectorAll("details[open][data-open-key]") || [])].map((el) =>
+      el.getAttribute("data-open-key"),
+    ),
+  );
+}
+
+function applyOpen(root, keys) {
+  if (!root || !keys?.size) return;
+  root.querySelectorAll("details[data-open-key]").forEach((el) => {
+    if (keys.has(el.getAttribute("data-open-key"))) el.open = true;
+  });
+}
+
+function cardKey(record) {
+  return String(record.id || `${record.at || ""}|${record.question || ""}`);
+}
+
 function renderRecentCard(record) {
   const tags = (record.topics || [])
     .map((id) => `<span class="tag">${escapeHtml(TOPIC_LABELS[id] || id)}</span>`)
@@ -188,7 +207,7 @@ function renderRecentCard(record) {
        </section>`
     : "";
 
-  return `<details class="qa-card">
+  return `<details class="qa-card" data-open-key="${escapeHtml(cardKey(record))}">
     <summary>
       <span class="qa-card__when">${escapeHtml(fmtWhen(record.at))}</span>
       <span class="qa-card__question">${escapeHtml(record.question)}</span>
@@ -284,7 +303,9 @@ function renderRecentPage() {
   }
 
   recentEmpty.hidden = true;
+  const open = openKeys(tbody);
   tbody.innerHTML = slice.map(renderRecentCard).join("");
+  applyOpen(tbody, open);
   pager.hidden = pages <= 1;
   const from = start + 1;
   const to = Math.min(start + PAGE_SIZE, total);
@@ -303,9 +324,10 @@ function renderRepeated(items) {
     return;
   }
   empty.hidden = true;
+  const open = openKeys(body);
   body.innerHTML = items
     .map(
-      (r) => `<details class="repeat-item">
+      (r) => `<details class="repeat-item" data-open-key="${escapeHtml(questionKey(r.question))}">
         <summary>
           <span class="repeat-item__q">${escapeHtml(r.question)}</span>
           <span class="repeat-item__count">×${r.count}</span>
@@ -318,6 +340,7 @@ function renderRepeated(items) {
       </details>`,
     )
     .join("");
+  applyOpen(body, open);
 }
 
 function render(data) {
@@ -367,7 +390,8 @@ function render(data) {
   renderRepeated(data.repeatedQuestions || []);
 
   allRecent = data.recent || [];
-  page = 0;
+  const pages = pageCount();
+  if (page >= pages) page = Math.max(0, pages - 1);
   renderRecentPage();
 
   document.querySelector("[data-generated]").textContent =

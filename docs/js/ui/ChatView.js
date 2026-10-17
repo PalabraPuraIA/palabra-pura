@@ -49,16 +49,19 @@ function renderSuggestions(suggestions) {
   const options = items
     .map((item, i) => {
       const hint = item.preview
-        ? ` — ${escapeHtml(String(item.preview).slice(0, 72))}${item.preview.length > 72 ? "…" : ""}`
+        ? `<span class="msg__suggest-option-hint">${escapeHtml(String(item.preview).slice(0, 88))}${item.preview.length > 88 ? "…" : ""}</span>`
         : "";
-      return `<option value="${i}">${escapeHtml(item.label)}${hint}</option>`;
+      return `<button type="button" class="msg__suggest-option" data-suggest-pick="${i}">
+        <span class="msg__suggest-option-label">${escapeHtml(item.label)}</span>
+        ${hint}
+      </button>`;
     })
     .join("");
 
   const payload = encodeURIComponent(JSON.stringify(items));
 
   return `
-    <div class="msg__suggestions" data-suggest-box>
+    <div class="msg__suggestions" data-suggest-box data-suggest-items="${payload}">
       <p class="msg__suggest-label">Contenido que te puede interesar</p>
       <div class="msg__suggest-dropdown">
         <button type="button" class="msg__suggest-toggle" data-suggest-toggle aria-expanded="false">
@@ -66,16 +69,10 @@ function renderSuggestions(suggestions) {
           <span class="msg__suggest-caret" aria-hidden="true">▾</span>
         </button>
         <div class="msg__suggest-panel" hidden>
-          <label class="msg__suggest-select-label">
-            Elige un tema o enseñanza:
-          </label>
-          <select class="msg__suggest-select" data-suggest-select data-suggest-items="${payload}">
-            <option value="">Selecciona una opción…</option>
+          <p class="msg__suggest-select-label">Elige un tema o enseñanza:</p>
+          <div class="msg__suggest-options">
             ${options}
-          </select>
-          <button type="button" class="msg__suggest-go" data-suggest-go disabled>
-            Mostrar contenido
-          </button>
+          </div>
         </div>
       </div>
     </div>`;

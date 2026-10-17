@@ -14,13 +14,13 @@ import {
 
 import { ChatService } from "./services/ChatService.js?v=kb-sess-1";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js?v=kb-sess-1";
+import { ChatView } from "./ui/ChatView.js?v=hold-open-1";
 import { Composer } from "./ui/Composer.js";
 import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { VideoPlayer } from "./ui/VideoPlayer.js";
-import { ArticlesPanel } from "./ui/ArticlesPanel.js";
-import { LifeAreasPanel } from "./ui/LifeAreasPanel.js?v=rate-life-1";
+import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
+import { LifeAreasPanel } from "./ui/LifeAreasPanel.js?v=hold-open-1";
 import { LifeAreaService } from "./services/LifeAreaService.js?v=rate-life-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
 
@@ -82,12 +82,9 @@ class App {
         return;
       }
 
-      const go = event.target.closest("[data-suggest-go]");
-      if (go) {
-        const box = go.closest("[data-suggest-box]");
-        const select = box?.querySelector("[data-suggest-select]");
-        if (!select || select.value === "") return;
-        this.#handleSuggestionPick(select);
+      const pick = event.target.closest("[data-suggest-pick]");
+      if (pick) {
+        this.#handleSuggestionPick(pick.closest("[data-suggest-box]"), Number(pick.dataset.suggestPick));
         return;
       }
 
@@ -117,25 +114,18 @@ class App {
       );
     });
 
-    qs("[data-messages]").addEventListener("change", (event) => {
-      const select = event.target.closest("[data-suggest-select]");
-      if (!select) return;
-      const go = select.closest("[data-suggest-box]")?.querySelector("[data-suggest-go]");
-      if (go) go.disabled = select.value === "";
-    });
-
     this.#view.addBotMessage({ answer: config.welcomeMessage });
   }
 
   /** Al elegir una opción del desplegable: muestra el contenido o pregunta de nuevo. */
-  #handleSuggestionPick(select) {
+  #handleSuggestionPick(box, index) {
     let items = [];
     try {
-      items = JSON.parse(decodeURIComponent(select.dataset.suggestItems || "[]"));
+      items = JSON.parse(decodeURIComponent(box?.dataset.suggestItems || "[]"));
     } catch {
       items = [];
     }
-    const item = items[Number(select.value)];
+    const item = items[Number(index)];
     if (!item) return;
 
     if (item.video?.youtube_id || item.excerpt) {

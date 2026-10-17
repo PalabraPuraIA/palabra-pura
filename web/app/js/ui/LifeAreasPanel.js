@@ -105,6 +105,8 @@ export class LifeAreasPanel {
     this.#list.querySelectorAll("[data-life-area]").forEach((el) => {
       el.classList.toggle("life-card--active", el.dataset.lifeArea === activeId);
     });
+    const dropdownOpen = Boolean(document.querySelector(".msg__suggest-panel:not([hidden])"));
+    if (dropdownOpen) return;
     card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }
 }

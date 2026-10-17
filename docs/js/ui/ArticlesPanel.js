@@ -12,6 +12,8 @@ export class ArticlesPanel {
   #empty;
   #status;
   #toggle;
+  /** null = automático; true/false = lo que eligió la persona. */
+  #pinned = null;
 
   /** @param {HTMLElement} root */
   constructor(root) {
@@ -22,18 +24,22 @@ export class ArticlesPanel {
     this.#toggle = root.querySelector("[data-articles-toggle]");
 
     this.#toggle?.addEventListener("click", () => {
-      const open = this.#root.classList.toggle("articles--expanded");
-      this.#toggle.setAttribute("aria-expanded", open ? "true" : "false");
-      this.#toggle.textContent = open ? "Reducir" : "Ampliar";
+      const open = !this.#root.classList.contains("articles--expanded");
+      this.#pinned = open;
+      this.#applyExpanded(open);
     });
   }
 
-  #setExpanded(open) {
+  #applyExpanded(open) {
     this.#root.classList.toggle("articles--expanded", open);
     if (this.#toggle) {
       this.#toggle.setAttribute("aria-expanded", open ? "true" : "false");
       this.#toggle.textContent = open ? "Reducir" : "Ampliar";
     }
+  }
+
+  #setExpanded(open) {
+    this.#applyExpanded(this.#pinned === null ? open : this.#pinned);
   }
 
   showLoading() {
