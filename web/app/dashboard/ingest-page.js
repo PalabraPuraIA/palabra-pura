@@ -179,6 +179,12 @@ async function submitFile(ev) {
     msg.textContent = "Elige un archivo.";
     return;
   }
+  if (ON_PAGES) {
+    msg.hidden = false;
+    msg.className = "form-msg form-msg--err";
+    msg.textContent = "En GitHub Pages usa el panel YouTube. El archivo local solo funciona en el servidor.";
+    return;
+  }
 
   submitBtn.disabled = true;
   submitBtn.textContent = "Enviando…";

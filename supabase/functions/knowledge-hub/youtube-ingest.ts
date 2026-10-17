@@ -300,18 +300,17 @@ function parseVttLike(raw: string): CaptionSeg[] {
   return out;
 }
 
-async function transcribeGroq(audioUrl: string, key: string): Promise<CaptionSeg[]> {
-  const audio = await fetch(audioUrl, {
-    headers: { "User-Agent": PAGE_UA, Referer: "https://www.youtube.com/" },
-    signal: AbortSignal.timeout(60000),
-  });
-  if (!audio.ok) throw new Error(`No pude bajar el audio (${audio.status})`);
-  const buf = new Uint8Array(await audio.arrayBuffer());
+export async function transcribeGroqBytes(
+  buf: Uint8Array,
+  key: string,
+  filename = "audio.mp3",
+  mime = "audio/mpeg",
+): Promise<CaptionSeg[]> {
   if (buf.byteLength > 24 * 1024 * 1024) {
-    throw new Error("El audio es demasiado grande para transcribirlo aquí");
+    throw new Error("El audio es demasiado grande (máx. 24 MB). Súbelo por partes o comprímelo.");
   }
   const form = new FormData();
-  form.append("file", new Blob([buf], { type: "audio/mp4" }), "audio.m4a");
+  form.append("file", new Blob([buf], { type: mime }), filename);
   form.append("model", "whisper-large-v3-turbo");
   form.append("language", "es");
   form.append("response_format", "verbose_json");
@@ -331,6 +330,16 @@ async function transcribeGroq(audioUrl: string, key: string): Promise<CaptionSeg
     .filter((s: CaptionSeg) => s.text);
   if (!segments.length && data.text) segments.push({ start: 0, text: String(data.text).trim() });
   return segments;
+}
+
+async function transcribeGroq(audioUrl: string, key: string): Promise<CaptionSeg[]> {
+  const audio = await fetch(audioUrl, {
+    headers: { "User-Agent": PAGE_UA, Referer: "https://www.youtube.com/" },
+    signal: AbortSignal.timeout(60000),
+  });
+  if (!audio.ok) throw new Error(`No pude bajar el audio (${audio.status})`);
+  const buf = new Uint8Array(await audio.arrayBuffer());
+  return transcribeGroqBytes(buf, key, "audio.m4a", "audio/mp4");
 }
 
 export function chunkSegments(segments: CaptionSeg[]): TextChunk[] {

@@ -482,6 +482,57 @@ async function onVideoSubmit(event) {
   }
 }
 
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function onAudioSubmit(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const submit = $("[data-audio-submit]");
+  const msg = $("[data-audio-msg]");
+  const title = String(form.title?.value || "").trim();
+  const file = form.file?.files?.[0];
+  if (!file) {
+    setMsg(msg, "Elige un archivo de audio.", false);
+    return;
+  }
+  if (file.size > 22 * 1024 * 1024) {
+    setMsg(msg, "El archivo supera 22 MB. Comprímelo o divídelo y vuelve a subirlo.", false);
+    return;
+  }
+  submit.disabled = true;
+  setMsg(msg, "Subiendo y transcribiendo… puede tardar unos minutos.", true);
+  try {
+    const audioBase64 = await readFileAsBase64(file);
+    const data = await hub("ingestAudio", {
+      title: title || file.name.replace(/\.[^.]+$/, ""),
+      filename: file.name,
+      mime: file.type || "audio/mpeg",
+      audioBase64,
+    });
+    form.reset();
+    const n = data.fragments || data.job?.fragments_created || 0;
+    setMsg(msg, `Listo. ${n} fragmentos en el catálogo de Palabra Pura.`, true);
+    await loadHub();
+    showKbPanel("catalog");
+  } catch (err) {
+    setMsg(msg, err.message || String(err), false);
+    loadHub().catch(() => {});
+  } finally {
+    submit.disabled = false;
+  }
+}
+
 document.addEventListener("change", (event) => {
   const allBox = event.target.closest("[data-select-all-videos]");
   if (allBox) {
@@ -752,6 +803,7 @@ async function downloadAllText({ selectedOnly = false } = {}) {
 $("[data-fact-form]")?.addEventListener("submit", onFactSubmit);
 $("[data-doc-form]")?.addEventListener("submit", onDocSubmit);
 $("[data-video-form]")?.addEventListener("submit", onVideoSubmit);
+$("[data-audio-form]")?.addEventListener("submit", onAudioSubmit);
 $("[data-refresh]")?.addEventListener("click", () => loadHub().catch((err) => alert(err.message)));
 $("[data-catalog-filter]")?.addEventListener("input", () => renderCatalog(lastVideos));
 $("[data-export-open]")?.addEventListener("click", () => setPicking(true));
@@ -764,7 +816,7 @@ document.querySelectorAll("[data-kb-nav]").forEach((btn) => {
 });
 
 const hashPanel = String(location.hash || "").replace(/^#/, "");
-showKbPanel(["catalog", "facts", "docs", "video"].includes(hashPanel) ? hashPanel : "catalog");
+showKbPanel(["catalog", "facts", "docs", "video", "audio"].includes(hashPanel) ? hashPanel : "catalog");
 
 loadHub().catch((err) => {
   if ($("[data-generated]")) $("[data-generated]").textContent = err.message;

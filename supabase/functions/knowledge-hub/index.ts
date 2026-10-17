@@ -1,5 +1,10 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { chunkSegments, episodeFromTitle, loadYoutubeTranscript } from "./youtube-ingest.ts";
+import {
+  chunkSegments,
+  episodeFromTitle,
+  loadYoutubeTranscript,
+  transcribeGroqBytes,
+} from "./youtube-ingest.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -360,6 +365,171 @@ async function processYoutubeJob(opts: {
   }
 }
 
+function decodeAudioBase64(raw: string): Uint8Array {
+  const cleaned = String(raw || "").replace(/^data:[^;]+;base64,/, "").replace(/\s+/g, "");
+  if (!cleaned) throw new Error("Audio vacío");
+  const bin = atob(cleaned);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function localAudioId(title: string) {
+  const slug = String(title || "audio")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40) || "audio";
+  const stamp = Date.now().toString(36).slice(-6);
+  return `local-${slug}-${stamp}`.slice(0, 60);
+}
+
+async function ingestAudio(body: Record<string, unknown>) {
+  const groq = String(Deno.env.get("GROQ_API_KEY") || "").trim();
+  if (!groq) return json({ ok: false, error: "Falta GROQ_API_KEY en la nube de Palabra Pura" }, 503);
+
+  const title = String(body.title || "").trim() || "Audio sin título";
+  const filename = String(body.filename || "audio.mp3").trim().slice(0, 120) || "audio.mp3";
+  const mime = String(body.mime || "audio/mpeg").trim() || "audio/mpeg";
+  let buf: Uint8Array;
+  try {
+    buf = decodeAudioBase64(String(body.audioBase64 || body.audio || ""));
+  } catch (err) {
+    return json({ ok: false, error: String((err as Error).message || err) }, 400);
+  }
+  if (buf.byteLength < 1000) return json({ ok: false, error: "El archivo de audio está vacío o es inválido" }, 400);
+
+  const id = String(body.youtube_id || "").trim() || localAudioId(title);
+  const episode = episodeFromTitle(title);
+  const upsert = await supabase
+    .from("video")
+    .upsert({
+      youtube_id: id,
+      title,
+      ...(episode != null ? { episode } : {}),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "youtube_id" })
+    .select("id,youtube_id,title")
+    .single();
+  if (upsert.error) return json({ ok: false, error: upsert.error.message }, 500);
+
+  const job = await supabase
+    .from("ingest_job")
+    .insert({
+      source_type: "audio",
+      source_url: null,
+      title,
+      youtube_id: id,
+      video_id: upsert.data.id,
+      status: "running",
+      progress: "Transcribiendo audio…",
+    })
+    .select("*")
+    .single();
+  if (job.error) return json({ ok: false, error: job.error.message }, 500);
+
+  try {
+    await markJob(job.data.id, { progress: "Transcribiendo con Whisper…" });
+    const segments = await transcribeGroqBytes(buf, groq, filename, mime);
+    if (!segments.length) throw new Error("La transcripción quedó vacía");
+    const chunks = chunkSegments(segments);
+    if (!chunks.length) throw new Error("No se generaron fragmentos");
+
+    await markJob(job.data.id, {
+      progress: `Indexando ${chunks.length} fragmentos…`,
+    });
+    await supabase.from("fragment").delete().eq("video_id", upsert.data.id);
+    for (let i = 0; i < chunks.length; i++) {
+      const embedding = await embedDocument(chunks[i].content);
+      const inserted = await supabase.from("fragment").insert({
+        video_id: upsert.data.id,
+        position: i,
+        content: chunks[i].content,
+        embedding,
+        start_second: chunks[i].start_second,
+        word_count: chunks[i].word_count,
+      });
+      if (inserted.error) throw new Error(inserted.error.message);
+      if (i % 5 === 4) await new Promise((r) => setTimeout(r, 350));
+    }
+
+    await markJob(job.data.id, {
+      status: "done",
+      title,
+      progress: `Listo · ${chunks.length} fragmentos`,
+      fragments_created: chunks.length,
+      error: null,
+      finished_at: new Date().toISOString(),
+    });
+    return json({
+      ok: true,
+      video: { ...upsert.data, title },
+      job: {
+        ...job.data,
+        status: "done",
+        title,
+        fragments_created: chunks.length,
+        progress: `Listo · ${chunks.length} fragmentos`,
+      },
+      fragments: chunks.length,
+      source: "whisper",
+    });
+  } catch (err) {
+    const message = String((err as Error)?.message || err).slice(0, 500);
+    await markJob(job.data.id, {
+      status: "error",
+      progress: "Error",
+      error: message,
+      finished_at: new Date().toISOString(),
+    });
+    return json({ ok: false, error: message, job: job.data }, 500);
+  }
+}
+
+async function importTranscriptChunks(body: Record<string, unknown>) {
+  const title = String(body.title || "").trim();
+  const id = String(body.youtube_id || body.id || "").trim() || localAudioId(title || "audio");
+  const rawChunks = Array.isArray(body.chunks) ? body.chunks : [];
+  if (title.length < 2) return json({ ok: false, error: "título requerido" }, 400);
+  if (!rawChunks.length) return json({ ok: false, error: "chunks requeridos" }, 400);
+
+  const episode = episodeFromTitle(title);
+  const upsert = await supabase
+    .from("video")
+    .upsert({
+      youtube_id: id,
+      title,
+      ...(episode != null ? { episode } : {}),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "youtube_id" })
+    .select("id,youtube_id,title")
+    .single();
+  if (upsert.error) return json({ ok: false, error: upsert.error.message }, 500);
+
+  await supabase.from("fragment").delete().eq("video_id", upsert.data.id);
+  let n = 0;
+  for (let i = 0; i < rawChunks.length; i++) {
+    const content = String(rawChunks[i]?.content || "").trim();
+    if (content.length < 20) continue;
+    const embedding = await embedDocument(content);
+    const inserted = await supabase.from("fragment").insert({
+      video_id: upsert.data.id,
+      position: n,
+      content,
+      embedding,
+      start_second: Number(rawChunks[i]?.start_second) || 0,
+      word_count: Number(rawChunks[i]?.word_count) || content.split(/\s+/).filter(Boolean).length,
+    });
+    if (inserted.error) return json({ ok: false, error: inserted.error.message }, 500);
+    n += 1;
+    if (i % 5 === 4) await new Promise((r) => setTimeout(r, 350));
+  }
+  if (!n) return json({ ok: false, error: "ningún fragmento válido" }, 400);
+  return json({ ok: true, video: upsert.data, fragments: n });
+}
+
 async function ingestVideo(body: Record<string, unknown>) {
   const id = youtubeId(String(body.url || body.youtube_id || ""));
   if (!id) return json({ ok: false, error: "link de YouTube inválido" }, 400);
@@ -469,6 +639,8 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (action === "queueVideo" || action === "ingestVideo") return await ingestVideo(body);
+    if (action === "ingestAudio") return await ingestAudio(body);
+    if (action === "importTranscriptChunks") return await importTranscriptChunks(body);
     if (action === "setVideoAccess") return await setVideoAccess(body);
     if (action === "exportTextPage") return json(await exportTextPage(body));
     return json({ ok: false, error: "acción desconocida" }, 400);

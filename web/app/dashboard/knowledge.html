@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-export-3" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-audio-1" />
 </head>
 <body>
   <div class="wrap wrap--wide dash-compact">
@@ -58,10 +58,10 @@
           <strong>Subir video</strong>
           <span>YouTube → transcribir e indexar</span>
         </button>
-        <a class="kb-side__item kb-side__item--link" href="./ingest.html#file">
+        <button class="kb-side__item" type="button" data-kb-nav="audio">
           <strong>Audio / archivo</strong>
-          <span>Subir mp3, mp4 u otro medio</span>
-        </a>
+          <span>mp3, m4a, wav… → indexar aquí</span>
+        </button>
       </aside>
 
       <div class="kb-main">
@@ -219,11 +219,34 @@
           <p class="empty" data-jobs-empty hidden>Todavía no hay trabajos de indexado.</p>
           </div>
         </section>
+
+        <section class="card kb-panel" data-kb-panel="audio" hidden>
+          <div class="kb-panel__head">
+            <h2>Subir audio para indexar</h2>
+            <p class="card__hint">Se transcribe e indexa en la nube de Palabra Pura. Luego aparece en el catálogo.</p>
+          </div>
+          <div class="kb-panel__scroll">
+            <form class="ingest-form" data-audio-form>
+              <label class="field">
+                <span>Título</span>
+                <input type="text" name="title" maxlength="200" placeholder="Ej. Metamorfosis" required />
+              </label>
+              <label class="field">
+                <span>Archivo de audio</span>
+                <input type="file" name="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm" required />
+              </label>
+              <div class="form-actions">
+                <button class="btn btn--primary" type="submit" data-audio-submit>Indexar audio</button>
+                <p class="form-msg" data-audio-msg hidden></p>
+              </div>
+            </form>
+          </div>
+        </section>
       </div>
     </div>
 
     <p class="foot" data-generated></p>
   </div>
-  <script type="module" src="./knowledge.js?v=kb-export-3"></script>
+  <script type="module" src="./knowledge.js?v=kb-audio-1"></script>
 </body>
 </html>

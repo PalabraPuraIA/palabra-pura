@@ -263,6 +263,16 @@ async function runJob(db, job) {
     const videoId = await upsertVideo(db, { youtubeId, title });
     const n = await saveFragments(db, videoId, chunks);
 
+    // Publica también a la nube de Palabra Pura (Pages / Supabase) cuando hay credenciales.
+    if (job.source_type === "audio" || job.source_type === "video") {
+      await setJob(db, id, { progress: `Publicando ${n} fragmentos a la nube…` });
+      try {
+        await publishChunksToPalabraPuraCloud({ youtubeId, title, chunks });
+      } catch (syncErr) {
+        console.error(`[ingest #${id}] cloud sync`, syncErr.message || syncErr);
+      }
+    }
+
     await setJob(db, id, {
       status: "done",
       progress: `Listo · ${n} fragmentos`,
@@ -525,6 +535,40 @@ function chunkSegments(segments, maxWords) {
   }
   flush();
   return chunks;
+}
+
+async function publishChunksToPalabraPuraCloud({ youtubeId, title, chunks }) {
+  const base = String(process.env.SUPABASE_URL || "https://jkffgudzlcemapxprbws.supabase.co").replace(/\/+$/, "");
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    "";
+  if (!key) throw new Error("Sin clave Supabase para publicar a la nube");
+  const res = await fetch(`${base}/functions/v1/knowledge-hub`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      apikey: key,
+    },
+    body: JSON.stringify({
+      action: "importTranscriptChunks",
+      youtube_id: youtubeId,
+      title,
+      chunks: (chunks || []).map((c) => ({
+        content: c.content,
+        start_second: c.start_second,
+        word_count: c.word_count,
+      })),
+    }),
+    signal: AbortSignal.timeout(300000),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || data.ok === false) {
+    throw new Error(data.error || `cloud sync HTTP ${res.status}`);
+  }
+  return data;
 }
 
 async function embedDocument(text) {

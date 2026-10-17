@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-10" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-9" />
 </head>
 <body>
   <div class="wrap wrap--wide dash-compact">
@@ -56,6 +56,7 @@
         <section class="card kb-panel" data-ingest-panel="youtube">
           <div class="kb-panel__head">
             <h2>Link de YouTube</h2>
+            <p class="card__hint">Pega el link. Si no hay subtítulos, el servidor usa Whisper.</p>
           </div>
           <div class="kb-panel__scroll">
             <form class="ingest-form" data-ingest-form data-mode="youtube">
@@ -78,6 +79,7 @@
         <section class="card kb-panel" data-ingest-panel="file" hidden>
           <div class="kb-panel__head">
             <h2>Archivo de audio o video</h2>
+            <p class="card__hint">En el servidor Fintek se transcribe con Whisper. En Pages solo aplica YouTube vía nube.</p>
           </div>
           <div class="kb-panel__scroll">
             <form class="ingest-form" data-ingest-form-file>
@@ -128,7 +130,8 @@
       </div>
     </div>
 
+    <p class="foot">En Pages el índice vive en Supabase. Whisper queda de reserva si el video no trae transcripción.</p>
   </div>
-  <script type="module" src="./ingest-page.js?v=kb-compact-10"></script>
+  <script type="module" src="./ingest-page.js?v=kb-compact-9"></script>
 </body>
 </html>
