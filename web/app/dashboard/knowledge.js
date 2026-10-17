@@ -230,7 +230,10 @@ function seriesFromTitle(title) {
   if (key.includes("lengua") && (key.includes("arma") || key.includes("poderosa"))) {
     return "La Lengua, un Arma Poderosa";
   }
-  return prefix || "Otras enseñanzas";
+  // Enseñanzas sueltas (p. ej. audio subido) usan su propio título como serie.
+  if (prefix) return prefix;
+  if (raw && !/^(sin t[ií]tulo|audio|untitled|local-)/i.test(raw)) return raw;
+  return "Otras enseñanzas";
 }
 
 function episodeFromTitle(title) {
