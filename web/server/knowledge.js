@@ -203,25 +203,54 @@ export async function paidOfferFor(youtubeId) {
   }
 }
 
-export function paidPayload(video, offer) {
+export function offerFields(video, offer) {
   const title = offer?.title || video?.title || "esta enseñanza";
-  const label = offer?.offer_label || "Comprar esta enseñanza";
-  const link = offer?.offer_url ? ` ${offer.offer_url}` : "";
+  const label = offer?.offer_label || "Seguir leyendo en la página de la iglesia";
   return {
-    answer: `«${title}» es contenido de pago del ministerio. No puedo entregarte la enseñanza completa aquí; te invitamos a adquirirla${link ? ":" + link : "."}`,
-    source: "oferta",
-    offer: {
-      title,
-      url: offer?.offer_url || "",
-      label,
-    },
-    video: {
-      title: video?.title,
-      episode: video?.episode,
-      youtube_id: video?.youtube_id,
-      start_second: 0,
-    },
+    title,
+    url: offer?.offer_url || "",
+    label,
   };
+}
+
+/** Invita a comprar sin ocultar la respuesta que ya se generó. */
+export function withPaidOffer(payload, offer, video = null) {
+  if (!payload || !offer) return payload;
+  const fields = offerFields(video || payload.video, offer);
+  const base = String(payload.answer || "").trim();
+  const alreadyCta = /para seguir leyendo/i.test(base) || (fields.url && base.includes(fields.url));
+  const cta = fields.url
+    ? `Para seguir leyendo «${fields.title}», ve a la página de la iglesia: ${fields.url}`
+    : `Para seguir leyendo «${fields.title}», adquiérela en la página de la iglesia.`;
+  const answer = base
+    ? alreadyCta
+      ? base
+      : `${base}\n\n${cta}`
+    : cta;
+  return {
+    ...payload,
+    answer,
+    offer: fields,
+  };
+}
+
+/** Solo oferta (sin respuesta previa). */
+export function paidPayload(video, offer) {
+  const fields = offerFields(video, offer);
+  return withPaidOffer(
+    {
+      answer: `Sobre «${fields.title}» puedo orientarte con lo que hay en el ministerio, y para la enseñanza completa te invitamos a adquirirla.`,
+      source: "oferta",
+      video: {
+        title: video?.title,
+        episode: video?.episode,
+        youtube_id: video?.youtube_id,
+        start_second: 0,
+      },
+    },
+    offer,
+    video,
+  );
 }
 
 export async function findFact(question) {

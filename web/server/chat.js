@@ -19,7 +19,7 @@ import { guardQuestion, offTopicAnswer, sanitizeAnswer } from "./chat-guard.js";
 import { formatFragmentsForModel, selectLiteralExcerpt } from "./excerpt.js";
 import { retrieveTranscriptContext, hasStrongVideoEvidence } from "./chat-retrieve.js";
 import { historyBlock, normalizeHistory, retrievalQuestion } from "./chat-context.js";
-import { findFact, findKnowledgeDocs, paidOfferFor, paidPayload } from "./knowledge.js";
+import { findFact, findKnowledgeDocs, paidOfferFor, withPaidOffer } from "./knowledge.js";
 
 const MAX_PARENTS = 2;
 const EMBED_DIMS = 3072;
@@ -277,8 +277,6 @@ async function answerLocal(question, history = []) {
         accepted ? vid.evidence : null,
       );
       const top = selected.fragment || fragMatches[0];
-      const paid = await paidOfferFor(top?.youtube_id);
-      if (paid) return paidPayload(top, paid);
 
       // Si el modelo rechazó pero el audio sí habla del tema, no caemos a Biblia a ciegas.
       if (!accepted || !answer) {
@@ -303,7 +301,7 @@ async function answerLocal(question, history = []) {
       } catch {
         /* optional */
       }
-      return {
+      const payload = {
         answer,
         passage: (await resolvePassage(reference)) ?? undefined,
         excerpt: selected.excerpt,
@@ -317,6 +315,8 @@ async function answerLocal(question, history = []) {
         },
         source: "video",
       };
+      const paid = await paidOfferFor(top?.youtube_id);
+      return paid ? withPaidOffer(payload, paid, top) : payload;
     }
   }
 
@@ -809,9 +809,9 @@ export async function handleChat(req, res) {
       return res.json(await withSuggestions(payload, question));
     }
 
-    if (payload?.source === "video" && payload.video?.youtube_id) {
+    if (payload?.source === "video" && payload.video?.youtube_id && !payload.offer) {
       const paid = await paidOfferFor(payload.video.youtube_id);
-      if (paid) return res.json(paidPayload(payload.video, paid));
+      if (paid) payload = withPaidOffer(payload, paid);
     }
     if (payload?.source === "dato" || payload?.source === "oferta") {
       return res.json(payload);

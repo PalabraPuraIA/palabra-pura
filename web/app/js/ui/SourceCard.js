@@ -201,17 +201,17 @@ function renderVideo(video) {
 
 function renderOffer(offer) {
   if (!offer) return "";
-  const label = offer.label || "Comprar esta enseñanza";
+  const label = offer.label || "Seguir leyendo en la página de la iglesia";
   const url = String(offer.url || "").trim();
   const link = url
     ? `<a class="source__cta source__cta--link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`
     : `<p class="source__video-hint">${escapeHtml(label)}</p>`;
   return `
-    <section class="source__panel source__panel--offer" aria-label="Contenido de pago">
-      <h3 class="source__panel-title">Enseñanza de pago</h3>
+    <section class="source__panel source__panel--offer" aria-label="Seguir leyendo">
+      <h3 class="source__panel-title">Seguir leyendo</h3>
       <div class="source__block">
         <p class="source__video-title">${escapeHtml(offer.title || "Esta enseñanza")}</p>
-        <p class="source__video-hint">Adquiérela para recibir el contenido completo.</p>
+        <p class="source__video-hint">Para la enseñanza completa, ve a la página de la iglesia y adquiérela.</p>
         ${link}
       </div>
     </section>`;
@@ -221,16 +221,13 @@ function renderOffer(offer) {
  * @param {{ passage?: object, passages?: object[], video?: object, excerpt?: string, source?: string, offer?: object }} response
  */
 export function renderSourceCard({ passage, passages, video, excerpt, source, offer } = {}) {
-  if (source === "oferta" || offer) {
-    return `<div class="source">${renderOffer(offer)}</div>`;
-  }
-
   const demo = isDemoVideo(video);
   const transcript = renderExcerpt(excerpt);
   const verses = renderPassages(passage, passages, demo);
-  const vid = renderVideo(video);
+  const vid = source === "oferta" ? "" : renderVideo(video);
+  const buy = renderOffer(offer);
 
-  if (!transcript && !verses && !vid) return "";
+  if (!transcript && !verses && !vid && !buy) return "";
 
   const origin =
     source === "biblia" && verses
@@ -241,7 +238,9 @@ export function renderSourceCard({ passage, passages, video, excerpt, source, of
           ? `<p class="source__origin">Basado en la enseñanza en audio del ministerio.</p>`
           : source === "dato"
             ? `<p class="source__origin">Dato verificado de la base de conocimientos del ministerio.</p>`
-            : "";
+            : source === "oferta"
+              ? `<p class="source__origin">Respuesta breve; la enseñanza completa está en la página de la iglesia.</p>`
+              : "";
 
-  return `<div class="source">${origin}${transcript}${verses}${vid}</div>`;
+  return `<div class="source">${origin}${transcript}${verses}${vid}${buy}</div>`;
 }

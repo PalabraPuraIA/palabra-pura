@@ -593,7 +593,7 @@ async function setVideoAccess(body: Record<string, unknown>) {
   if (!id) return json({ ok: false, error: "youtube_id requerido" }, 400);
   const access = body.access_mode === "paid" ? "paid" : "free";
   const offer_url = String(body.offer_url || "").trim().slice(0, 400) || null;
-  const offer_label = String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Comprar esta enseñanza" : null);
+  const offer_label = String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Seguir leyendo en la página de la iglesia" : null);
   const title = String(body.title || "").trim() || null;
   const videoId = Number(body.video_id || 0) || null;
   const row = {

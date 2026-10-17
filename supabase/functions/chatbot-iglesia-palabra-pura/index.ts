@@ -239,24 +239,40 @@ async function paidOfferFor(youtubeId?: string | null) {
   return data;
 }
 
-function paidPayload(video: { title?: string; youtube_id?: string; episode?: number }, offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null }) {
+function offerFields(
+  video: { title?: string; youtube_id?: string; episode?: number },
+  offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
+) {
   const title = offer.title || video.title || "esta enseñanza";
-  const label = offer.offer_label || "Comprar esta enseñanza";
-  const link = offer.offer_url ? ` ${offer.offer_url}` : "";
+  const label = offer.offer_label || "Seguir leyendo en la página de la iglesia";
   return {
-    answer: `«${title}» es contenido de pago del ministerio. No puedo entregarte la enseñanza completa aquí; te invitamos a adquirirla${link ? ":" + link : "."}`,
-    source: "oferta",
-    offer: {
-      title,
-      url: offer.offer_url || "",
-      label,
-    },
-    video: {
-      title: video.title,
-      episode: video.episode,
-      youtube_id: video.youtube_id,
-      start_second: 0,
-    },
+    title,
+    url: offer.offer_url || "",
+    label,
+  };
+}
+
+/** Respuesta normal + CTA de compra (no oculta la explicación). */
+function withPaidOffer(
+  payload: Record<string, unknown>,
+  offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
+  video?: { title?: string; youtube_id?: string; episode?: number },
+) {
+  const fields = offerFields((video || payload.video || {}) as { title?: string; youtube_id?: string; episode?: number }, offer);
+  const base = String(payload.answer || "").trim();
+  const alreadyCta = /para seguir leyendo/i.test(base) || (fields.url && base.includes(fields.url));
+  const cta = fields.url
+    ? `Para seguir leyendo «${fields.title}», ve a la página de la iglesia: ${fields.url}`
+    : `Para seguir leyendo «${fields.title}», adquiérela en la página de la iglesia.`;
+  const answer = base
+    ? alreadyCta
+      ? base
+      : `${base}\n\n${cta}`
+    : cta;
+  return {
+    ...payload,
+    answer,
+    offer: fields,
   };
 }
 
@@ -661,10 +677,8 @@ Deno.serve(async (req)=>{
       if (vid.found) {
         const selected = literalExcerpt(fragMatches, vid.evidence);
         const top = selected.fragment;
-        const paid = await paidOfferFor(top?.youtube_id);
-        if (paid) return json(paidPayload(top, paid));
         const passage = await resolvePassage(vid.reference);
-        return json(await attachLifeContext({
+        let payload = await attachLifeContext({
           answer: sanitizeAnswer(vid.answer ?? ""),
           passage: passage ? {
             ...passage,
@@ -679,7 +693,10 @@ Deno.serve(async (req)=>{
             start_second: top.start_second ?? 0
           },
           source: "video"
-        }, searchQ));
+        }, searchQ);
+        const paid = await paidOfferFor(top?.youtube_id);
+        if (paid) payload = withPaidOffer(payload, paid, top);
+        return json(payload);
       }
     }
     if (docs.length) {

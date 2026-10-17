@@ -356,7 +356,7 @@ function renderCatalog(videos) {
         <td>
           <select data-access="${escapeHtml(video.youtube_id)}">
             <option value="free" ${paid ? "" : "selected"}>Libre — la IA responde</option>
-            <option value="paid" ${paid ? "selected" : ""}>De pago — invita a comprar</option>
+            <option value="paid" ${paid ? "selected" : ""}>De pago — responde e invita a comprar</option>
           </select>
         </td>
         <td>
@@ -506,8 +506,14 @@ async function onAudioSubmit(event) {
     setMsg(msg, "Elige un archivo de audio.", false);
     return;
   }
-  if (file.size > 22 * 1024 * 1024) {
-    setMsg(msg, "El archivo supera 22 MB. Comprímelo o divídelo y vuelve a subirlo.", false);
+  const maxMb = 22;
+  const sizeMb = file.size / (1024 * 1024);
+  if (sizeMb > maxMb) {
+    setMsg(
+      msg,
+      `El archivo pesa ${sizeMb.toFixed(1)} MB (máx. ${maxMb} MB para Whisper en la nube). Comprime a MP3 mono ~32 kbps (p. ej. con Audacity o ffmpeg) y vuelve a subirlo.`,
+      false,
+    );
     return;
   }
   submit.disabled = true;

@@ -568,7 +568,7 @@ export async function handleKnowledgeHub(req, res) {
       if (!id) return res.status(400).json({ ok: false, error: "youtube_id requerido" });
       const access = body.access_mode === "paid" ? "paid" : "free";
       const offerUrl = String(body.offer_url || "").trim().slice(0, 400) || null;
-      const offerLabel = String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Comprar esta enseñanza" : null);
+      const offerLabel = String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Seguir leyendo en la página de la iglesia" : null);
       const { rows } = await db.query(
         `INSERT INTO content_offer (youtube_id, access_mode, offer_url, offer_label, title, updated_at)
          VALUES ($1, $2, $3, $4, $5, now())

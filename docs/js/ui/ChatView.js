@@ -122,14 +122,17 @@ export class ChatView {
     const tips = renderSuggestions(response.suggestions);
     const showLabel = Boolean(sources) || hasAnswer;
     const isVideo = response.source === "video" && response.video;
-    const isOffer = response.source === "oferta" || Boolean(response.offer);
+    const isOfferOnly = response.source === "oferta";
+    const hasPaidCta = Boolean(response.offer);
     const hasVerses = Boolean(response.passage?.reference || response.passages?.length);
     const lifePromise = response.lifeArea?.promise
       ? `<p class="msg__life-promise"><strong>${escapeHtml(response.lifeArea.label)}:</strong> ${escapeHtml(response.lifeArea.promise)}</p>`
       : "";
-    const answerLabel = isOffer ? "Contenido de pago" : isVideo ? "En pocas palabras" : "Explicación";
+    const answerLabel = isOfferOnly ? "Contenido de pago" : isVideo ? "En pocas palabras" : "Explicación";
     const answerHint =
-      isVideo && response.excerpt
+      hasPaidCta && isVideo
+        ? `<p class="msg__hint">Resumen corto. Abajo puedes seguir leyendo en la página de la iglesia.</p>`
+        : isVideo && response.excerpt
         ? `<p class="msg__hint">Resumen corto.</p>`
         : isVideo && hasVerses
           ? `<p class="msg__hint">Lo que enseñó el pastor, con versículos y el video abajo.</p>`
@@ -143,7 +146,7 @@ export class ChatView {
            ${showLabel ? `<p class="msg__label">${answerLabel}</p>` : ""}
            ${answerHint}
            ${lifePromise}
-           <p class="msg__answer">${escapeHtml(response.answer)}</p>
+           <p class="msg__answer">${escapeHtml(response.answer).replace(/\n/g, "<br>")}</p>
            ${tips}
            ${rating}
          </div>`
