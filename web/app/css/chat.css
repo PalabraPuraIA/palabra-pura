@@ -1175,7 +1175,7 @@
 .articles__item-title {
   display: block;
   font-weight: 600;
-  font-size: var(--t-base);
+  font-size: var(--t-lg);
   color: var(--c-ink);
   line-height: 1.35;
 }
@@ -1186,7 +1186,7 @@
   -webkit-line-clamp: 2;
   overflow: hidden;
   margin-top: 4px;
-  font-size: var(--t-sm);
+  font-size: var(--t-base);
   line-height: 1.45;
   color: var(--c-ink-soft);
 }
@@ -1195,7 +1195,7 @@
   display: none;
   margin-top: 8px;
   padding: 10px 12px;
-  font-size: var(--t-sm);
+  font-size: var(--t-base);
   line-height: 1.55;
   color: var(--c-ink);
   background: var(--g-surface, #fff);
@@ -1231,6 +1231,7 @@
 
 .articles__empty-title {
   font-weight: 600;
+  font-size: var(--t-lg);
   color: var(--c-ink);
   margin-bottom: 6px;
 }
@@ -1238,7 +1239,7 @@
 .articles__empty-text {
   max-width: 48ch;
   margin-inline: auto;
-  font-size: var(--t-sm);
+  font-size: var(--t-base);
   color: var(--c-ink-soft);
   line-height: 1.5;
 }
