@@ -116,12 +116,13 @@ function looksLikeFollowUp(question: string) {
 function retrievalQuestion(question: string, history: { role: string; content: string }[]) {
   const q = String(question ?? "").trim();
   if (!q || !history.length) return q;
-  if (!looksLikeFollowUp(q) && q.length > 48) return q;
+  // Pregunta nueva (aunque sea corta): no mezclar matrimonio/tienda con "nacer de nuevo".
+  if (!looksLikeFollowUp(q)) return q;
   const lastUser = [...history].reverse().find((turn) => turn.role === "user");
   const lastBot = [...history].reverse().find((turn) => turn.role === "assistant");
   const parts: string[] = [];
   if (lastUser?.content && lastUser.content.toLowerCase() !== q.toLowerCase()) parts.push(lastUser.content);
-  if (lastBot?.content && q.length <= 48) parts.push(lastBot.content.slice(0, 220));
+  if (lastBot?.content) parts.push(lastBot.content.slice(0, 220));
   parts.push(q);
   return parts.join("\n");
 }
@@ -137,7 +138,7 @@ const LIFE_AREAS = [
   { id: "oracion", label: "Oración", keywords: ["orar", "oracion", "reza", "rezo", "clamar", "interceder"], promise: "Puedes acercarte a Dios con libertad, no por mérito propio sino por la gracia. Él escucha al que clama en el nombre de Jesús.", verses: ["Filipenses 4:6-7", "1 Juan 5:14", "Mateo 7:7"] },
   { id: "sanidad", label: "Sanidad", keywords: ["sanidad", "sanar", "sano", "enfermedad", "milagro", "sintoma", "cura", "dolor"], promise: "El Señor es tu sanador. En Cristo hay vida, restauración y cuidado para cuerpo y alma según su voluntad bondadosa.", verses: ["Isaías 53:5", "Salmo 103:3", "Santiago 5:15"] },
   { id: "palabra", label: "La Palabra", keywords: ["palabra", "biblia", "escritura", "versiculo", "leer", "estudiar"], promise: "La Palabra de Dios es viva y te edifica. Bajo la gracia, la Escritura te forma y te confirma en la verdad de Cristo.", verses: ["2 Timoteo 3:16-17", "Romanos 15:4", "Salmo 119:105"] },
-  { id: "salvacion", label: "Salvación y nuevo nacimiento", keywords: ["nacer", "nuevo", "salvacion", "salvo", "evangelio", "cruz", "convertir"], promise: "La salvación es un regalo por gracia, recibido por fe, no por obras. En Cristo eres hijo de Dios y tienes vida eterna.", verses: ["Efesios 2:8-9", "Juan 3:16", "Romanos 10:9"] },
+  { id: "salvacion", label: "Salvación y nuevo nacimiento", keywords: ["nacer de nuevo", "nuevo nacimiento", "nacer", "salvacion", "salvo", "evangelio", "cruz", "convertir"], promise: "La salvación es un regalo por gracia, recibido por fe, no por obras. En Cristo eres hijo de Dios y tienes vida eterna.", verses: ["Efesios 2:8-9", "Juan 3:16", "Romanos 10:9"] },
   { id: "dones", label: "Dones espirituales", keywords: ["dones", "espiritu", "carisma", "ministerio", "servir", "llamado"], promise: "Dios te ha equipado con dones para edificar a otros en amor. Cada miembro del cuerpo de Cristo tiene un lugar.", verses: ["1 Corintios 12:7", "Romanos 12:6", "Efesios 4:7"] },
   { id: "familia", label: "Familia y matrimonio", keywords: ["familia", "matrimonio", "esposo", "esposa", "hijos", "pareja", "hogar"], promise: "En Cristo hay gracia para el hogar: amor, perdón y restauración. El Señor camina contigo en las relaciones más cercanas.", verses: ["Efesios 5:25", "Colosenses 3:13", "Proverbios 3:5-6"] },
   { id: "restauracion", label: "Restauración y testimonio", keywords: ["testimonio", "restaurar", "restauracion", "perdon", "victoria", "libertad"], promise: "En Cristo hay nueva creación: lo viejo pasó. Dios puede restaurar lo que parecía perdido y usar tu historia para Su gloria.", verses: ["2 Corintios 5:17", "Joel 2:25", "Romanos 8:1"] },

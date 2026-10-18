@@ -66,7 +66,7 @@ export const LIFE_AREAS = [
   {
     id: "salvacion",
     label: "Salvación y nuevo nacimiento",
-    keywords: ["nacer", "nuevo", "salvacion", "salvo", "evangelio", "cruz", "convertir"],
+    keywords: ["nacer de nuevo", "nuevo nacimiento", "nacer", "salvacion", "salvo", "evangelio", "cruz", "convertir"],
     promise:
       "La salvación es un regalo por gracia, recibido por fe, no por obras. En Cristo eres hijo de Dios y tienes vida eterna.",
     verses: [

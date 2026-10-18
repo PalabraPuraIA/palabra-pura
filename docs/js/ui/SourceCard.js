@@ -12,7 +12,7 @@ import {
   getPreferredBibleVersion,
   versionIdFromLabel,
 } from "../utils/bibleVersion.js";
-import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-6";
+import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-7";
 
 const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M9 8.5v7l6-3.5-6-3.5Z" fill="currentColor"/></svg>`;
 const CTA_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5Z" fill="currentColor"/></svg>`;
