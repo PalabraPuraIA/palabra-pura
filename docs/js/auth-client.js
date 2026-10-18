@@ -67,10 +67,16 @@ export async function ensureAdminSession() {
     redirectToLogin();
     return false;
   }
+  // En Pages el catálogo vive en Supabase. No esperar al túnel Fintek:
+  // si está caído, la página se quedaba en blanco y parecía que no había series.
+  if (typeof location !== "undefined" && /github\.io$/i.test(location.hostname)) {
+    return true;
+  }
   try {
     const res = await fetch(apiUrl("/api/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
+      signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) {
       clearToken();
@@ -79,7 +85,6 @@ export async function ensureAdminSession() {
     }
     return true;
   } catch {
-    // Si el API no responde, igual dejamos pasar la UI estática con token local
     return Boolean(token);
   }
 }

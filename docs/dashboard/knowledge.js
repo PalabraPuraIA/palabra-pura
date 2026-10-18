@@ -379,6 +379,11 @@ function renderCatalog(videos) {
 let lastVideos = [];
 
 async function loadHub() {
+  const empty = $("[data-catalog-empty]");
+  if (empty) {
+    empty.hidden = false;
+    empty.textContent = "Cargando catálogo desde la nube…";
+  }
   const data = await hub("list");
   const facts = data.facts || [];
   const docs = data.documents || [];
@@ -881,5 +886,10 @@ const hashPanel = String(location.hash || "").replace(/^#/, "");
 showKbPanel(["catalog", "facts", "docs", "video", "audio"].includes(hashPanel) ? hashPanel : "catalog");
 
 loadHub().catch((err) => {
+  const empty = $("[data-catalog-empty]");
+  if (empty) {
+    empty.hidden = false;
+    empty.textContent = err.message || "No se pudo cargar el catálogo.";
+  }
   if ($("[data-generated]")) $("[data-generated]").textContent = err.message;
 });

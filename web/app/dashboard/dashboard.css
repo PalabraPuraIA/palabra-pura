@@ -590,6 +590,9 @@ th {
   flex-wrap: wrap;
   gap: 12px;
 }
+.catalog-export-tools[hidden] {
+  display: none !important;
+}
 .catalog-pick-label {
   display: inline-flex;
   align-items: center;
