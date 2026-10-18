@@ -4,7 +4,7 @@
  */
 
 import { escapeHtml, formatTimestamp, buildYouTubeEmbedUrl, isPlayableYouTubeId } from "../utils/format.js";
-import { renderShopOfferPanel } from "./shopCart.js?v=paid-cta-7";
+import { renderShopOfferPanel } from "./shopCart.js?v=paid-cta-8";
 
 export class VideoPlayer {
   #root;

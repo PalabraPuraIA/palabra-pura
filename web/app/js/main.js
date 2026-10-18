@@ -12,14 +12,14 @@ import {
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
 
-import { ChatService } from "./services/ChatService.js?v=paid-cta-7";
+import { ChatService } from "./services/ChatService.js?v=paid-cta-8";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js?v=paid-cta-7";
+import { ChatView } from "./ui/ChatView.js?v=paid-cta-8";
 import { Composer } from "./ui/Composer.js";
 import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
-import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-7";
-import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-7";
+import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-8";
+import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { LifeAreasPanel } from "./ui/LifeAreasPanel.js?v=hold-open-1";
 import { LifeAreaService } from "./services/LifeAreaService.js?v=rate-life-2";

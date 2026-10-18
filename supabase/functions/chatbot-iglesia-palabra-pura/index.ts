@@ -509,6 +509,42 @@ function sentences(content) {
     raw
   ];
 }
+
+const SPONSOR_NEAR_SECONDS = 90;
+const SPONSOR_MARK = /este programa (te )?llega|apoyo financiero de los miembros/i;
+
+function excerptIsNearSponsorIntro(fragment, text) {
+  const blob = String(text || fragment?.content || "");
+  if (!SPONSOR_MARK.test(blob)) return false;
+  if (!fragment) return true;
+  const start = Number(fragment.start_second);
+  const pos = Number(fragment.position);
+  if (Number.isFinite(start) && start <= SPONSOR_NEAR_SECONDS) return true;
+  if (Number.isFinite(pos) && pos <= 1) return true;
+  return false;
+}
+
+function stripSponsorIntro(text) {
+  const raw = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (!raw || !SPONSOR_MARK.test(raw)) return raw;
+  const startMatch = raw.match(/este programa (te )?llega a ti/i);
+  if (!startMatch) {
+    return raw.replace(/gracias al apoyo financiero de los miembros[^.]{0,280}\.?/i, " ").replace(/\s+/g, " ").trim();
+  }
+  const from = startMatch.index ?? 0;
+  const after = raw.slice(from);
+  const endMatch = after.match(/c[oó]digo qr(?:[\s\S]{0,480}?\bbendiciones\b)?|\bbendiciones\b/i);
+  const end = endMatch ? from + endMatch.index + endMatch[0].length : from + Math.min(after.length, 480);
+  return `${raw.slice(0, from)} ${raw.slice(end)}`.replace(/\s+/g, " ").trim();
+}
+
+function excerptWithoutSponsor(excerpt, fragment) {
+  if (!excerptIsNearSponsorIntro(fragment, excerpt || fragment?.content)) return excerpt;
+  const cleaned = stripSponsorIntro(excerpt);
+  if (cleaned && cleaned.length >= 40) return cleaned;
+  const rest = sentences(stripSponsorIntro(fragment?.content || "")).slice(0, 3).join(" ");
+  return clean(rest) || cleaned || excerpt;
+}
 function numberedFragments(fragments) {
   return fragments.map((f, fi)=>{
     const lines = sentences(f.content).map((s, si)=>`[F${fi + 1} S${si + 1}] ${s}`);
@@ -523,6 +559,7 @@ function literalExcerpt(fragments, evidence) {
   const list = sentences(fragment?.content);
   const valid = fragment && Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end <= list.length && end - start <= 9;
   let excerpt = valid ? clean(list.slice(start, end).join(" ")) : clean(list.slice(0, Math.min(3, list.length)).join(" "));
+  excerpt = excerptWithoutSponsor(excerpt, fragment);
   if (excerpt.length > 1800) excerpt = `${excerpt.slice(0, 1799).replace(/\s+\S*$/, "").trim()}…`;
   return {
     excerpt: excerpt || undefined,

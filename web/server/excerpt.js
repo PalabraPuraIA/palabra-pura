@@ -5,6 +5,42 @@
 
 const normalize = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
 
+const SPONSOR_NEAR_SECONDS = 90;
+const SPONSOR_MARK = /este programa (te )?llega|apoyo financiero de los miembros/i;
+
+export function excerptIsNearSponsorIntro(fragment, text) {
+  const blob = String(text || fragment?.content || "");
+  if (!SPONSOR_MARK.test(blob)) return false;
+  if (!fragment) return true;
+  const start = Number(fragment.start_second);
+  const pos = Number(fragment.position);
+  if (Number.isFinite(start) && start <= SPONSOR_NEAR_SECONDS) return true;
+  if (Number.isFinite(pos) && pos <= 1) return true;
+  return false;
+}
+
+export function stripSponsorIntro(text) {
+  const raw = normalize(text);
+  if (!raw || !SPONSOR_MARK.test(raw)) return raw;
+  const startMatch = raw.match(/este programa (te )?llega a ti/i);
+  if (!startMatch) {
+    return raw.replace(/gracias al apoyo financiero de los miembros[^.]{0,280}\.?/i, " ").replace(/\s+/g, " ").trim();
+  }
+  const from = startMatch.index ?? 0;
+  const after = raw.slice(from);
+  const endMatch = after.match(/c[oó]digo qr(?:[\s\S]{0,480}?\bbendiciones\b)?|\bbendiciones\b/i);
+  const end = endMatch ? from + endMatch.index + endMatch[0].length : from + Math.min(after.length, 480);
+  return `${raw.slice(0, from)} ${raw.slice(end)}`.replace(/\s+/g, " ").trim();
+}
+
+function excerptWithoutSponsor(excerpt, fragment) {
+  if (!excerptIsNearSponsorIntro(fragment, excerpt || fragment?.content)) return excerpt;
+  const cleaned = stripSponsorIntro(excerpt);
+  if (cleaned && cleaned.length >= 40) return cleaned;
+  const rest = transcriptSentences(stripSponsorIntro(fragment?.content || "")).slice(0, 3).join(" ");
+  return normalize(rest) || cleaned || excerpt;
+}
+
 export function transcriptSentences(content) {
   const raw = normalize(content);
   if (!raw) return [];
@@ -104,7 +140,7 @@ export function selectLiteralExcerpt(fragments, question, evidence) {
   const sentences = transcriptSentences(fragment?.content);
   const start = selection.start_sentence - 1;
   const end = Math.min(selection.end_sentence, start + 9);
-  let excerpt = normalize(sentences.slice(start, end).join(" "));
+  let excerpt = excerptWithoutSponsor(normalize(sentences.slice(start, end).join(" ")), fragment);
 
   // Límite de visualización/almacenamiento, cortando solo al final de oración.
   if (excerpt.length > 1800) {

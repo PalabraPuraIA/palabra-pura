@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   formatFragmentsForModel,
   selectLiteralExcerpt,
+  stripSponsorIntro,
   transcriptSentences,
 } from "./excerpt.js";
 
@@ -36,6 +37,26 @@ test("extracts the exact LLM-selected sentence range", () => {
   );
   assert.ok(fragments[0].content.includes(result.excerpt));
   assert.equal(result.retrieval.strategy, "llm-sentence-range");
+});
+
+test("omits the church sponsor bumper only from an opening excerpt", () => {
+  const intro =
+    "Este programa llega a ti Gracias al apoyo financiero de los miembros y amigos de iglesia palabra pura blaz que están alrededor del mundo tú también puedes ser parte de nuestra iglesia desde cualquier ciudad país o continente si deseas más información escanea este código QR bienvenidos somos los pastores Rafael y Adriana lemes del ministerio palabra pura blaz somos un ministerio que busca que a través de la siguiente enseñanza aprendas a recibir lo que Jesucristo ganó en la cruz por ti y para ti bendiciones Entonces les dice juzguen la y señore en los peces del mar";
+  const cleaned = stripSponsorIntro(intro);
+  assert.match(cleaned, /Entonces les dice juzguen/);
+  assert.doesNotMatch(cleaned, /apoyo financiero/i);
+  assert.doesNotMatch(cleaned, /este programa llega/i);
+
+  const later = selectLiteralExcerpt([
+    { id: 11, position: 11, start_second: 1600, title: "Globalismo", content: intro },
+  ], "globalismo", { fragment: 1, start_sentence: 1, end_sentence: 1 });
+  assert.match(later.excerpt, /apoyo financiero/i);
+
+  const opening = selectLiteralExcerpt([
+    { id: 12, position: 0, start_second: 1, title: "Globalismo", content: intro },
+  ], "globalismo", { fragment: 1, start_sentence: 1, end_sentence: 1 });
+  assert.doesNotMatch(opening.excerpt, /apoyo financiero/i);
+  assert.match(opening.excerpt, /Entonces les dice juzguen/);
 });
 
 test("falls back to a literal term-density window for invalid evidence", () => {

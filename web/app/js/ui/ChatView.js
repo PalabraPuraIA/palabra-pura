@@ -7,8 +7,8 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js?v=paid-cta-7";
-import { isShopRecommendation } from "./shopCart.js?v=paid-cta-7";
+import { renderSourceCard } from "./SourceCard.js?v=paid-cta-8";
+import { isShopRecommendation } from "./shopCart.js?v=paid-cta-8";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {

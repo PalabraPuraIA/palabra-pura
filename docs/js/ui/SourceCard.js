@@ -12,7 +12,8 @@ import {
   getPreferredBibleVersion,
   versionIdFromLabel,
 } from "../utils/bibleVersion.js";
-import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-7";
+import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-8";
+import { excerptIsNearSponsorIntro, stripSponsorIntro } from "../utils/sponsorIntro.js?v=paid-cta-8";
 
 const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M9 8.5v7l6-3.5-6-3.5Z" fill="currentColor"/></svg>`;
 const CTA_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5Z" fill="currentColor"/></svg>`;
@@ -146,7 +147,8 @@ function renderPassages(passage, passages, demo) {
 }
 
 function renderExcerpt(excerpt) {
-  const text = String(excerpt ?? "").trim();
+  const raw = String(excerpt ?? "").trim();
+  const text = excerptIsNearSponsorIntro(null, raw) ? stripSponsorIntro(raw) : raw;
   if (!text) return "";
   return `
     <section class="source__panel source__panel--excerpt" aria-label="Fragmento de la transcripción">
