@@ -369,6 +369,7 @@ async function recommendShopTeachings(question: string, searchQ: string, embStr:
       if (row.item.kind === "video" && picked[prev].kind !== "video") picked[prev] = row.item;
       continue;
     }
+    if (/metamorfosis/i.test(row.item.title) && !shopAllowsMetamorfosis(question)) continue;
     seen.set(key, picked.length);
     picked.push(row.item);
     if (picked.length >= 4) break;
@@ -666,11 +667,28 @@ async function expandAdjacent(seeds, radius = 1, max = CONTEXT_MAX) {
 const TITLE_STOP = new Set([
   "que", "de", "la", "el", "los", "las", "un", "una", "del", "para", "por", "con",
   "como", "sobre", "serie", "habla", "ensena", "ensenanza", "ensenanzas", "parte",
-  "video", "cual", "cuales", "hay", "esta", "este", "esto", "the", "dice", "dices",
+  "video", "audio", "cual", "cuales", "hay", "esta", "este", "esto", "the", "dice", "dices",
 ]);
 
 function titleTokens(s: string) {
   return norm(s).split(/[^a-z0-9]+/).filter((w) => w.length >= 4 && !TITLE_STOP.has(w));
+}
+
+function titleTokenHit(qWord: string, titleWord: string) {
+  if (qWord === titleWord) return true;
+  // Evita que "amor"/"forma" disparen "Metamorfosis".
+  if (qWord.length >= 8 && titleWord.length >= 8 && (titleWord.includes(qWord) || qWord.includes(titleWord))) {
+    return true;
+  }
+  return false;
+}
+
+function namesPaidTeaching(question: string) {
+  return /metamorfosis|audio\s*38|ense[nñ]anza\s*0*38|038\s*-?\s*audio/i.test(String(question || ""));
+}
+
+function shopAllowsMetamorfosis(question: string) {
+  return /metamorfosis|renovar (la )?mente|renovaci[oó]n de la mente|pensamiento|imaginaci[oó]n/i.test(String(question || ""));
 }
 
 async function findVideosByTitle(question: string) {
@@ -683,7 +701,7 @@ async function findVideosByTitle(question: string) {
   const scored = [];
   for (const v of data) {
     const t = titleTokens(v.title || "");
-    const matched = qTokens.filter((w) => t.some((x) => x === w || x.includes(w) || w.includes(x)));
+    const matched = qTokens.filter((w) => t.some((x) => titleTokenHit(w, x)));
     const hits = matched.length;
     const distinctive = matched.some((w) => w.length >= 8);
     if (qTokens.length >= 2 && hits < 2 && !distinctive) continue;
@@ -745,7 +763,10 @@ async function retrieveVideoFragments(embStr, question = "") {
   const seeds = filtered.slice(0, SEED_LIMIT);
   const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 160);
   const expanded = seeds.length ? await expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX) : [];
-  const titled = await findVideosByTitle(question);
+  const titled = (await findVideosByTitle(question)).filter((video) => {
+    if (!/metamorfosis|audio38meta|local-metamorfosis/i.test(`${video.title} ${video.youtube_id}`)) return true;
+    return namesPaidTeaching(question);
+  });
   const fromTitle = titled.length ? await fragmentsFromVideos(titled) : [];
   if (fromTitle.length) return fromTitle.slice(0, CONTEXT_MAX);
   return expanded;
@@ -897,7 +918,7 @@ Deno.serve(async (req)=>{
     const titledPaid = [];
     for (const video of await findVideosByTitle(question)) {
       const offer = await paidOfferFor(video.youtube_id);
-      if (offer) titledPaid.push({ video, offer });
+      if (offer && namesPaidTeaching(question)) titledPaid.push({ video, offer });
     }
     if (titledPaid.length) {
       let paidFrags = await fragmentsFromVideos(titledPaid.map((row) => row.video));
@@ -921,7 +942,7 @@ Deno.serve(async (req)=>{
     }
     const allFrags = await retrieveVideoFragments(embStr, question);
     const paidTop = allFrags[0] ? await paidOfferFor(allFrags[0].youtube_id) : null;
-    if (paidTop) {
+    if (paidTop && namesPaidTeaching(question)) {
       const paidFrags = (allFrags || []).filter((row) => row.youtube_id === allFrags[0].youtube_id);
       return json(await answerPaidTeaching(question, prior, searchQ, allFrags[0], paidTop, paidFrags));
     }
@@ -970,7 +991,7 @@ Deno.serve(async (req)=>{
       }
     }
     const paidDoc = docs.find((d: { category?: string }) => String(d.category || "") === "paid");
-    if (paidDoc) {
+    if (paidDoc && namesPaidTeaching(question)) {
       const offer = await paidOfferFor("audio38meta") || await paidOfferFor("local-metamorfosis-d0ja5w");
       if (offer) {
         const titled = await findVideosByTitle(paidDoc.title || question);
