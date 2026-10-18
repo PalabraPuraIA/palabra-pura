@@ -7,7 +7,7 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js?v=paid-cta-1";
+import { renderSourceCard } from "./SourceCard.js?v=paid-cta-2";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
@@ -128,10 +128,10 @@ export class ChatView {
     const lifePromise = response.lifeArea?.promise
       ? `<p class="msg__life-promise"><strong>${escapeHtml(response.lifeArea.label)}:</strong> ${escapeHtml(response.lifeArea.promise)}</p>`
       : "";
-    const answerLabel = isOfferOnly ? "Contenido de pago" : isVideo ? "En pocas palabras" : "Explicación";
+    const answerLabel = isOfferOnly ? "Explicación" : isVideo ? "En pocas palabras" : "Explicación";
     const answerHint =
-      hasPaidCta && isOfferOnly
-        ? `<p class="msg__hint">Esta enseñanza es de pago. Usa el botón para adquirirla.</p>`
+      hasPaidCta
+        ? `<p class="msg__hint">Respuesta breve. Para más información, adquiere la enseñanza completa.</p>`
         : isVideo && response.excerpt
         ? `<p class="msg__hint">Resumen corto.</p>`
         : isVideo && hasVerses

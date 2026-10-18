@@ -40,6 +40,16 @@ Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capit
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 En "evidence", elige un rango continuo de oraciones numeradas que sustente la respuesta.
 Responde SOLO con el objeto JSON, sin texto adicional.`;
+
+const SYSTEM_PAID = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
+Responde UNICAMENTE con base en las transcripciones que se te entregan.
+Tono: amable, cercano y claro. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
+Esta ensenanza es de pago: da una respuesta breve y util (3 a 5 frases) que conteste la pregunta. No copies la ensenanza completa, no enumeres todos los puntos y no transcribas el audio.
+No menciones compra, tienda ni enlaces; el sistema anade esa invitacion.
+Si el contexto NO habla de lo preguntado, responde EXACTAMENTE con: {"found": false}
+Si SI puedes orientar con lo que hay, responde con:
+{"found": true, "answer": "respuesta breve de 3 a 5 frases", "reference": "referencia biblica si aparece en el contexto, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 2}}
+Responde SOLO con el objeto JSON, sin texto adicional.`;
 // Segunda etapa: contexto biblico ampliado (capitulo completo via parent-child).
 const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega. Si el contexto no contiene la respuesta, dilo con claridad y no inventes nada.
@@ -252,15 +262,23 @@ function offerFields(
   };
 }
 
-/** Si la enseñanza está marcada de pago, no se recita: solo invitación + enlace. */
-function paidPayload(
+function isPaidGateFact(fact: { factTitle?: string; answer?: string } | null) {
+  if (!fact) return false;
+  return /metamorfosis|ense[nñ]anza de pago/i.test(`${fact.factTitle || ""} ${fact.answer || ""}`);
+}
+
+function withPaidOffer(
+  answer: string,
   video: { title?: string; youtube_id?: string; episode?: number },
   offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
 ) {
   const fields = offerFields(video, offer);
   const link = fields.url ? ` ${fields.url}` : "";
+  const body = sanitizeAnswer(answer) ||
+    `Puedo orientarte en lo esencial. El desarrollo completo está en «${fields.title}».`;
+  const cta = `Para más información, adquiere la enseñanza completa «${fields.title}» en la tienda de la iglesia.${link}`;
   return {
-    answer: `«${fields.title}» es una enseñanza de pago del ministerio. No puedo entregarte su contenido aquí; para escucharla completa, adquiérela en la tienda de la iglesia.${link}`,
+    answer: `${body}\n\n${cta}`,
     source: "oferta",
     offer: fields,
     video: {
@@ -270,6 +288,25 @@ function paidPayload(
       start_second: 0,
     },
   };
+}
+
+async function answerPaidTeaching(
+  question: string,
+  prior: string,
+  searchQ: string,
+  video: { title?: string; youtube_id?: string; episode?: number },
+  offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
+  fragments: { title?: string; episode?: number; content?: string; youtube_id?: string }[],
+) {
+  let answer = "";
+  if (fragments.length) {
+    const vid = await askLLM(
+      SYSTEM_PAID,
+      `${prior}Contexto de la ensenanza (solo para una respuesta breve):\n${numberedFragments(fragments)}\n\nPregunta actual: ${question}`,
+    );
+    if (vid.found && vid.answer) answer = sanitizeAnswer(vid.answer ?? "");
+  }
+  return attachLifeContext(withPaidOffer(answer, video, offer), searchQ);
 }
 
 const SOFT_NOT_FOUND_RE =
@@ -653,31 +690,41 @@ Deno.serve(async (req)=>{
     const embedding = await embedQuery(searchQ);
     const embStr = JSON.stringify(embedding); // halfvec como texto "[...]"
     const factHit = await findMinistryFact(question);
-    if (factHit) {
-      const factOffer =
-        (await paidOfferFor("audio38meta")) ||
-        (await paidOfferFor("local-metamorfosis-d0ja5w"));
-      const factLooksPaid = /ense[nñ]anza de pago|metamorfosis/i.test(
-        String(factHit.factTitle || factHit.answer || ""),
-      );
-      if (factOffer && factLooksPaid) {
-        return json(await attachLifeContext(paidPayload({ title: factHit.factTitle || "METAMORFOSIS - 038" }, factOffer), searchQ));
-      }
+    if (factHit && !isPaidGateFact(factHit)) {
       return json(await attachLifeContext(factHit, searchQ));
     }
     const docs = await findKnowledgeDocs(embStr);
     // ========== 1) VIDEOS primero ==========
-    const titledPaid = await findVideosByTitle(question);
-    for (const video of titledPaid) {
+    const titledPaid = [];
+    for (const video of await findVideosByTitle(question)) {
       const offer = await paidOfferFor(video.youtube_id);
-      if (offer) {
-        return json(await attachLifeContext(paidPayload(video, offer), searchQ));
+      if (offer) titledPaid.push({ video, offer });
+    }
+    if (titledPaid.length) {
+      let paidFrags = await fragmentsFromVideos(titledPaid.map((row) => row.video));
+      const usable = (paidFrags || []).some((f) =>
+        String(f.content || "").length > 120 && !/adqui[eé]rela|ense[nñ]anza de pago/i.test(String(f.content || "")),
+      );
+      if (!usable) {
+        const retrieved = await retrieveVideoFragments(embStr, question);
+        const ids = new Set(titledPaid.map((row) => row.video.youtube_id));
+        const fromIndex = (retrieved || []).filter((row) => ids.has(row.youtube_id));
+        if (fromIndex.length) paidFrags = fromIndex;
       }
+      return json(await answerPaidTeaching(
+        question,
+        prior,
+        searchQ,
+        titledPaid[0].video,
+        titledPaid[0].offer,
+        paidFrags,
+      ));
     }
     const allFrags = await retrieveVideoFragments(embStr, question);
     const paidTop = allFrags[0] ? await paidOfferFor(allFrags[0].youtube_id) : null;
     if (paidTop) {
-      return json(await attachLifeContext(paidPayload(allFrags[0], paidTop), searchQ));
+      const paidFrags = (allFrags || []).filter((row) => row.youtube_id === allFrags[0].youtube_id);
+      return json(await answerPaidTeaching(question, prior, searchQ, allFrags[0], paidTop, paidFrags));
     }
     const paidIds = new Set();
     for (const row of allFrags || []) {
@@ -727,7 +774,10 @@ Deno.serve(async (req)=>{
     if (paidDoc) {
       const offer = await paidOfferFor("audio38meta") || await paidOfferFor("local-metamorfosis-d0ja5w");
       if (offer) {
-        return json(await attachLifeContext(paidPayload({ title: paidDoc.title }, offer), searchQ));
+        const titled = await findVideosByTitle(paidDoc.title || question);
+        const video = titled[0] || { title: paidDoc.title };
+        const paidFrags = titled.length ? await fragmentsFromVideos(titled) : [];
+        return json(await answerPaidTeaching(question, prior, searchQ, video, offer, paidFrags));
       }
     }
     if (docs.length) {

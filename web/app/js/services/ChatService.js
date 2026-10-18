@@ -17,8 +17,9 @@ const MAX_HISTORY = 12;
 const SESSION_KEY = "pp-chat-session";
 
 function inferPaidOffer(data) {
+  if (data?.offer && (data.offer.url || data.offer.label)) return null;
   const text = String(data?.answer || data?.text || "");
-  if (!/ense[nñ]anza de pago/i.test(text)) return null;
+  if (!/adquiere la ense[nñ]anza|ense[nñ]anza de pago/i.test(text)) return null;
   const urlMatch = text.match(/https?:\/\/[^\s<>"']+/);
   const titleMatch = text.match(/[«"]([^»"]+)[»"]/);
   return {
@@ -26,12 +27,6 @@ function inferPaidOffer(data) {
     url: urlMatch ? urlMatch[0].replace(/[.,;]+$/, "") : "",
     label: "Adquirir esta enseñanza",
   };
-}
-
-function paidOfferAnswer(offer) {
-  const title = offer?.title || "Esta enseñanza";
-  const url = String(offer?.url || "").trim();
-  return `«${title}» es una enseñanza de pago del ministerio. No puedo entregarte su contenido aquí; para escucharla completa, adquiérela en la tienda de la iglesia.${url ? ` ${url}` : ""}`;
 }
 
 function newSessionId() {
@@ -176,12 +171,9 @@ export class ChatService {
         }
       : inferPaidOffer(data);
     const isPaid = Boolean(offer);
-    const answer = isPaid
-      ? paidOfferAnswer(offer)
-      : (data.answer ?? data.text ?? "");
 
     return {
-      answer,
+      answer: data.answer ?? data.text ?? "",
       excerpt: isPaid ? undefined : data.excerpt ?? undefined,
       passage: isPaid ? undefined : data.passage ?? undefined,
       passages: isPaid ? undefined : data.passages ?? undefined,

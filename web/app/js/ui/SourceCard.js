@@ -211,7 +211,7 @@ function renderOffer(offer) {
       <h3 class="source__panel-title">Enseñanza de pago</h3>
       <div class="source__block">
         <p class="source__video-title">${escapeHtml(offer.title || "Esta enseñanza")}</p>
-        <p class="source__video-hint">El chat no entrega esta enseñanza. Ábrela en la tienda de la iglesia para adquirirla.</p>
+        <p class="source__video-hint">Para más información, adquiere la enseñanza completa en la tienda de la iglesia.</p>
         ${link}
       </div>
     </section>`;
@@ -239,7 +239,7 @@ export function renderSourceCard({ passage, passages, video, excerpt, source, of
           : source === "dato"
             ? `<p class="source__origin">Dato verificado de la base de conocimientos del ministerio.</p>`
             : source === "oferta"
-              ? `<p class="source__origin">Respuesta breve; la enseñanza completa está en la página de la iglesia.</p>`
+              ? `<p class="source__origin">Respuesta breve; para más información adquiere la enseñanza en la página de la iglesia.</p>`
               : "";
 
   return `<div class="source">${origin}${transcript}${verses}${vid}${buy}</div>`;
