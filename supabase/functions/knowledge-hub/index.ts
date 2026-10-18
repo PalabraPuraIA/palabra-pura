@@ -49,6 +49,19 @@ function parseAliases(raw: unknown) {
   return [...new Set(list.filter((a) => a.length >= 2))].slice(0, 24);
 }
 
+function sourceKey(raw: string) {
+  const yt = youtubeId(raw);
+  if (yt) return yt;
+  const t = String(raw || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+  return t;
+}
+
 function youtubeId(raw: string) {
   const text = String(raw || "").trim();
   const m = text.match(
@@ -597,8 +610,98 @@ async function ingestVideo(body: Record<string, unknown>) {
   }
 }
 
+async function indexTranscript(body: Record<string, unknown>) {
+  const title = String(body.title || "").trim() || "Audio";
+  const sourceId = sourceKey(String(body.youtube_id || body.source_id || title)) || `audio-${Date.now().toString(36)}`;
+  const episode = Number(body.episode) || episodeFromTitle(title);
+  const rawSegs = Array.isArray(body.segments) ? body.segments : [];
+  const segments = rawSegs
+    .map((row) => {
+      const item = row as { start?: number; start_second?: number; text?: string; content?: string };
+      return {
+        start: Number(item.start ?? item.start_second) || 0,
+        text: String(item.text || item.content || "").trim(),
+      };
+    })
+    .filter((row) => row.text);
+  const chunks = chunkSegments(segments);
+  if (!chunks.length) return json({ ok: false, error: "la transcripción quedó vacía" }, 400);
+
+  const upsert = await supabase
+    .from("video")
+    .upsert({
+      youtube_id: sourceId,
+      title,
+      ...(episode != null ? { episode } : {}),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "youtube_id" })
+    .select("id,youtube_id,title")
+    .single();
+  if (upsert.error) return json({ ok: false, error: upsert.error.message }, 500);
+  const videoId = upsert.data.id as number;
+
+  await supabase.from("fragment").delete().eq("video_id", videoId);
+  for (let i = 0; i < chunks.length; i++) {
+    const embedding = await embedDocument(chunks[i].content);
+    const inserted = await supabase.from("fragment").insert({
+      video_id: videoId,
+      position: i,
+      content: chunks[i].content,
+      embedding,
+      start_second: chunks[i].start_second,
+      word_count: chunks[i].word_count,
+    });
+    if (inserted.error) return json({ ok: false, error: inserted.error.message }, 500);
+    if (i % 5 === 4) await new Promise((r) => setTimeout(r, 350));
+  }
+
+  const access = body.access_mode === "paid" ? "paid" : "free";
+  const offer = await supabase.from("content_offer").upsert({
+    youtube_id: sourceId,
+    video_id: videoId,
+    title,
+    access_mode: access,
+    offer_url: String(body.offer_url || "").trim().slice(0, 400) || null,
+    offer_label: String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Comprar esta enseñanza" : null),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "youtube_id" }).select("*").single();
+  if (offer.error) return json({ ok: false, error: offer.error.message }, 500);
+
+  return json({
+    ok: true,
+    video: upsert.data,
+    fragments: chunks.length,
+    offer: offer.data,
+  });
+}
+
+async function ingestAudio(body: Record<string, unknown>) {
+  const title = String(body.title || "").trim() || String(body.filename || "Audio").replace(/\.[^.]+$/, "");
+  let segments = Array.isArray(body.segments) ? body.segments : [];
+  const b64 = String(body.audioBase64 || "").replace(/\s+/g, "");
+  if (!segments.length && b64) {
+    const groq = Deno.env.get("GROQ_API_KEY") || "";
+    if (!groq) return json({ ok: false, error: "Falta GROQ_API_KEY para transcribir audio" }, 500);
+    let raw: string = b64;
+    const comma = raw.indexOf(",");
+    if (raw.startsWith("data:") && comma >= 0) raw = raw.slice(comma + 1);
+    const bin = Uint8Array.from(atob(raw), (c) => c.charCodeAt(0));
+    if (bin.byteLength > 22 * 1024 * 1024) {
+      return json({ ok: false, error: "El archivo supera 22 MB. Enseñas largas hay que transcribirlas por partes." }, 400);
+    }
+    segments = await transcribeGroqBytes(bin, groq, String(body.filename || "audio.mp3"));
+  }
+  return indexTranscript({
+    ...body,
+    title,
+    youtube_id: body.youtube_id || body.source_id || title,
+    segments,
+  });
+}
+
 async function setVideoAccess(body: Record<string, unknown>) {
-  const id = contentId(String(body.youtube_id || body.url || ""));
+  const id = contentId(String(body.youtube_id || body.url || body.source_id || ""))
+    || sourceKey(String(body.youtube_id || body.url || body.source_id || ""));
   if (!id) return json({ ok: false, error: "youtube_id requerido" }, 400);
   const access = body.access_mode === "paid" ? "paid" : "free";
   const offer_url = String(body.offer_url || "").trim().slice(0, 400) || null;
@@ -648,7 +751,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (action === "queueVideo" || action === "ingestVideo") return await ingestVideo(body);
-    if (action === "ingestAudio") return await ingestAudio(body);
+    if (action === "ingestAudio" || action === "ingestTranscript") return await ingestAudio(body);
     if (action === "importTranscriptChunks") return await importTranscriptChunks(body);
     if (action === "setVideoAccess") return await setVideoAccess(body);
     if (action === "exportTextPage") return json(await exportTextPage(body));

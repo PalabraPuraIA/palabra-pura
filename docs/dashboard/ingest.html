@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-compact-10" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-audio-3" />
 </head>
 <body>
   <div class="wrap wrap--wide dash-compact">
@@ -78,6 +78,7 @@
         <section class="card kb-panel" data-ingest-panel="file" hidden>
           <div class="kb-panel__head">
             <h2>Archivo de audio o video</h2>
+            <p class="card__hint">Audios cortos (hasta 22 MB) se transcriben en la nube. Uno de una hora hay que partirlo.</p>
           </div>
           <div class="kb-panel__scroll">
             <form class="ingest-form" data-ingest-form-file>
@@ -87,7 +88,11 @@
               </label>
               <label class="field">
                 <span>Archivo</span>
-                <input type="file" name="file" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mkv" required />
+                <input type="file" name="file" accept="audio/*,video/*,.mp3,.m4a,.wav,.ogg,.mpeg,.mp4,.webm,.mkv" required />
+              </label>
+              <label class="catalog-pick-label">
+                <input class="catalog-pick" type="checkbox" name="paid" />
+                Enseñanza de pago
               </label>
               <div class="form-actions">
                 <button class="btn btn--primary" type="submit" data-submit-file>Indexar archivo</button>
@@ -128,6 +133,6 @@
       </div>
     </div>
   </div>
-  <script type="module" src="./ingest-page.js?v=kb-compact-10"></script>
+  <script type="module" src="./ingest-page.js?v=kb-audio-3"></script>
 </body>
 </html>

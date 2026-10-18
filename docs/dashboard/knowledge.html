@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-audio-1" />
+  <link rel="stylesheet" href="./dashboard.css?v=kb-audio-3" />
 </head>
 <body>
   <div class="wrap wrap--wide dash-compact">
@@ -222,17 +222,21 @@
         <section class="card kb-panel" data-kb-panel="audio" hidden>
           <div class="kb-panel__head">
             <h2>Subir audio para indexar</h2>
-            <p class="card__hint">Se transcribe e indexa en la nube de Palabra Pura. Luego aparece en el catálogo.</p>
+            <p class="card__hint">Audios cortos (hasta 22 MB) se transcriben aquí. Uno largo, como una hora, se parte y se indexa en la nube.</p>
           </div>
           <div class="kb-panel__scroll">
             <form class="ingest-form" data-audio-form>
               <label class="field">
                 <span>Título</span>
-                <input type="text" name="title" maxlength="200" placeholder="Ej. Metamorfosis" required />
+                <input type="text" name="title" maxlength="200" placeholder="Ej. Metamorfosis — 038" required />
               </label>
               <label class="field">
                 <span>Archivo de audio</span>
-                <input type="file" name="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm" required />
+                <input type="file" name="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm,.mpeg" required />
+              </label>
+              <label class="catalog-pick-label">
+                <input class="catalog-pick" type="checkbox" name="paid" />
+                Enseñanza de pago
               </label>
               <div class="form-actions">
                 <button class="btn btn--primary" type="submit" data-audio-submit>Indexar audio</button>
@@ -246,6 +250,6 @@
 
     <p class="foot" data-generated></p>
   </div>
-  <script type="module" src="./knowledge.js?v=kb-audio-2"></script>
+  <script type="module" src="./knowledge.js?v=kb-audio-3"></script>
 </body>
 </html>

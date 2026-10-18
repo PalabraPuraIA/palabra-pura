@@ -849,6 +849,7 @@ async function onAudioSubmit(event) {
       filename: file.name,
       mime: file.type || "audio/mpeg",
       audioBase64,
+      access_mode: form.paid?.checked ? "paid" : "free",
     });
     form.reset();
     const n = data.fragments || data.job?.fragments_created || 0;

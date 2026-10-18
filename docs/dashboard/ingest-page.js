@@ -20,6 +20,32 @@ async function hub(action, extra = {}) {
   return data;
 }
 
+async function waitForJob(jobId, onProgress) {
+  const started = Date.now();
+  while (Date.now() - started < 240000) {
+    const data = await hub("list");
+    const job = (data.jobs || []).find((j) => Number(j.id) === Number(jobId));
+    if (job && typeof onProgress === "function") onProgress(job);
+    if (job?.status === "done") return job;
+    if (job?.status === "error") throw new Error(job.error || "Error al indexar");
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+  throw new Error("Sigue indexando. Mira la cola en un minuto.");
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const comma = result.indexOf(",");
+      resolve(comma >= 0 ? result.slice(comma + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.readAsDataURL(file);
+  });
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -131,10 +157,18 @@ async function submitYoutube(ev) {
   try {
     if (ON_PAGES) {
       const data = await hub("ingestVideo", { url, title });
+      let job = data.job;
+      if (data.started && job?.id) {
+        job = await waitForJob(job.id, (current) => {
+          msg.hidden = false;
+          msg.className = "form-msg form-msg--ok";
+          msg.textContent = current.progress || "Indexando…";
+        });
+      }
       form.reset();
       msg.hidden = false;
       msg.className = "form-msg form-msg--ok";
-      const n = data.job?.fragments_created || data.fragments || 0;
+      const n = job?.fragments_created || data.fragments || 0;
       msg.textContent = n
         ? `Listo. ${n} fragmentos en la nube.`
         : "Indexando en la nube. Mira la cola en un momento.";
@@ -179,9 +213,32 @@ async function submitFile(ev) {
     msg.textContent = "Elige un archivo.";
     return;
   }
+  if (ON_PAGES && file.size > 22 * 1024 * 1024) {
+    msg.hidden = false;
+    msg.className = "form-msg form-msg--err";
+    msg.textContent = "El archivo supera 22 MB. Un audio largo hay que partirlo antes de subirlo aquí.";
+    return;
+  }
   submitBtn.disabled = true;
   submitBtn.textContent = "Enviando…";
   try {
+    if (ON_PAGES) {
+      const audioBase64 = await readFileAsBase64(file);
+      const data = await hub("ingestAudio", {
+        title: title || file.name.replace(/\.[^.]+$/, ""),
+        filename: file.name,
+        mime: file.type || "audio/mpeg",
+        audioBase64,
+        access_mode: fd.get("paid") ? "paid" : "free",
+      });
+      form.reset();
+      msg.hidden = false;
+      msg.className = "form-msg form-msg--ok";
+      const n = data.fragments || data.job?.fragments_created || 0;
+      msg.textContent = `Listo. ${n} fragmentos en la nube.`;
+      refreshJobs();
+      return;
+    }
     const body = new FormData();
     if (title) body.append("title", title);
     body.append("file", file);
