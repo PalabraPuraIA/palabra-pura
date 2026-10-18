@@ -102,35 +102,16 @@ export function openChurchCart(rawIds) {
     .filter((id) => /^\d+$/.test(id));
   if (!ids.length) return false;
 
-  if (ids.length === 1) {
-    window.open(cartUrlForId(ids[0]), "_blank");
-    return true;
-  }
-
-  // WooCommerce solo toma un ID por visita. La primera va en el clic
-  // (gesto del usuario) y las demás entran a esa misma pestaña.
-  const named = window.open(cartUrlForId(ids[0]), CART_WINDOW);
-  if (!named) {
-    window.location.href = cartUrlForId(ids[0]);
-    return false;
-  }
+  // WooCommerce solo toma un ID por visita. Abrimos una pestaña
+  // y vamos agregando en esa misma ventana, sin salir del chat.
+  const first = window.open(cartUrlForId(ids[0]), CART_WINDOW);
+  if (!first) return false;
+  if (ids.length === 1) return true;
 
   let step = 1;
   const tick = () => {
-    const form = document.createElement("form");
-    form.method = "GET";
-    form.action = CHURCH_CART;
-    form.target = CART_WINDOW;
-    form.style.display = "none";
-    if (step < ids.length) {
-      const input = document.createElement("input");
-      input.name = "add-to-cart";
-      input.value = ids[step];
-      form.appendChild(input);
-    }
-    document.body.appendChild(form);
-    form.submit();
-    form.remove();
+    const next = step < ids.length ? cartUrlForId(ids[step]) : CHURCH_CART;
+    window.open(next, CART_WINDOW);
     step += 1;
     if (step <= ids.length) window.setTimeout(tick, 1400);
   };
