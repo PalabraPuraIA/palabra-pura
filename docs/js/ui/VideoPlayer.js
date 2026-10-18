@@ -4,7 +4,7 @@
  */
 
 import { escapeHtml, formatTimestamp, buildYouTubeEmbedUrl, isPlayableYouTubeId } from "../utils/format.js";
-import { renderShopOfferPanel } from "./shopCart.js?v=paid-cta-4";
+import { renderShopOfferPanel } from "./shopCart.js?v=paid-cta-5";
 
 export class VideoPlayer {
   #root;
@@ -120,6 +120,7 @@ export class VideoPlayer {
     this.#meta.innerHTML = "";
     this.#stage.hidden = true;
     this.#empty.hidden = true;
+    this.#empty.innerHTML = "";
     this.#root.hidden = false;
     this.#root.dataset.hasVideo = "false";
     this.#setHead("En la tienda", "Ábrela en el carrito de la iglesia");

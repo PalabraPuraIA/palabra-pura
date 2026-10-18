@@ -103,27 +103,20 @@ export function openChurchCart(rawIds) {
   if (!ids.length) return false;
 
   if (ids.length === 1) {
-    window.open(cartUrlForId(ids[0]), "_blank", "noopener");
+    window.open(cartUrlForId(ids[0]), "_blank");
     return true;
   }
 
-  const named = window.open("about:blank", CART_WINDOW);
+  // WooCommerce solo toma un ID por visita. La primera va en el clic
+  // (gesto del usuario) y las demás entran a esa misma pestaña.
+  const named = window.open(cartUrlForId(ids[0]), CART_WINDOW);
   if (!named) {
-    window.open(cartUrlForId(ids[0]), "_blank", "noopener");
+    window.location.href = cartUrlForId(ids[0]);
     return false;
   }
-  try {
-    named.document.write(
-      "<!doctype html><title>Carrito</title><p style='font-family:Poppins,sans-serif;padding:16px'>Agregando las enseñanzas al carrito…</p>",
-    );
-    named.document.close();
-  } catch {
-    /* la ventana puede volverse de otro origen después */
-  }
 
-  let step = 0;
+  let step = 1;
   const tick = () => {
-    if (step > ids.length) return;
     const form = document.createElement("form");
     form.method = "GET";
     form.action = CHURCH_CART;
@@ -139,8 +132,8 @@ export function openChurchCart(rawIds) {
     form.submit();
     form.remove();
     step += 1;
-    if (step <= ids.length) window.setTimeout(tick, 1200);
+    if (step <= ids.length) window.setTimeout(tick, 1400);
   };
-  tick();
+  window.setTimeout(tick, 1400);
   return true;
 }
