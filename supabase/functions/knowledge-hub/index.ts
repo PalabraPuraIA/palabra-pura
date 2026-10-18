@@ -302,6 +302,103 @@ async function saveDocument(body: Record<string, unknown>) {
   return json({ ok: true, document: inserted.data, chunks: chunks.length });
 }
 
+function shopDocContent(product: Record<string, unknown>) {
+  const title = String(product.name || product.title || "").trim();
+  const kind = String(product.kind || "audio").trim();
+  const cats = Array.isArray(product.categories) ? product.categories.map((c) => String(c || "").trim()).filter(Boolean) : [];
+  const desc = String(product.description || "").replace(/\s+/g, " ").trim();
+  const price = Number(product.price || 0);
+  const cart = String(product.cart || "").trim();
+  const permalink = String(product.permalink || "").trim();
+  const featured = product.featured ? "si" : "no";
+  const author = String(product.author || "").trim();
+  return [
+    `SHOP_ID: ${product.id || ""}`,
+    `TIPO: ${kind}`,
+    `TEMAS: ${cats.join(", ")}`,
+    author ? `AUTOR: ${author}` : "",
+    `PRECIO: ${price}`,
+    `DESTACADA: ${featured}`,
+    cart ? `CARRITO: ${cart}` : "",
+    permalink ? `PRODUCTO: ${permalink}` : "",
+    "",
+    desc,
+  ].filter((line) => line !== "").join("\n");
+}
+
+function shopAuthor(categories: string[], title: string) {
+  const blob = `${categories.join(" ")} ${title}`;
+  if (/adriana/i.test(blob)) return "Pastora Adriana Lemes";
+  if (/rafael/i.test(blob)) return "Pastor Rafael Lemes";
+  return "";
+}
+
+function isFeaturedShop(product: Record<string, unknown>) {
+  const title = String(product.name || product.title || "");
+  const cats = Array.isArray(product.categories) ? product.categories.join(" ") : "";
+  const rating = Number(product.average_rating || 0);
+  if (rating >= 4.5) return true;
+  if (/metamorfosis|fe nuestra base|globalismo|perd[oó]n|últimos tiempos|ultimos tiempos|nacer de nuevo/i.test(title)) return true;
+  if (/serie/i.test(title) && /rafael|adriana/i.test(cats) && String(product.kind) === "video") return true;
+  return false;
+}
+
+async function importShopCatalog(body: Record<string, unknown>) {
+  const products = Array.isArray(body.products) ? body.products : [];
+  if (!products.length) return json({ ok: false, error: "products requerido" }, 400);
+  if (body.replace) {
+    const old = await supabase.from("knowledge_document").select("id").eq("category", "tienda");
+    for (const row of old.data || []) {
+      await supabase.from("knowledge_document").delete().eq("id", row.id);
+    }
+  }
+  let saved = 0;
+  const errors: string[] = [];
+  for (const raw of products.slice(0, 25)) {
+    const product = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+    const title = String(product.name || product.title || "").trim().slice(0, 200);
+    if (title.length < 2) continue;
+    const cats = Array.isArray(product.categories) ? product.categories.map((c) => String(c || "")) : [];
+    product.author = product.author || shopAuthor(cats, title);
+    product.featured = isFeaturedShop(product);
+    const content = shopDocContent(product);
+    const sourceName = `shop:${product.id || title}`.slice(0, 160);
+    const existing = await supabase.from("knowledge_document").select("id").eq("source_name", sourceName).maybeSingle();
+    if (existing.data?.id) {
+      await supabase.from("knowledge_document").delete().eq("id", existing.data.id);
+    }
+    const inserted = await supabase
+      .from("knowledge_document")
+      .insert({
+        title,
+        content,
+        category: "tienda",
+        source_name: sourceName,
+        chunk_count: 1,
+      })
+      .select("id")
+      .single();
+    if (inserted.error) {
+      errors.push(`${title}: ${inserted.error.message}`);
+      continue;
+    }
+    const embedding = await embedDocument(`${title}. ${cats.join(", ")}. ${String(product.description || "").slice(0, 800)}`);
+    const chunk = await supabase.from("knowledge_doc_chunk").insert({
+      document_id: inserted.data.id,
+      chunk_pos: 0,
+      content,
+      embedding,
+    });
+    if (chunk.error) {
+      errors.push(`${title}: ${chunk.error.message}`);
+      continue;
+    }
+    saved += 1;
+    await new Promise((r) => setTimeout(r, 180));
+  }
+  return json({ ok: true, saved, errors: errors.slice(0, 8) });
+}
+
 async function markJob(
   jobId: number,
   fields: Record<string, unknown>,
@@ -675,7 +772,7 @@ async function indexTranscript(body: Record<string, unknown>) {
   });
 }
 
-async function ingestAudio(body: Record<string, unknown>) {
+async function ingestTranscript(body: Record<string, unknown>) {
   const title = String(body.title || "").trim() || String(body.filename || "Audio").replace(/\.[^.]+$/, "");
   let segments = Array.isArray(body.segments) ? body.segments : [];
   const b64 = String(body.audioBase64 || "").replace(/\s+/g, "");
@@ -744,6 +841,7 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (action === "saveDocument") return await saveDocument(body);
+    if (action === "importShopCatalog") return await importShopCatalog(body);
     if (action === "deleteDocument") {
       const id = Number(body.id);
       const { error } = await supabase.from("knowledge_document").delete().eq("id", id);
@@ -751,7 +849,8 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
     if (action === "queueVideo" || action === "ingestVideo") return await ingestVideo(body);
-    if (action === "ingestAudio" || action === "ingestTranscript") return await ingestAudio(body);
+    if (action === "ingestAudio") return await ingestAudio(body);
+    if (action === "ingestTranscript") return await ingestTranscript(body);
     if (action === "importTranscriptChunks") return await importTranscriptChunks(body);
     if (action === "setVideoAccess") return await setVideoAccess(body);
     if (action === "exportTextPage") return json(await exportTextPage(body));

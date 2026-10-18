@@ -7,7 +7,7 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js?v=paid-cta-2";
+import { renderSourceCard } from "./SourceCard.js?v=paid-cta-3";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
@@ -123,7 +123,7 @@ export class ChatView {
     const showLabel = Boolean(sources) || hasAnswer;
     const isVideo = response.source === "video" && response.video;
     const isOfferOnly = response.source === "oferta";
-    const hasPaidCta = Boolean(response.offer);
+    const hasPaidCta = Boolean(response.offer || (Array.isArray(response.offers) && response.offers.length));
     const hasVerses = Boolean(response.passage?.reference || response.passages?.length);
     const lifePromise = response.lifeArea?.promise
       ? `<p class="msg__life-promise"><strong>${escapeHtml(response.lifeArea.label)}:</strong> ${escapeHtml(response.lifeArea.promise)}</p>`

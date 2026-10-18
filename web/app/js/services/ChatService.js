@@ -187,6 +187,14 @@ export class ChatService {
       knowledgeId: data.knowledgeId ?? undefined,
       fromKnowledge: Boolean(data.fromKnowledge),
       offer: offer || undefined,
+      offers: Array.isArray(data.offers) && data.offers.length
+        ? data.offers.map((item) => ({
+            title: item.title || offer?.title || "Esta enseñanza",
+            url: String(item.url || "").trim(),
+            label: item.label || "Adquirir esta enseñanza",
+            hint: item.hint || "",
+          }))
+        : undefined,
       articles: Array.isArray(data.articles) ? data.articles : undefined,
     };
   }

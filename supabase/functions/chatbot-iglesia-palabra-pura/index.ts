@@ -235,7 +235,160 @@ async function findKnowledgeDocs(embStr: string) {
     match_count: 4,
   });
   if (error || !data?.length) return [];
-  return data.filter((row: { similarity?: number }) => Number(row.similarity) >= 0.62);
+  return data.filter((row: { similarity?: number; category?: string }) =>
+    Number(row.similarity) >= 0.62 && String(row.category || "") !== "tienda",
+  );
+}
+
+const SHOP_RECOMMEND_RE =
+  /recomend|recomien|suger[ií]|alguna ense[nñ]anza|alguna serie|qu[eé] ense[nñ]anzas|qu[eé] series|ense[nñ]anzas (de |sobre |para |de pago)|series (de |sobre )|ense[nñ]anza me recomend|para (comprar|adquirir) (una )?ense[nñ]anza|de la tienda|ense[nñ]anza de pago/i;
+
+const SHOP_TOPICS: { key: string; labels: string[]; words: RegExp }[] = [
+  { key: "fe", labels: ["fe"], words: /\bfe\b|creer|confianza/i },
+  { key: "matrimonio", labels: ["matrimonio", "relaciones", "familia"], words: /matrimonio|pareja|espos|relaciones|familia|hijas|hijos/i },
+  { key: "finanzas", labels: ["finanzas", "diezmo", "prosperidad"], words: /finanz|diezmo|dinero|prosper|ricos|provisi[oó]n/i },
+  { key: "ultimos", labels: ["últimos tiempos", "globalismo"], words: /[uú]ltimos tiempos|globalismo|rapto|dispensaci[oó]n|herodes|jerusalem|israel/i },
+  { key: "obediencia", labels: ["obediencia"], words: /obedienc|sumisi[oó]n|verdad/i },
+  { key: "perdon", labels: ["perdón", "relaciones"], words: /perd[oó]n|ofensa|rencor/i },
+  { key: "sanidad", labels: ["sanidad"], words: /sanidad|sanar|enfermedad/i },
+  { key: "mente", labels: ["metamorfosis", "imaginación"], words: /mente|metamorfosis|pensamiento|imaginaci[oó]n|renovaci[oó]n/i },
+  { key: "espiritu", labels: ["espíritu santo"], words: /esp[ií]ritu santo|ungimiento|dones/i },
+];
+
+function parseShopDoc(row: { title?: string; content?: string }) {
+  const content = String(row.content || "");
+  const field = (name: string) => {
+    const m = content.match(new RegExp(`^${name}:\\s*(.+)$`, "im"));
+    return m ? m[1].trim() : "";
+  };
+  const descLines: string[] = [];
+  let pastHeaders = false;
+  for (const line of content.split("\n")) {
+    if (!pastHeaders && /^[A-ZÁÉÍÓÚÜÑ_]+:/.test(line)) continue;
+    pastHeaders = true;
+    if (line.trim()) descLines.push(line.trim());
+  }
+  const desc = descLines.join(" ").replace(/\s+/g, " ").trim();
+  return {
+    title: String(row.title || "").trim(),
+    kind: field("TIPO") || "audio",
+    topics: field("TEMAS"),
+    author: field("AUTOR"),
+    price: Number(field("PRECIO") || 0),
+    featured: /^si$/i.test(field("DESTACADA")),
+    cart: field("CARRITO"),
+    product: field("PRODUCTO"),
+    description: desc,
+  };
+}
+
+function shopBaseTitle(title: string) {
+  return title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\(?(serie[- ]?)?(video|audio)\)?/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function scoreShopItem(question: string, item: ReturnType<typeof parseShopDoc>) {
+  const q = question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const blob = `${item.title} ${item.topics} ${item.author} ${item.description}`.toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  let score = 0;
+  const tokens = q.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+  for (const w of tokens) {
+    if (blob.includes(w)) score += w.length >= 8 ? 6 : 3;
+  }
+  for (const topic of SHOP_TOPICS) {
+    if (topic.words.test(question) && topic.labels.some((l) => blob.includes(l.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()))) {
+      score += 10;
+      if (topic.labels.some((l) => item.title.toLowerCase().includes(l.toLowerCase()))) score += 8;
+    }
+  }
+  if (item.featured) score += 4;
+  if (item.kind === "video") score += 1;
+  if (/serie/i.test(item.title)) score += 2;
+  return score;
+}
+
+function shopOffer(item: ReturnType<typeof parseShopDoc>) {
+  return {
+    title: item.title,
+    url: item.cart || item.product || "",
+    label: "Adquirir esta enseñanza",
+    hint: item.description.slice(0, 180),
+  };
+}
+
+async function recommendShopTeachings(question: string, searchQ: string, embStr: string) {
+  const { data } = await supabase
+    .from("knowledge_document")
+    .select("id,title,content,source_name")
+    .eq("status", "active")
+    .eq("category", "tienda")
+    .limit(400);
+  const items = (data || []).map(parseShopDoc).filter((item) => item.title && item.cart);
+  const topicAsked = SHOP_TOPICS.some((t) => t.words.test(question));
+  let ranked = items
+    .map((item) => ({ item, score: scoreShopItem(question, item) }))
+    .sort((a, b) => b.score - a.score);
+  if (!topicAsked) {
+    ranked = ranked.filter((row) => row.item.featured || row.score >= 6);
+  } else {
+    ranked = ranked.filter((row) => row.score >= 6);
+  }
+  if (!ranked.length) {
+    const { data: hits } = await supabase.rpc("match_knowledge_chunks", {
+      query_embedding: embStr,
+      match_count: 10,
+    });
+    const shopHits = (hits || []).filter((row: { category?: string; similarity?: number }) =>
+      row.category === "tienda" && Number(row.similarity) >= 0.55,
+    );
+    const byTitle = new Map(items.map((item) => [item.title, item]));
+    ranked = shopHits
+      .map((row: { title?: string; similarity?: number }) => {
+        const item = byTitle.get(String(row.title || ""));
+        return item ? { item, score: Number(row.similarity) * 20 } : null;
+      })
+      .filter(Boolean) as { item: ReturnType<typeof parseShopDoc>; score: number }[];
+  }
+  if (!ranked.length) {
+    ranked = items.filter((item) => item.featured).map((item) => ({ item, score: 8 }));
+  }
+  const picked: ReturnType<typeof parseShopDoc>[] = [];
+  const seen = new Map<string, number>();
+  for (const row of ranked) {
+    const key = shopBaseTitle(row.item.title);
+    const prev = seen.get(key);
+    if (prev != null) {
+      if (row.item.kind === "video" && picked[prev].kind !== "video") picked[prev] = row.item;
+      continue;
+    }
+    seen.set(key, picked.length);
+    picked.push(row.item);
+    if (picked.length >= 4) break;
+  }
+  if (!picked.length) return null;
+  const offers = picked.map(shopOffer);
+  const lines = picked.map((item, i) => {
+    const why = item.description
+      ? item.description.slice(0, 160)
+      : `Una enseñanza de pago de la tienda${item.author ? `, de ${item.author}` : ""}.`;
+    return `${i + 1}. «${item.title}» — ${why}${item.cart ? ` ${item.cart}` : ""}`;
+  });
+  const topic = SHOP_TOPICS.find((t) => t.words.test(question));
+  const intro = topic
+    ? `Estas enseñanzas de pago de la tienda de la iglesia encajan con lo que preguntas:`
+    : `Si quieres una enseñanza de pago para profundizar, estas están entre las más recomendables de la tienda:`;
+  return attachLifeContext({
+    answer: `${intro}\n\n${lines.join("\n\n")}\n\nPara más información, adquiere la que te resuene en el carrito de la iglesia.`,
+    source: "oferta",
+    offer: offers[0],
+    offers,
+  }, searchQ);
 }
 
 async function paidOfferFor(youtubeId?: string | null) {
@@ -694,6 +847,10 @@ Deno.serve(async (req)=>{
     const factHit = await findMinistryFact(question);
     if (factHit && !isPaidGateFact(factHit)) {
       return json(await attachLifeContext(factHit, searchQ));
+    }
+    if (SHOP_RECOMMEND_RE.test(question)) {
+      const recs = await recommendShopTeachings(question, searchQ, embStr);
+      if (recs) return json(recs);
     }
     const docs = await findKnowledgeDocs(embStr);
     // ========== 1) VIDEOS primero ==========
