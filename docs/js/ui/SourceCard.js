@@ -201,17 +201,17 @@ function renderVideo(video) {
 
 function renderOffer(offer) {
   if (!offer) return "";
-  const label = offer.label || "Seguir leyendo en la página de la iglesia";
+  const label = offer.label || "Adquirir esta enseñanza";
   const url = String(offer.url || "").trim();
   const link = url
     ? `<a class="source__cta source__cta--link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`
     : `<p class="source__video-hint">${escapeHtml(label)}</p>`;
   return `
-    <section class="source__panel source__panel--offer" aria-label="Seguir leyendo">
-      <h3 class="source__panel-title">Seguir leyendo</h3>
+    <section class="source__panel source__panel--offer" aria-label="Adquirir enseñanza">
+      <h3 class="source__panel-title">Enseñanza de pago</h3>
       <div class="source__block">
         <p class="source__video-title">${escapeHtml(offer.title || "Esta enseñanza")}</p>
-        <p class="source__video-hint">Para la enseñanza completa, ve a la página de la iglesia y adquiérela.</p>
+        <p class="source__video-hint">El chat no entrega esta enseñanza. Ábrela en la tienda de la iglesia para adquirirla.</p>
         ${link}
       </div>
     </section>`;

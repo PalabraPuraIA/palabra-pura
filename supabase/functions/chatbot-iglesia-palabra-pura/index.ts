@@ -244,7 +244,7 @@ function offerFields(
   offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
 ) {
   const title = offer.title || video.title || "esta enseñanza";
-  const label = offer.offer_label || "Seguir leyendo en la página de la iglesia";
+  const label = offer.offer_label || "Adquirir esta enseñanza";
   return {
     title,
     url: offer.offer_url || "",
@@ -252,27 +252,23 @@ function offerFields(
   };
 }
 
-/** Respuesta normal + CTA de compra (no oculta la explicación). */
-function withPaidOffer(
-  payload: Record<string, unknown>,
+/** Si la enseñanza está marcada de pago, no se recita: solo invitación + enlace. */
+function paidPayload(
+  video: { title?: string; youtube_id?: string; episode?: number },
   offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
-  video?: { title?: string; youtube_id?: string; episode?: number },
 ) {
-  const fields = offerFields((video || payload.video || {}) as { title?: string; youtube_id?: string; episode?: number }, offer);
-  const base = String(payload.answer || "").trim();
-  const alreadyCta = /para seguir leyendo/i.test(base) || (fields.url && base.includes(fields.url));
-  const cta = fields.url
-    ? `Para seguir leyendo «${fields.title}», ve a la página de la iglesia: ${fields.url}`
-    : `Para seguir leyendo «${fields.title}», adquiérela en la página de la iglesia.`;
-  const answer = base
-    ? alreadyCta
-      ? base
-      : `${base}\n\n${cta}`
-    : cta;
+  const fields = offerFields(video, offer);
+  const link = fields.url ? ` ${fields.url}` : "";
   return {
-    ...payload,
-    answer,
+    answer: `«${fields.title}» es una enseñanza de pago del ministerio. No puedo entregarte su contenido aquí; para escucharla completa, adquiérela en la tienda de la iglesia.${link}`,
+    source: "oferta",
     offer: fields,
+    video: {
+      title: video.title,
+      episode: video.episode,
+      youtube_id: video.youtube_id,
+      start_second: 0,
+    },
   };
 }
 
@@ -449,7 +445,8 @@ function titleTokens(s: string) {
 
 async function findVideosByTitle(question: string) {
   const qTokens = titleTokens(question);
-  if (qTokens.length < 2) return [];
+  if (!qTokens.length) return [];
+  if (qTokens.length < 2 && qTokens[0].length < 8) return [];
   const { data, error } = await supabase.from("video").select("id,title,youtube_id,episode").limit(400);
   if (error || !data?.length) return [];
   const qParte = question.match(/parte\s*0*(\d+)/i);
@@ -457,7 +454,8 @@ async function findVideosByTitle(question: string) {
   for (const v of data) {
     const t = titleTokens(v.title || "");
     const hits = qTokens.filter((w) => t.some((x) => x === w || x.includes(w) || w.includes(x))).length;
-    if (hits < 2) continue;
+    if (qTokens.length >= 2 && hits < 2) continue;
+    if (qTokens.length < 2 && hits < 1) continue;
     let score = hits;
     const tParte = String(v.title || "").match(/parte\s*0*(\d+)/i);
     if (qParte && tParte && qParte[1] === tParte[1]) score += 4;
@@ -655,10 +653,38 @@ Deno.serve(async (req)=>{
     const embedding = await embedQuery(searchQ);
     const embStr = JSON.stringify(embedding); // halfvec como texto "[...]"
     const factHit = await findMinistryFact(question);
-    if (factHit) return json(await attachLifeContext(factHit, searchQ));
+    if (factHit) {
+      const factOffer =
+        (await paidOfferFor("audio38meta")) ||
+        (await paidOfferFor("local-metamorfosis-d0ja5w"));
+      const factLooksPaid = /ense[nñ]anza de pago|metamorfosis/i.test(
+        String(factHit.factTitle || factHit.answer || ""),
+      );
+      if (factOffer && factLooksPaid) {
+        return json(await attachLifeContext(paidPayload({ title: factHit.factTitle || "METAMORFOSIS - 038" }, factOffer), searchQ));
+      }
+      return json(await attachLifeContext(factHit, searchQ));
+    }
     const docs = await findKnowledgeDocs(embStr);
     // ========== 1) VIDEOS primero ==========
-    const fragMatches = await retrieveVideoFragments(embStr, question);
+    const titledPaid = await findVideosByTitle(question);
+    for (const video of titledPaid) {
+      const offer = await paidOfferFor(video.youtube_id);
+      if (offer) {
+        return json(await attachLifeContext(paidPayload(video, offer), searchQ));
+      }
+    }
+    const allFrags = await retrieveVideoFragments(embStr, question);
+    const paidTop = allFrags[0] ? await paidOfferFor(allFrags[0].youtube_id) : null;
+    if (paidTop) {
+      return json(await attachLifeContext(paidPayload(allFrags[0], paidTop), searchQ));
+    }
+    const paidIds = new Set();
+    for (const row of allFrags || []) {
+      if (!row?.youtube_id || paidIds.has(row.youtube_id)) continue;
+      if (await paidOfferFor(row.youtube_id)) paidIds.add(row.youtube_id);
+    }
+    const fragMatches = (allFrags || []).filter((row) => !paidIds.has(row.youtube_id));
     const tips = relatedSuggestions(fragMatches, 6);
     if (fragMatches && fragMatches.length > 0) {
       const context = numberedFragments(fragMatches);
@@ -678,7 +704,7 @@ Deno.serve(async (req)=>{
         const selected = literalExcerpt(fragMatches, vid.evidence);
         const top = selected.fragment;
         const passage = await resolvePassage(vid.reference);
-        let payload = await attachLifeContext({
+        const payload = await attachLifeContext({
           answer: sanitizeAnswer(vid.answer ?? ""),
           passage: passage ? {
             ...passage,
@@ -694,27 +720,35 @@ Deno.serve(async (req)=>{
           },
           source: "video"
         }, searchQ);
-        const paid = await paidOfferFor(top?.youtube_id);
-        if (paid) payload = withPaidOffer(payload, paid, top);
         return json(payload);
       }
     }
+    const paidDoc = docs.find((d: { category?: string }) => String(d.category || "") === "paid");
+    if (paidDoc) {
+      const offer = await paidOfferFor("audio38meta") || await paidOfferFor("local-metamorfosis-d0ja5w");
+      if (offer) {
+        return json(await attachLifeContext(paidPayload({ title: paidDoc.title }, offer), searchQ));
+      }
+    }
     if (docs.length) {
-      const docContext = docs
-        .map((d: { title?: string; content?: string }) => `Documento «${d.title}»:\n${d.content}`)
-        .join("\n\n---\n\n");
-      const doc = await askLLM(
-        SYSTEM_BIBLE,
-        `${prior}Informacion verificada del ministerio:\n${docContext}\n\nPregunta actual: ${question}`,
-      );
-      const answer = sanitizeAnswer(doc.answer ?? "");
-      if (answer && !SOFT_NOT_FOUND_RE.test(answer)) {
-        return json(await attachLifeContext({
-          answer,
-          source: "dato",
-          fromKnowledge: true,
-          factTitle: docs[0]?.title,
-        }, searchQ));
+      const freeDocs = docs.filter((d: { category?: string }) => String(d.category || "") !== "paid");
+      if (freeDocs.length) {
+        const docContext = freeDocs
+          .map((d: { title?: string; content?: string }) => `Documento «${d.title}»:\n${d.content}`)
+          .join("\n\n---\n\n");
+        const doc = await askLLM(
+          SYSTEM_BIBLE,
+          `${prior}Informacion verificada del ministerio:\n${docContext}\n\nPregunta actual: ${question}`,
+        );
+        const answer = sanitizeAnswer(doc.answer ?? "");
+        if (answer && !SOFT_NOT_FOUND_RE.test(answer)) {
+          return json(await attachLifeContext({
+            answer,
+            source: "dato",
+            fromKnowledge: true,
+            factTitle: freeDocs[0]?.title,
+          }, searchQ));
+        }
       }
     }
     // ========== 2) BIBLIA (solo si el video NO respondio) ==========

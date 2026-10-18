@@ -662,7 +662,7 @@ async function indexTranscript(body: Record<string, unknown>) {
     title,
     access_mode: access,
     offer_url: String(body.offer_url || "").trim().slice(0, 400) || null,
-    offer_label: String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Comprar esta enseñanza" : null),
+    offer_label: String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Adquirir esta enseñanza" : null),
     updated_at: new Date().toISOString(),
   }, { onConflict: "youtube_id" }).select("*").single();
   if (offer.error) return json({ ok: false, error: offer.error.message }, 500);
@@ -705,7 +705,7 @@ async function setVideoAccess(body: Record<string, unknown>) {
   if (!id) return json({ ok: false, error: "youtube_id requerido" }, 400);
   const access = body.access_mode === "paid" ? "paid" : "free";
   const offer_url = String(body.offer_url || "").trim().slice(0, 400) || null;
-  const offer_label = String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Seguir leyendo en la página de la iglesia" : null);
+  const offer_label = String(body.offer_label || "").trim().slice(0, 80) || (access === "paid" ? "Adquirir esta enseñanza" : null);
   const title = String(body.title || "").trim() || null;
   const videoId = Number(body.video_id || 0) || null;
   const row = {

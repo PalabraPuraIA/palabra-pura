@@ -16,6 +16,24 @@ const NETWORK_ERROR_MESSAGE =
 const MAX_HISTORY = 12;
 const SESSION_KEY = "pp-chat-session";
 
+function inferPaidOffer(data) {
+  const text = String(data?.answer || data?.text || "");
+  if (!/ense[nñ]anza de pago/i.test(text)) return null;
+  const urlMatch = text.match(/https?:\/\/[^\s<>"']+/);
+  const titleMatch = text.match(/[«"]([^»"]+)[»"]/);
+  return {
+    title: data.factTitle || data.video?.title || titleMatch?.[1] || "Esta enseñanza",
+    url: urlMatch ? urlMatch[0].replace(/[.,;]+$/, "") : "",
+    label: "Adquirir esta enseñanza",
+  };
+}
+
+function paidOfferAnswer(offer) {
+  const title = offer?.title || "Esta enseñanza";
+  const url = String(offer?.url || "").trim();
+  return `«${title}» es una enseñanza de pago del ministerio. No puedo entregarte su contenido aquí; para escucharla completa, adquiérela en la tienda de la iglesia.${url ? ` ${url}` : ""}`;
+}
+
 function newSessionId() {
   return `pp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -150,19 +168,33 @@ export class ChatService {
   #normalize(data) {
     if (typeof data === "string") return { answer: data };
 
+    const offer = data.offer && (data.offer.url || data.offer.label)
+      ? {
+          title: data.offer.title || data.video?.title || "Esta enseñanza",
+          url: String(data.offer.url || "").trim(),
+          label: data.offer.label || "Adquirir esta enseñanza",
+        }
+      : inferPaidOffer(data);
+    const isPaid = Boolean(offer);
+    const answer = isPaid
+      ? paidOfferAnswer(offer)
+      : (data.answer ?? data.text ?? "");
+
     return {
-      answer: data.answer ?? data.text ?? "",
-      excerpt: data.excerpt ?? undefined,
-      passage: data.passage ?? undefined,
-      passages: data.passages ?? undefined,
-      video: data.video ?? undefined,
-      source: data.source ?? undefined,
-      suggestions: Array.isArray(data.suggestions) ? data.suggestions : undefined,
+      answer,
+      excerpt: isPaid ? undefined : data.excerpt ?? undefined,
+      passage: isPaid ? undefined : data.passage ?? undefined,
+      passages: isPaid ? undefined : data.passages ?? undefined,
+      video: isPaid
+        ? { title: offer.title, youtube_id: data.video?.youtube_id, episode: data.video?.episode, start_second: 0 }
+        : data.video ?? undefined,
+      source: isPaid ? "oferta" : data.source ?? undefined,
+      suggestions: isPaid ? undefined : (Array.isArray(data.suggestions) ? data.suggestions : undefined),
       lifeArea: data.lifeArea ?? undefined,
       mode: data.mode ?? undefined,
       knowledgeId: data.knowledgeId ?? undefined,
       fromKnowledge: Boolean(data.fromKnowledge),
-      offer: data.offer ?? undefined,
+      offer: offer || undefined,
       articles: Array.isArray(data.articles) ? data.articles : undefined,
     };
   }
