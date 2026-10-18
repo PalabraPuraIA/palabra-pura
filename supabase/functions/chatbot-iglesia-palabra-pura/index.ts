@@ -490,8 +490,10 @@ async function findVideosByTitle(question: string) {
   const scored = [];
   for (const v of data) {
     const t = titleTokens(v.title || "");
-    const hits = qTokens.filter((w) => t.some((x) => x === w || x.includes(w) || w.includes(x))).length;
-    if (qTokens.length >= 2 && hits < 2) continue;
+    const matched = qTokens.filter((w) => t.some((x) => x === w || x.includes(w) || w.includes(x)));
+    const hits = matched.length;
+    const distinctive = matched.some((w) => w.length >= 8);
+    if (qTokens.length >= 2 && hits < 2 && !distinctive) continue;
     if (qTokens.length < 2 && hits < 1) continue;
     let score = hits;
     const tParte = String(v.title || "").match(/parte\s*0*(\d+)/i);
