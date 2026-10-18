@@ -1,4 +1,4 @@
-import { adminFetch } from "./admin-boot.js";
+import { adminFetch } from "./admin-boot.js?v=kb-audio-5";
 
 const TOPIC_LABELS = {
   fe: "Fe y confianza",

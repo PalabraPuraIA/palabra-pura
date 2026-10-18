@@ -1,7 +1,7 @@
 /**
  * admin-boot.js — Exige sesión antes de cargar el panel y cablea "Salir".
  */
-import { ensureAdminSession, logout, authFetch, apiUrl } from "../js/auth-client.js";
+import { ensureAdminSession, logout, authFetch, apiUrl } from "../js/auth-client.js?v=kb-audio-5";
 
 // En Pages, apunta al túnel Fintek si hay config.
 if (/github\.io$/i.test(location.hostname)) {

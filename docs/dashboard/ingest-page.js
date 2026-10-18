@@ -1,4 +1,4 @@
-import { adminFetch } from "./admin-boot.js";
+import { adminFetch } from "./admin-boot.js?v=kb-audio-5";
 
 const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
 const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
