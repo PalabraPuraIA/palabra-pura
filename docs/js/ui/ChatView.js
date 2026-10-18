@@ -7,7 +7,8 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js?v=paid-cta-3";
+import { renderSourceCard } from "./SourceCard.js?v=paid-cta-4";
+import { isShopRecommendation } from "./shopCart.js?v=paid-cta-4";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
@@ -124,14 +125,17 @@ export class ChatView {
     const isVideo = response.source === "video" && response.video;
     const isOfferOnly = response.source === "oferta";
     const hasPaidCta = Boolean(response.offer || (Array.isArray(response.offers) && response.offers.length));
+    const isShopRec = isShopRecommendation(response.offer, response.offers);
     const hasVerses = Boolean(response.passage?.reference || response.passages?.length);
     const lifePromise = response.lifeArea?.promise
       ? `<p class="msg__life-promise"><strong>${escapeHtml(response.lifeArea.label)}:</strong> ${escapeHtml(response.lifeArea.promise)}</p>`
       : "";
     const answerLabel = isOfferOnly ? "Explicación" : isVideo ? "En pocas palabras" : "Explicación";
     const answerHint =
-      hasPaidCta
-        ? `<p class="msg__hint">Respuesta breve. Para más información, adquiere la enseñanza completa.</p>`
+      isShopRec
+        ? `<p class="msg__hint">Puedes ver una sola o abrirlas todas juntas en el carrito.</p>`
+        : hasPaidCta
+        ? `<p class="msg__hint">Respuesta breve. Para más información, abre la enseñanza completa en el carrito.</p>`
         : isVideo && response.excerpt
         ? `<p class="msg__hint">Resumen corto.</p>`
         : isVideo && hasVerses

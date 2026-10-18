@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/layout.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/chat.css?v=hold-open-1" />
+  <link rel="stylesheet" href="./css/chat.css?v=shop-cart-1" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body>
@@ -83,8 +83,8 @@
       <aside class="sidebar" aria-label="Enseñanza y lecturas relacionadas">
         <section class="player" data-player aria-label="Reproductor de la enseñanza">
           <div class="player__head">
-            <p class="player__label">Enseñanza en video</p>
-            <p class="player__hint">Se abre cuando la respuesta cita un video</p>
+            <p class="player__label" data-player-label>Enseñanza en video</p>
+            <p class="player__hint" data-player-hint>Se abre cuando la respuesta cita un video</p>
           </div>
 
           <div class="player__empty" data-player-empty>
@@ -105,6 +105,8 @@
             </div>
             <div class="player__meta" data-player-meta></div>
           </div>
+
+          <div class="player__shop" data-player-shop hidden></div>
         </section>
 
         <section class="articles" data-articles aria-label="Artículos relacionados">
@@ -227,6 +229,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=paid-cta-3"></script>
+  <script type="module" src="./js/main.js?v=paid-cta-4"></script>
 </body>
 </html>

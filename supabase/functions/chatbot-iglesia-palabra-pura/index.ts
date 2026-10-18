@@ -241,7 +241,7 @@ async function findKnowledgeDocs(embStr: string) {
 }
 
 const SHOP_RECOMMEND_RE =
-  /recomend|recomien|suger[ií]|alguna ense[nñ]anza|alguna serie|qu[eé] ense[nñ]anzas|qu[eé] series|ense[nñ]anzas (de |sobre |para |de pago)|series (de |sobre )|ense[nñ]anza me recomend|para (comprar|adquirir) (una )?ense[nñ]anza|de la tienda|ense[nñ]anza de pago/i;
+  /recomend|recomien|suger[ií]|aconsej|alguna ense[nñ]anza|alguna serie|qu[eé] ense[nñ]anzas|qu[eé] series|ense[nñ]anzas (de |sobre |para )|series (de |sobre )|una ense[nñ]anza (de |sobre |para )|ense[nñ]anza me |para (comprar|adquirir)|de la tienda|qu[eé] (puedo|deber[ií]a) (ver|escuchar|estudiar)|busco (una )?ense[nñ]anza|quiero (una )?ense[nñ]anza/i;
 
 const SHOP_TOPICS: { key: string; labels: string[]; words: RegExp }[] = [
   { key: "fe", labels: ["fe"], words: /\bfe\b|creer|confianza/i },
@@ -317,8 +317,9 @@ function shopOffer(item: ReturnType<typeof parseShopDoc>) {
   return {
     title: item.title,
     url: item.cart || item.product || "",
-    label: "Adquirir esta enseñanza",
+    label: "Ver esta",
     hint: item.description.slice(0, 180),
+    kind: "tienda",
   };
 }
 
@@ -376,15 +377,15 @@ async function recommendShopTeachings(question: string, searchQ: string, embStr:
   const lines = picked.map((item, i) => {
     const why = item.description
       ? item.description.slice(0, 160)
-      : `Una enseñanza de pago de la tienda${item.author ? `, de ${item.author}` : ""}.`;
-    return `${i + 1}. «${item.title}» — ${why}${item.cart ? ` ${item.cart}` : ""}`;
+      : `Enseñanza de la iglesia${item.author ? `, de ${item.author}` : ""}.`;
+    return `${i + 1}. «${item.title}» — ${why}`;
   });
   const topic = SHOP_TOPICS.find((t) => t.words.test(question));
   const intro = topic
-    ? `Estas enseñanzas de pago de la tienda de la iglesia encajan con lo que preguntas:`
-    : `Si quieres una enseñanza de pago para profundizar, estas están entre las más recomendables de la tienda:`;
+    ? `Estas enseñanzas de la iglesia encajan con lo que preguntas:`
+    : `Estas son algunas enseñanzas de la iglesia que te pueden servir para profundizar:`;
   return attachLifeContext({
-    answer: `${intro}\n\n${lines.join("\n\n")}\n\nPara más información, adquiere la que te resuene en el carrito de la iglesia.`,
+    answer: `${intro}\n\n${lines.join("\n\n")}\n\nPuedes ver solo una, o abrirlas todas juntas en el carrito.`,
     source: "oferta",
     offer: offers[0],
     offers,
@@ -407,11 +408,12 @@ function offerFields(
   offer: { offer_url?: string | null; offer_label?: string | null; title?: string | null },
 ) {
   const title = offer.title || video.title || "esta enseñanza";
-  const label = offer.offer_label || "Adquirir esta enseñanza";
+  const label = offer.offer_label || "Ver en el carrito";
   return {
     title,
     url: offer.offer_url || "",
     label,
+    kind: "pago",
   };
 }
 

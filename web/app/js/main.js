@@ -12,13 +12,14 @@ import {
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
 
-import { ChatService } from "./services/ChatService.js?v=paid-cta-3";
+import { ChatService } from "./services/ChatService.js?v=paid-cta-4";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js?v=paid-cta-3";
+import { ChatView } from "./ui/ChatView.js?v=paid-cta-4";
 import { Composer } from "./ui/Composer.js";
 import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
-import { VideoPlayer } from "./ui/VideoPlayer.js";
+import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-4";
+import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-4";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { LifeAreasPanel } from "./ui/LifeAreasPanel.js?v=hold-open-1";
 import { LifeAreaService } from "./services/LifeAreaService.js?v=rate-life-1";
@@ -60,6 +61,13 @@ class App {
     );
 
     new ConnectModal(qs("[data-modal]"), qs("[data-connect-open]"));
+
+    document.addEventListener("click", (event) => {
+      const cartAll = event.target.closest("[data-cart-all]");
+      if (!cartAll) return;
+      event.preventDefault();
+      openChurchCart(String(cartAll.dataset.cartAll || ""));
+    });
 
     // Reproducir video, elegir sugerencia o cambiar versión bíblica
     qs("[data-messages]").addEventListener("click", (event) => {
@@ -139,8 +147,13 @@ class App {
         video: item.video || undefined,
         source: item.source || (item.video ? "video" : undefined),
       });
-      if (item.video?.youtube_id) {
-        this.#player.load(item.video, { autoplay: false });
+      if (item.video?.youtube_id || item.offer || item.offers?.length) {
+        this.#player.load(item.video, {
+          autoplay: false,
+          offer: item.offer,
+          offers: item.offers,
+          hideVideo: item.source === "oferta",
+        });
       }
       return;
     }
@@ -211,8 +224,13 @@ class App {
     this.#view.addBotMessage({ ...response, interactionId, question });
     this.#analytics.trackQuestion(question, response, interactionId);
 
-    if (response?.video?.youtube_id) {
-      this.#player.load(response.video, { autoplay: false });
+    if (response?.video?.youtube_id || response?.offer || response?.offers?.length) {
+      this.#player.load(response.video, {
+        autoplay: false,
+        offer: response.offer,
+        offers: response.offers,
+        hideVideo: response.source === "oferta",
+      });
     }
 
     this.#articlesPanel.render(articles, question);

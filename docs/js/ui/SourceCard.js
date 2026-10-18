@@ -12,6 +12,7 @@ import {
   getPreferredBibleVersion,
   versionIdFromLabel,
 } from "../utils/bibleVersion.js";
+import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-4";
 
 const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M9 8.5v7l6-3.5-6-3.5Z" fill="currentColor"/></svg>`;
 const CTA_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M8 5v14l11-7L8 5Z" fill="currentColor"/></svg>`;
@@ -199,30 +200,8 @@ function renderVideo(video) {
     </section>`;
 }
 
-function renderOffer(offer) {
-  if (!offer) return "";
-  const label = offer.label || "Adquirir esta enseñanza";
-  const url = String(offer.url || "").trim();
-  const hint = offer.hint
-    ? escapeHtml(String(offer.hint).slice(0, 180))
-    : "Para más información, adquiere la enseñanza completa en la tienda de la iglesia.";
-  const link = url
-    ? `<a class="source__cta source__cta--link" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`
-    : `<p class="source__video-hint">${escapeHtml(label)}</p>`;
-  return `
-    <section class="source__panel source__panel--offer" aria-label="Adquirir enseñanza">
-      <h3 class="source__panel-title">Enseñanza de pago</h3>
-      <div class="source__block">
-        <p class="source__video-title">${escapeHtml(offer.title || "Esta enseñanza")}</p>
-        <p class="source__video-hint">${hint}</p>
-        ${link}
-      </div>
-    </section>`;
-}
-
 function renderOffers(offer, offers) {
-  const list = Array.isArray(offers) && offers.length ? offers : (offer ? [offer] : []);
-  return list.filter(Boolean).map(renderOffer).join("");
+  return renderShopOfferPanel(offer, offers);
 }
 
 /**
@@ -246,8 +225,10 @@ export function renderSourceCard({ passage, passages, video, excerpt, source, of
           ? `<p class="source__origin">Basado en la enseñanza en audio del ministerio.</p>`
           : source === "dato"
             ? `<p class="source__origin">Dato verificado de la base de conocimientos del ministerio.</p>`
-            : source === "oferta"
-              ? `<p class="source__origin">Respuesta breve; para más información adquiere la enseñanza en la página de la iglesia.</p>`
+            : source === "oferta" && isShopRecommendation(offer, offers)
+              ? `<p class="source__origin">Recomendaciones de la tienda de la iglesia. Puedes ver una o abrirlas todas.</p>`
+              : source === "oferta"
+              ? `<p class="source__origin">Respuesta breve; para más información abre la enseñanza en la tienda de la iglesia.</p>`
               : "";
 
   return `<div class="source">${origin}${transcript}${verses}${vid}${buy}</div>`;
