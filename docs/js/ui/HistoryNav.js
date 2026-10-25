@@ -83,7 +83,10 @@ export class HistoryNav {
   }
 
   #syncBackdrop() {
-    if (!this.#backdrop) return;
-    this.#backdrop.hidden = !document.body.classList.contains("nav-open");
+    const open = document.body.classList.contains("nav-open");
+    if (this.#backdrop) this.#backdrop.hidden = !open;
+    document.querySelectorAll("[data-nav-toggle]").forEach((btn) => {
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
   }
 }

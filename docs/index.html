@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-2" />
-  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-3" />
+  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-3" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body class="app-shell">
@@ -39,8 +39,9 @@
 
   <div class="app">
     <header class="chat-top">
-      <button class="chat-top__menu" type="button" data-nav-toggle aria-label="Abrir historial">
-        <span></span><span></span><span></span>
+      <button class="chat-top__menu" type="button" data-nav-toggle aria-expanded="false" aria-label="Abrir historial">
+        <span class="chat-top__menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+        Historial
       </button>
       <h1>Pregúntale a <em>Blaze</em></h1>
     </header>
@@ -151,6 +152,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=chat-shell-1"></script>
+  <script type="module" src="./js/main.js?v=chat-shell-3"></script>
 </body>
 </html>
