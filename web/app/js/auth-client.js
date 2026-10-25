@@ -72,6 +72,9 @@ export async function ensureAdminSession() {
   if (typeof location !== "undefined" && /github\.io$/i.test(location.hostname)) {
     return true;
   }
+  if (String(token).startsWith("pp-panel.")) {
+    return true;
+  }
   try {
     const res = await fetch(apiUrl("/api/auth/me"), {
       headers: { Authorization: `Bearer ${token}` },
@@ -79,6 +82,8 @@ export async function ensureAdminSession() {
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) {
+      // Imagen vieja sin /api/auth/me: no expulsar la sesión local del panel.
+      if (res.status === 404) return true;
       clearToken();
       redirectToLogin();
       return false;

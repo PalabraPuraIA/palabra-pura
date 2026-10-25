@@ -1,4 +1,4 @@
-import "./admin-boot.js?v=kb-audio-5";
+import "./admin-boot.js?v=panel-login-1";
 
 const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
 const SUPABASE_ANON = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
