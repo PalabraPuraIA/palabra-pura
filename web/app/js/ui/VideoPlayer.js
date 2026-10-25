@@ -89,12 +89,18 @@ export class VideoPlayer {
     this.#frame?.removeAttribute("src");
     if (this.#meta) this.#meta.innerHTML = "";
     if (this.#stage) this.#stage.hidden = true;
-    if (this.#empty) this.#empty.hidden = true;
+    if (this.#empty) {
+      this.#empty.hidden = false;
+      this.#empty.innerHTML = `
+      <p class="player__empty-title">El video aparecerá aquí</p>
+      <p class="player__empty-text">Cuando la respuesta cite una enseñanza, podrás verla en este espacio desde el minuto exacto.</p>
+    `;
+    }
     if (this.#shop) {
       this.#shop.hidden = true;
       this.#shop.innerHTML = "";
     }
-    this.#root.hidden = true;
+    this.#root.hidden = false;
     this.#root.dataset.hasVideo = "false";
     this.#setHead("Enseñanza en video", "Se abre cuando la respuesta cita un video");
   }

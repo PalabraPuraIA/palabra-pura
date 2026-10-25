@@ -13,20 +13,24 @@ import {
 } from "./utils/bibleVersion.js";
 
 import { ChatService } from "./services/ChatService.js?v=paid-cta-8";
+import { ArticleService } from "./services/ArticleService.js";
 import { ChatView } from "./ui/ChatView.js?v=paid-cta-8";
 import { Composer } from "./ui/Composer.js?v=composer-mobile-2";
 import { ExampleChips } from "./ui/ExampleChips.js";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-8";
 import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
+import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { HistoryPanel } from "./ui/HistoryPanel.js?v=hist-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
 
 class App {
   #service = new ChatService();
+  #articles = new ArticleService();
   #analytics = new AnalyticsService();
   #view;
   #player;
+  #articlesPanel;
   #historyPanel;
   #chips;
   #busy = false;
@@ -35,6 +39,8 @@ class App {
     this.#view = new ChatView(qs("[data-messages]"));
     this.#player = new VideoPlayer(qs("[data-player]"));
     this.#player.clear();
+    this.#articlesPanel = new ArticlesPanel(qs("[data-articles]"));
+    this.#articlesPanel.clear();
     this.#historyPanel = new HistoryPanel(qs("[data-history]"), (question) =>
       this.#handleQuestion(question),
     );
@@ -200,8 +206,12 @@ class App {
     this.#view.addUserMessage(question);
     this.#historyPanel.add(question);
     this.#view.showTyping();
+    this.#articlesPanel.showLoading();
 
-    const response = await this.#service.ask(question);
+    const [response, articles] = await Promise.all([
+      this.#service.ask(question),
+      this.#articles.recommend(question),
+    ]);
 
     this.#view.hideTyping();
     const interactionId =
@@ -221,6 +231,8 @@ class App {
     } else {
       this.#player.clear();
     }
+
+    this.#articlesPanel.render(articles, question);
 
     this.#busy = false;
   }
