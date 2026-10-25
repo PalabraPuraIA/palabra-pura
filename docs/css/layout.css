@@ -201,8 +201,8 @@
   flex-direction: column;
   gap: var(--sp-2);
   min-width: 0;
-  height: min(760px, calc(100dvh - 96px));
-  max-height: calc(100dvh - 96px);
+  height: min(560px, calc(100dvh - 300px));
+  max-height: calc(100dvh - 120px);
   overflow-x: hidden;
   overflow-y: auto;
   /* En el borde, ceder el scroll a la página (evita el “pegado”). */
