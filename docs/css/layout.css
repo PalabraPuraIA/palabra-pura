@@ -568,28 +568,6 @@ body.nav-collapsed .nav {
   padding: 0 10px 12px;
 }
 
-/* ---------- Footer ---------- */
-.footer {
-  position: relative;
-  text-align: center;
-  padding: var(--sp-4) var(--sp-3) 24px;
-  margin-top: var(--sp-4);
-  background: var(--g-deep);
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  color: rgba(255, 255, 255, .72);
-  font-size: var(--t-sm);
-  overflow: hidden;
-}
-.footer::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: var(--g-warm);
-}
-.footer__name { color: var(--c-white); font-weight: 600; }
-.footer__note { margin-top: var(--sp-1); font-size: var(--t-xs); letter-spacing: .02em; }
-
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
   .wrap { width: 96vw; }
@@ -604,7 +582,6 @@ body.nav-collapsed .nav {
   .hero h1 { max-width: 14ch; }
   .hero p { display: none; }
   .panel { padding: var(--sp-3); }
-  .footer { padding: var(--sp-3) var(--sp-2) 20px; }
   .status-pill { padding: 5px 10px; }
 }
 
