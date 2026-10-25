@@ -5,8 +5,11 @@
 .chat {
   display: flex;
   flex-direction: column;
-  min-height: 520px;
-  max-height: calc(100vh - 84px);
+  position: sticky;
+  top: 76px;
+  height: min(760px, calc(100dvh - 96px));
+  min-height: 560px;
+  max-height: calc(100dvh - 96px);
   margin-top: 0;
   background: var(--g-surface);
   border: 1px solid var(--c-line);
@@ -1439,6 +1442,8 @@
 
 @media (max-width: 920px) {
   .chat {
+    position: static;
+    top: auto;
     height: min(70dvh, 640px);
     max-height: min(70dvh, 640px);
     min-height: 420px;

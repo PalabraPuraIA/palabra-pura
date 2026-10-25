@@ -189,19 +189,20 @@
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(300px, .88fr);
-  align-items: start;
+  align-items: stretch;
   gap: var(--sp-3);
   margin-top: var(--sp-1);
 }
 
 .sidebar {
   position: sticky;
-  top: 68px;
+  top: 76px;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
   min-width: 0;
-  max-height: calc(100vh - 84px);
+  height: min(760px, calc(100dvh - 96px));
+  max-height: calc(100dvh - 96px);
   overflow-x: hidden;
   overflow-y: auto;
   /* En el borde, ceder el scroll a la página (evita el “pegado”). */
