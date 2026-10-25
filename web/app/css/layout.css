@@ -2,8 +2,13 @@
    LAYOUT — contenedor, barra, hero, paneles, footer
    ============================================================ */
 .wrap {
-  width: min(1280px, 96vw);
-  margin-inline: auto;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+  padding: 0 16px 16px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 /* ---------- Shell tipo chat de IA ---------- */
@@ -17,13 +22,17 @@ body.app-shell {
 .app {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
 }
 
 .chat-top {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px 6px;
+  padding: 10px 16px 8px;
+  flex: none;
 }
 
 .chat-top h1 {
@@ -197,8 +206,15 @@ body.nav-collapsed .nav {
   overflow: hidden;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1100px) {
   .chat-top__menu { display: inline-flex; }
+  body.nav-open { overflow: hidden; }
+  body.nav-collapsed .nav {
+    width: min(280px, 86vw);
+    padding: 16px 12px 12px;
+    border-right: 1px solid var(--c-line);
+    overflow: auto;
+  }
   .nav {
     position: fixed;
     left: 0;
@@ -404,22 +420,23 @@ body.nav-collapsed .nav {
 /* ---------- Área de trabajo: chat + columna lateral ---------- */
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .88fr);
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 34%);
+  align-items: stretch;
   gap: var(--sp-3);
-  margin-top: var(--sp-1);
+  margin-top: 0;
+  height: calc(100dvh - 4.5rem);
+  min-height: 0;
 }
 
 .sidebar {
-  position: sticky;
-  top: 16px;
+  position: static;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
   min-width: 0;
-  height: calc(100dvh - 230px);
-  min-height: 460px;
-  max-height: calc(100dvh - 200px);
+  height: auto;
+  min-height: 0;
+  max-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
   /* En el borde, ceder el scroll a la página (evita el “pegado”). */
@@ -457,21 +474,23 @@ body.nav-collapsed .nav {
 .sidebar--media > .player,
 .sidebar--media > .articles { flex-shrink: 0; }
 
-/* En pantallas medianas/estrechas la columna lateral va debajo. */
+/* Tablet: el menú pasa a cajón; chat y video siguen en dos columnas si caben. */
 @media (max-width: 1100px) {
   .workspace {
-    grid-template-columns: minmax(0, 1.2fr) minmax(280px, .95fr);
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 32%);
   }
 }
 
-@media (max-width: 920px) {
+/* Celular y tablet angosta: video y artículos debajo del chat. */
+@media (max-width: 900px) {
+  .wrap { padding: 0 12px 12px; }
   .workspace {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
     gap: 12px;
   }
-  .chat {
-    order: 1;
-  }
+  .chat { order: 1; }
   .sidebar--media {
     order: 2;
     position: static;
@@ -485,7 +504,6 @@ body.nav-collapsed .nav {
     max-height: none;
     overflow: visible;
   }
-  .life-band { overflow-anchor: none; }
 }
 
 /* ---------- Paneles inferiores ---------- */
@@ -602,7 +620,9 @@ body.nav-collapsed .nav {
 
 /* ---------- Responsive ---------- */
 @media (max-width: 640px) {
-  .wrap { width: 96vw; }
+  .wrap { width: 100%; padding: 0 10px 10px; }
+  .chat-top { padding: 8px 10px 6px; }
+  .chat-top h1 { font-size: 1.05rem; }
   .topbar {
     padding: 8px 10px;
     border-radius: var(--r-lg);

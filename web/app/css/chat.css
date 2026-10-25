@@ -5,8 +5,9 @@
 .chat {
   display: flex;
   flex-direction: column;
-  min-height: 520px;
-  max-height: calc(100dvh - 5.5rem);
+  min-height: 0;
+  height: 100%;
+  max-height: none;
   margin-top: 0;
   background: var(--g-surface);
   border: 1px solid var(--c-line);
@@ -776,6 +777,7 @@
 /* En el sidebar el video no debe comerse toda la columna. */
 .sidebar .player {
   flex: 0 0 auto;
+  margin-top: 0;
 }
 
 .sidebar .player__frame-wrap {
@@ -803,9 +805,11 @@
 .player__label {
   font-weight: 700;
   font-size: var(--t-xs);
-  letter-spacing: .14em;
+  letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--c-ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .player__hint {
@@ -1228,9 +1232,11 @@
   margin: 0;
   font-weight: 700;
   font-size: var(--t-xs);
-  letter-spacing: .14em;
+  letter-spacing: .08em;
   text-transform: uppercase;
   color: var(--c-ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .articles__hub {
@@ -1551,36 +1557,44 @@
 
 /* ---------- Responsive ---------- */
 /* En la columna lateral el espacio es estrecho: cabeceras apiladas. */
-.sidebar .player__head,
-.sidebar .articles__head {
+.sidebar .player__head {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
 }
+.sidebar .articles__head {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
 
-@media (max-width: 920px) {
+@media (max-width: 900px) {
   .chat {
     position: static;
     top: auto;
-    height: min(70dvh, 640px);
-    max-height: min(70dvh, 640px);
-    min-height: 420px;
+    height: calc(100dvh - 4.75rem);
+    max-height: calc(100dvh - 4.75rem);
+    min-height: 360px;
     overflow: hidden;
   }
   .sidebar .player__head,
   .sidebar .articles__head {
     flex-direction: row;
     align-items: baseline;
+    flex-wrap: wrap;
   }
 }
 
 @media (max-width: 640px) {
   .chat {
     min-height: 0;
-    height: calc(100svh - 10rem);
-    max-height: calc(100svh - 10rem);
+    height: calc(100svh - 4.5rem);
+    max-height: calc(100svh - 4.5rem);
     border-radius: var(--r-lg);
   }
+  .chat__empty { padding: 16px 16px 4px; }
+  .chat__empty h2 { display: none; }
+  .chat__empty p { font-size: .92rem; }
   .msg--bot { gap: 6px; max-width: 100%; }
   .blaze--avatar { width: 30px; height: 30px; }
   .msg__bubble { font-size: var(--t-sm); padding: 10px 12px; }

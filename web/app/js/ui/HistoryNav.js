@@ -69,7 +69,7 @@ export class HistoryNav {
   }
 
   toggle() {
-    if (window.matchMedia("(max-width: 860px)").matches) {
+    if (window.matchMedia("(max-width: 1100px)").matches) {
       document.body.classList.toggle("nav-open");
     } else {
       document.body.classList.toggle("nav-collapsed");
