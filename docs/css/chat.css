@@ -7,9 +7,9 @@
   flex-direction: column;
   position: sticky;
   top: 76px;
-  height: min(560px, calc(100dvh - 300px));
-  min-height: 420px;
-  max-height: calc(100dvh - 120px);
+  height: calc(100dvh - 230px);
+  min-height: 460px;
+  max-height: calc(100dvh - 200px);
   margin-top: 0;
   background: var(--g-surface);
   border: 1px solid var(--c-line);

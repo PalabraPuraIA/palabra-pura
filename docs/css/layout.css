@@ -126,7 +126,7 @@
 /* ---------- Hero ---------- */
 .hero {
   text-align: center;
-  padding: var(--sp-4) 0 var(--sp-3);
+  padding: 10px 0 8px;
 }
 
 .hero__badge {
@@ -157,7 +157,7 @@
 
 .hero h1 {
   font-weight: 700;
-  font-size: var(--t-hero);
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
   line-height: 1.05;
   letter-spacing: -.03em;
   text-transform: uppercase;
@@ -177,10 +177,10 @@
 }
 
 .hero p {
-  margin: var(--sp-2) auto 0;
+  margin: 6px auto 0;
   max-width: 52ch;
   color: var(--c-ink-soft);
-  font-size: var(--t-base);
+  font-size: .88rem;
   font-weight: 400;
   line-height: 1.5;
 }
@@ -201,8 +201,9 @@
   flex-direction: column;
   gap: var(--sp-2);
   min-width: 0;
-  height: min(560px, calc(100dvh - 300px));
-  max-height: calc(100dvh - 120px);
+  height: calc(100dvh - 230px);
+  min-height: 460px;
+  max-height: calc(100dvh - 200px);
   overflow-x: hidden;
   overflow-y: auto;
   /* En el borde, ceder el scroll a la página (evita el “pegado”). */
