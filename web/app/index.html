@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=chat-fit-2" />
-  <link rel="stylesheet" href="./css/chat.css?v=chat-fit-2" />
+  <link rel="stylesheet" href="./css/layout.css?v=hist-side-1" />
+  <link rel="stylesheet" href="./css/chat.css?v=hist-side-1" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body>
@@ -82,18 +82,25 @@
         </form>
       </main>
 
-      <aside class="sidebar" aria-label="Enseñanza y lecturas relacionadas">
-        <section class="player" data-player aria-label="Reproductor de la enseñanza">
+      <aside class="sidebar" aria-label="Historial de preguntas">
+        <section class="history" data-history>
+          <div class="history__head">
+            <p class="history__label">Historial</p>
+            <p class="history__hint">Tus preguntas en esta conversación</p>
+          </div>
+          <div class="history__list" data-history-list></div>
+          <div class="history__empty" data-history-empty>
+            <p class="history__empty-title">Aún no hay preguntas</p>
+            <p class="history__empty-text">Cuando preguntes, aquí verás el historial, como en ChatGPT.</p>
+          </div>
+        </section>
+
+        <section class="player" data-player hidden aria-label="Reproductor de la enseñanza">
           <div class="player__head">
             <p class="player__label" data-player-label>Enseñanza en video</p>
             <p class="player__hint" data-player-hint>Se abre cuando la respuesta cita un video</p>
           </div>
-
-          <div class="player__empty" data-player-empty>
-            <p class="player__empty-title">El video aparecerá aquí</p>
-            <p class="player__empty-text">Cuando la respuesta cite una enseñanza, podrás verla en este espacio desde el minuto exacto.</p>
-          </div>
-
+          <div class="player__empty" data-player-empty hidden></div>
           <div class="player__stage" data-player-stage hidden>
             <div class="player__frame-wrap">
               <iframe
@@ -107,107 +114,9 @@
             </div>
             <div class="player__meta" data-player-meta></div>
           </div>
-
           <div class="player__shop" data-player-shop hidden></div>
         </section>
-
-        <section class="articles" data-articles aria-label="Artículos relacionados">
-          <div class="articles__head">
-            <p class="articles__label">Para seguir leyendo</p>
-            <div class="articles__head-actions">
-              <button type="button" class="articles__toggle" data-articles-toggle aria-expanded="false">
-                Ampliar
-              </button>
-              <a class="articles__hub" href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
-                Ver todos
-              </a>
-            </div>
-          </div>
-          <p class="articles__status" data-articles-status hidden></p>
-          <div class="articles__list" data-articles-list></div>
-          <div class="articles__empty" data-articles-empty>
-            <p class="articles__empty-title">Artículos relacionados</p>
-            <p class="articles__empty-text">
-              Cuando preguntes, te sugeriremos lecturas de
-              <a href="https://iglesiapalabrapura.com/site/articulos/" target="_blank" rel="noopener">
-                la sección de artículos
-              </a>
-              de la Enciclopedia de Palabra Pura.
-            </p>
-          </div>
-        </section>
       </aside>
-    </div>
-
-    <section class="life-band" data-life aria-label="Promesas y versículos por área de vida">
-      <div class="life-band__head">
-        <div>
-          <p class="life-band__label">Promesas y versículos</p>
-          <p class="life-band__hint">Por área de tu vida · Traducción en Lenguaje Actual</p>
-        </div>
-        <p class="life-band__scroll-hint">Desliza para ver más →</p>
-      </div>
-      <p class="life-band__status" data-life-status hidden></p>
-      <div class="life-band__track" data-life-list></div>
-      <div class="life-band__empty" data-life-empty hidden>
-        <p class="life-band__empty-title">Áreas de vida</p>
-        <p class="life-band__empty-text">Las promesas y versículos aparecerán aquí en un momento.</p>
-      </div>
-    </section>
-
-    <div class="panels">
-      <section class="panel">
-        <h2>Cómo usar</h2>
-        <p class="panel__sub">Tres pasos, sin complicaciones.</p>
-
-        <div class="step">
-          <span class="step__n">1</span>
-          <div>
-            <strong>Escribe tu pregunta</strong>
-            <span>Con tus palabras, como se la harías a un hermano de confianza. No necesitas saber de la Biblia.</span>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step__n">2</span>
-          <div>
-            <strong>Recibe una respuesta</strong>
-            <span>Tomada de las enseñanzas del ministerio, acompañada del pasaje bíblico que la sostiene.</span>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step__n">3</span>
-          <div>
-            <strong>Ve y compruébalo</strong>
-            <span>Abre el video en el minuto exacto y busca el pasaje en tu Biblia. La Palabra siempre se confirma en la Palabra.</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel">
-        <h2>Preguntas frecuentes</h2>
-        <p class="panel__sub">Para quienes recién comienzan.</p>
-
-        <details class="faq">
-          <summary>¿Necesito saber de la Biblia para usar esto?</summary>
-          <p>Para nada. Este espacio es justamente para quienes están empezando. Pregunta con naturalidad y la respuesta te guiará, incluyendo dónde leer en tu Biblia.</p>
-        </details>
-        <details class="faq">
-          <summary>¿De dónde salen las respuestas?</summary>
-          <p>De las enseñanzas compartidas en los videos del ministerio, junto con los pasajes de la Biblia que allí se citan.</p>
-        </details>
-        <details class="faq">
-          <summary>¿Esto reemplaza a mi pastor o a la iglesia?</summary>
-          <p>No. Es una ayuda para tu caminar personal, un punto de partida. La comunidad, tu pastor y la oración siguen siendo el corazón de la vida en la fe.</p>
-        </details>
-        <details class="faq">
-          <summary>¿Puedo confiar en lo que me responde?</summary>
-          <p>Cada respuesta viene con el video y el pasaje de referencia para que tú mismo lo verifiques. Te animamos siempre a leer el texto completo en tu Biblia.</p>
-        </details>
-        <details class="faq">
-          <summary>¿Qué hago si no entiendo la respuesta?</summary>
-          <p>Vuelve a preguntar de otra forma, o pide que te lo explique más sencillo. También puedes ver el video completo desde el minuto que te indica.</p>
-        </details>
-      </section>
     </div>
 
     <footer class="footer">
@@ -231,6 +140,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=chat-fit-2"></script>
+  <script type="module" src="./js/main.js?v=hist-side-1"></script>
 </body>
 </html>

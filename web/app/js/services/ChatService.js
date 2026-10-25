@@ -69,6 +69,11 @@ export class ChatService {
   /** @type {{role: string, content: string}[]} */
   #history = readTabSession().history;
 
+  /** Turnos guardados de esta pestaña (para el panel lateral). */
+  getHistory() {
+    return this.#history.slice();
+  }
+
   /**
    * Envía una pregunta y devuelve una respuesta normalizada.
    * Nunca lanza: los errores vuelven como respuesta legible.
