@@ -13,64 +13,48 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=hist-left-1" />
-  <link rel="stylesheet" href="./css/chat.css?v=hist-left-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-1" />
+  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-1" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
-<body>
+<body class="app-shell">
+
+  <aside class="nav" data-nav>
+    <div class="nav__head">
+      <p class="nav__eyebrow">Enciclopedia</p>
+      <p class="nav__name">de Palabra Pura</p>
+      <button class="nav__new" type="button" data-new-chat>Nueva conversación</button>
+    </div>
+    <p class="nav__label">Historial</p>
+    <div class="nav__list" data-history-list></div>
+    <div class="nav__foot">
+      <button class="status-pill" data-connect-open type="button" title="Conectar tu chatbot">
+        <span class="status-pill__dot" data-connect-dot></span>
+        <span data-connect-label>Demo · Conectar</span>
+      </button>
+      <a class="nav__login" href="/login.html" title="Ingresar al panel de administración">Login</a>
+    </div>
+  </aside>
+  <button class="nav-backdrop" type="button" data-nav-backdrop hidden aria-label="Cerrar menú"></button>
+
+  <div class="app">
+    <header class="chat-top">
+      <button class="chat-top__menu" type="button" data-nav-toggle aria-label="Abrir historial">
+        <span></span><span></span><span></span>
+      </button>
+      <h1>Pregúntale a <em>Blaze</em></h1>
+    </header>
 
   <div class="wrap">
 
-    <header class="topbar">
-      <div class="brand">
-        <p class="brand__eyebrow">Enciclopedia</p>
-        <p class="brand__name">de Palabra Pura</p>
-      </div>
-
-      <div class="topbar__actions">
-        <button class="status-pill" data-connect-open type="button" title="Conectar tu chatbot">
-          <span class="status-pill__dot" data-connect-dot></span>
-          <span data-connect-label>Demo · Conectar</span>
-        </button>
-        <a class="status-pill status-pill--link" href="/login.html" title="Ingresar al panel de administración">
-          Login
-        </a>
-      </div>
-    </header>
-
-    <section class="hero">
-      <p class="hero__badge"><span class="hero__badge-dot"></span> Respuestas con video y pasaje bíblico</p>
-      <h1>Pregúntale a <em>Blaze</em></h1>
-      <p>Un espacio para quienes empiezan a caminar en la fe. Escribe tu pregunta y recibe una respuesta basada en las enseñanzas del ministerio, con el video y el pasaje bíblico para que tú también lo busques.</p>
-    </section>
-
     <div class="workspace">
-      <aside class="sidebar sidebar--history" aria-label="Historial de preguntas">
-        <section class="history" data-history>
-          <div class="history__head">
-            <p class="history__label">Historial</p>
-            <p class="history__hint">Tus preguntas en esta conversación</p>
-          </div>
-          <div class="history__list" data-history-list></div>
-          <div class="history__empty" data-history-empty>
-            <p class="history__empty-title">Aún no hay preguntas</p>
-            <p class="history__empty-text">Cuando preguntes, aquí verás el historial, como en ChatGPT.</p>
-          </div>
-        </section>
-      </aside>
-
-      <main class="chat" aria-label="Conversación con el chatbot">
-        <div class="chat__head">
-          <div class="chat__identity">
-            <span class="blaze blaze--lg" aria-hidden="true">
-              <img class="blaze__img" src="./assets/blaze-logo.png?v=spin2" alt="" width="40" height="40" />
-            </span>
-            <span class="chat__names">
-              <span class="chat__title">Blaze</span>
-              <span class="chat__role">Escuela Bíblica de Palabra Pura</span>
-            </span>
-          </div>
-          <p class="chat__status"><span class="chat__status-dot"></span> Aquí para acompañarte</p>
+      <main class="chat" data-chat aria-label="Conversación con el chatbot">
+        <div class="chat__empty" data-empty>
+          <span class="blaze blaze--lg" aria-hidden="true">
+            <img class="blaze__img" src="./assets/blaze-logo.png?v=spin2" alt="" width="40" height="40" />
+          </span>
+          <h2>Pregúntale a <em>Blaze</em></h2>
+          <p>Un espacio para quienes empiezan a caminar en la fe. Escribe tu pregunta y recibe una respuesta basada en las enseñanzas del ministerio, con el video y el pasaje bíblico para que tú también lo busques.</p>
         </div>
 
         <div class="chat__scroll" data-messages role="log" aria-live="polite"></div>
@@ -155,6 +139,7 @@
       <p class="footer__note">Las respuestas se acompañan del video y del pasaje bíblico de referencia.</p>
     </footer>
   </div>
+  </div>
 
   <div class="modal" data-modal role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal__card">
@@ -171,6 +156,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=hist-left-1"></script>
+  <script type="module" src="./js/main.js?v=chat-shell-1"></script>
 </body>
 </html>

@@ -69,9 +69,26 @@ export class ChatService {
   /** @type {{role: string, content: string}[]} */
   #history = readTabSession().history;
 
-  /** Turnos guardados de esta pestaña (para el panel lateral). */
+  get sessionId() {
+    return this.#sessionId;
+  }
+
   getHistory() {
     return this.#history.slice();
+  }
+
+  resetSession() {
+    this.#sessionId = newSessionId();
+    this.#history = [];
+    writeTabSession(this.#sessionId, this.#history);
+    return this.#sessionId;
+  }
+
+  loadSession(id, history = []) {
+    this.#sessionId = String(id || newSessionId());
+    this.#history = Array.isArray(history) ? history.slice(-MAX_HISTORY) : [];
+    writeTabSession(this.#sessionId, this.#history);
+    return this.#sessionId;
   }
 
   /**

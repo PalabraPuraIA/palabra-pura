@@ -191,6 +191,12 @@ export class ChatView {
     this.#typingEl = null;
   }
 
+  /** Vacía el hilo para una conversación nueva o restaurada. */
+  clear() {
+    this.hideTyping();
+    this.#root.replaceChildren();
+  }
+
   #append(el) {
     this.#root.appendChild(el);
     scrollToBottom(this.#root);

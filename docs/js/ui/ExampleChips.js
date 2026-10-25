@@ -36,4 +36,8 @@ export class ExampleChips {
   hide() {
     this.#container.hidden = true;
   }
+
+  show() {
+    this.#container.hidden = false;
+  }
 }

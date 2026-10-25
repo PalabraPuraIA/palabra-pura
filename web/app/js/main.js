@@ -12,17 +12,22 @@ import {
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
 
-import { ChatService } from "./services/ChatService.js?v=paid-cta-8";
+import { ChatService } from "./services/ChatService.js?v=chat-shell-1";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js?v=paid-cta-8";
+import { ChatView } from "./ui/ChatView.js?v=chat-shell-1";
 import { Composer } from "./ui/Composer.js?v=composer-mobile-2";
-import { ExampleChips } from "./ui/ExampleChips.js";
+import { ExampleChips } from "./ui/ExampleChips.js?v=chat-shell-1";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-8";
 import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
-import { HistoryPanel } from "./ui/HistoryPanel.js?v=hist-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
+import { HistoryNav } from "./ui/HistoryNav.js?v=chat-shell-1";
+import {
+  appendTurn,
+  getConversation,
+  historyFromTurns,
+} from "./data/conversations.js?v=chat-shell-1";
 
 class App {
   #service = new ChatService();
@@ -31,20 +36,19 @@ class App {
   #view;
   #player;
   #articlesPanel;
-  #historyPanel;
   #chips;
+  #nav;
+  #chatEl;
   #busy = false;
+  #started = false;
 
   init() {
+    this.#chatEl = qs("[data-chat]");
     this.#view = new ChatView(qs("[data-messages]"));
     this.#player = new VideoPlayer(qs("[data-player]"));
     this.#player.clear();
     this.#articlesPanel = new ArticlesPanel(qs("[data-articles]"));
     this.#articlesPanel.clear();
-    this.#historyPanel = new HistoryPanel(qs("[data-history]"), (question) =>
-      this.#handleQuestion(question),
-    );
-    this.#historyPanel.loadFromTurns(this.#service.getHistory());
 
     this.#chips = new ExampleChips(
       qs("[data-examples]"),
@@ -56,6 +60,12 @@ class App {
       qs("[data-composer]"),
       (question) => this.#handleQuestion(question),
     );
+
+    this.#nav = new HistoryNav(qs("[data-nav]"), {
+      onNew: () => this.#startNewChat(),
+      onSelect: (id) => this.#openConversation(id),
+    });
+    this.#nav.setActive(this.#service.sessionId);
 
     new ConnectModal(qs("[data-modal]"), qs("[data-connect-open]"));
 
@@ -119,7 +129,51 @@ class App {
       );
     });
 
-    this.#view.addBotMessage({ answer: config.welcomeMessage });
+    this.#showEmpty();
+  }
+
+  #showEmpty() {
+    this.#started = false;
+    this.#chatEl?.classList.remove("is-started");
+    this.#chips.show();
+  }
+
+  #showThread() {
+    this.#started = true;
+    this.#chatEl?.classList.add("is-started");
+    this.#chips.hide();
+  }
+
+  #startNewChat() {
+    this.#view.clear();
+    this.#player.clear();
+    this.#articlesPanel.clear();
+    this.#service.resetSession();
+    this.#nav.setActive(this.#service.sessionId);
+    this.#showEmpty();
+  }
+
+  #openConversation(id) {
+    const convo = getConversation(id);
+    if (!convo) {
+      this.#startNewChat();
+      return;
+    }
+    this.#service.loadSession(convo.id, historyFromTurns(convo.turns));
+    this.#view.clear();
+    this.#player.clear();
+    this.#articlesPanel.clear();
+    this.#nav.setActive(convo.id);
+    const turns = Array.isArray(convo.turns) ? convo.turns : [];
+    if (!turns.length) {
+      this.#showEmpty();
+      return;
+    }
+    this.#showThread();
+    for (const turn of turns) {
+      if (turn.question) this.#view.addUserMessage(turn.question);
+      if (turn.response) this.#view.addBotMessage(turn.response);
+    }
   }
 
   /** Al elegir una opción del desplegable: muestra el contenido o pregunta de nuevo. */
@@ -135,6 +189,7 @@ class App {
 
     if (item.video?.youtube_id || item.excerpt) {
       const label = item.label || item.title || "este tema";
+      this.#showThread();
       this.#view.addUserMessage(item.ask || label);
       this.#view.addBotMessage({
         answer:
@@ -202,9 +257,8 @@ class App {
     if (this.#busy) return; // evita envíos dobles
     this.#busy = true;
 
-    this.#chips.hide();
+    this.#showThread();
     this.#view.addUserMessage(question);
-    this.#historyPanel.add(question);
     this.#view.showTyping();
     this.#articlesPanel.showLoading();
 
@@ -219,6 +273,8 @@ class App {
         ? crypto.randomUUID()
         : `${Date.now()}`;
     this.#view.addBotMessage({ ...response, interactionId, question });
+    appendTurn(this.#service.sessionId, question, { ...response, interactionId, question });
+    this.#nav.setActive(this.#service.sessionId);
     this.#analytics.trackQuestion(question, response, interactionId);
 
     if (response?.video?.youtube_id || response?.offer || response?.offers?.length) {
