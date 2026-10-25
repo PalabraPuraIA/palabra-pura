@@ -24,6 +24,8 @@ export class Composer {
     this.#onSubmit = onSubmit;
 
     this.#bindEvents();
+    this.#fitChatToViewport();
+    this.#keepBarVisible();
   }
 
   #bindEvents() {
@@ -42,6 +44,65 @@ export class Composer {
 
     // El textarea crece con el contenido.
     this.#input.addEventListener("input", () => this.#autoResize());
+  }
+
+  /** Encaja el chat en la pantalla para que la barra no quede abajo, fuera de vista. */
+  #fitChatToViewport() {
+    const chat = this.#form.closest(".chat");
+    if (!chat) return;
+    const apply = () => {
+      if (!window.matchMedia("(max-width: 640px)").matches) {
+        chat.style.removeProperty("height");
+        chat.style.removeProperty("max-height");
+        return;
+      }
+      if (window.scrollY > 24) return;
+      const top = chat.getBoundingClientRect().top;
+      const room = Math.floor(window.innerHeight - top - 8);
+      if (room < 280) return;
+      chat.style.height = `${room}px`;
+      chat.style.maxHeight = `${room}px`;
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    window.visualViewport?.addEventListener("resize", apply);
+  }
+
+  /** En celular, el teclado no debe tapar ni desplazar la barra fuera de vista. */
+  #keepBarVisible() {
+    const form = this.#form;
+    const input = this.#input;
+    const phone = () => window.matchMedia("(max-width: 640px)").matches;
+
+    const pin = () => {
+      if (!phone()) {
+        form.style.removeProperty("transform");
+        return;
+      }
+      const vv = window.visualViewport;
+      if (!vv || document.activeElement !== input) {
+        form.style.removeProperty("transform");
+        return;
+      }
+      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      if (covered > 0) {
+        form.style.transform = `translateY(-${covered}px)`;
+      } else {
+        form.style.removeProperty("transform");
+      }
+      form.scrollIntoView({ block: "end", inline: "nearest" });
+    };
+
+    input.addEventListener("focus", () => {
+      pin();
+      setTimeout(pin, 80);
+      setTimeout(pin, 320);
+    });
+    input.addEventListener("blur", () => {
+      form.style.removeProperty("transform");
+    });
+    window.visualViewport?.addEventListener("resize", pin);
+    window.visualViewport?.addEventListener("scroll", pin);
   }
 
   #submit() {

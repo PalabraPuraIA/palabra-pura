@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>Enciclopedia de Palabra Pura — Pregúntale a Blaze</title>
 
   <link rel="icon" href="./assets/blaze-logo.png?v=spin2" type="image/png" />
@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=chat-still-1" />
-  <link rel="stylesheet" href="./css/chat.css?v=chat-still-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=composer-mobile-2" />
+  <link rel="stylesheet" href="./css/chat.css?v=composer-mobile-2" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body>
@@ -71,7 +71,9 @@
             data-input
             rows="1"
             placeholder="Escribe tu pregunta con tus propias palabras…"
-            aria-label="Tu pregunta"></textarea>
+            aria-label="Tu pregunta"
+            enterkeyhint="send"
+            autocomplete="off"></textarea>
           <button class="composer__send" data-send type="submit" aria-label="Enviar pregunta">
             <svg viewBox="0 0 24 24" fill="none">
               <path d="M4 12h13M11 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -229,6 +231,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=chat-still-1"></script>
+  <script type="module" src="./js/main.js?v=composer-mobile-2"></script>
 </body>
 </html>

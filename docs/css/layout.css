@@ -396,10 +396,10 @@
     margin-top: 6px;
   }
   .brand__name { font-size: .88rem; }
-  .hero { padding: var(--sp-3) 0 var(--sp-2); }
+  .hero { padding: var(--sp-2) 0 var(--sp-1); }
   .hero__badge { font-size: .58rem; padding: 4px 10px 4px 8px; }
   .hero h1 { max-width: 14ch; }
-  .hero p { font-size: var(--t-sm); }
+  .hero p { display: none; }
   .panel { padding: var(--sp-3); }
   .footer { padding: var(--sp-3) var(--sp-2) 20px; }
   .status-pill { padding: 5px 10px; }
