@@ -121,7 +121,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  overscroll-behavior-y: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding: var(--sp-3) 16px 12px;
   display: flex;
@@ -1435,7 +1436,12 @@
 }
 
 @media (max-width: 920px) {
-  .chat { max-height: none; }
+  .chat {
+    height: min(70dvh, 640px);
+    max-height: min(70dvh, 640px);
+    min-height: 420px;
+    overflow: hidden;
+  }
   .sidebar .player__head,
   .sidebar .articles__head {
     flex-direction: row;
@@ -1456,7 +1462,7 @@
   .examples__chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .chip { white-space: nowrap; padding: 5px 10px; }
   .composer { padding: var(--sp-2) 10px 12px; gap: 6px; }
-  .composer textarea { padding: 10px 12px; font-size: var(--t-sm); }
+  .composer textarea { padding: 10px 12px; font-size: 16px; }
   .composer__send { width: 40px; height: 40px; }
   .player__head,
   .articles__head { padding: 10px 12px; }

@@ -107,6 +107,9 @@ export class LifeAreasPanel {
     });
     const dropdownOpen = Boolean(document.querySelector(".msg__suggest-panel:not([hidden])"));
     if (dropdownOpen) return;
-    card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    // Solo mueve la franja horizontal. scrollIntoView arrastra la página
+    // hasta Promesas (sobre todo en el celular, al enviar una pregunta).
+    const left = card.offsetLeft - (this.#list.offsetLeft || 0);
+    this.#list.scrollTo({ left: Math.max(0, left - 12), behavior: "smooth" });
   }
 }

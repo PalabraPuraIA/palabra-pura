@@ -250,6 +250,7 @@
     max-height: none;
     overflow: visible;
   }
+  .life-band { overflow-anchor: none; }
 }
 
 /* ---------- Paneles inferiores ---------- */

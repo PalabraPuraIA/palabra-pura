@@ -107,6 +107,7 @@ export class LifeAreasPanel {
     });
     const dropdownOpen = Boolean(document.querySelector(".msg__suggest-panel:not([hidden])"));
     if (dropdownOpen) return;
-    card.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    const left = card.offsetLeft - (this.#list.offsetLeft || 0);
+    this.#list.scrollTo({ left: Math.max(0, left - 12), behavior: "smooth" });
   }
 }

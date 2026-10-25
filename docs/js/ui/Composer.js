@@ -48,9 +48,18 @@ export class Composer {
     const question = this.#input.value.trim();
     if (!question) return;
 
+    const scrollY = window.scrollY;
     this.#input.value = "";
     this.#autoResize();
     this.#onSubmit(question);
+    // En el celular, el teclado y el foco del botón mueven la página
+    // hasta Promesas. Dejamos el chat donde estaba.
+    const keep = () => {
+      if (Math.abs(window.scrollY - scrollY) > 4) window.scrollTo(0, scrollY);
+    };
+    keep();
+    requestAnimationFrame(keep);
+    setTimeout(keep, 60);
   }
 
   #autoResize() {

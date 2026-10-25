@@ -56,7 +56,6 @@ export class VideoPlayer {
     const key = `${video.youtube_id}:${start}:${autoplay ? 1 : 0}:${hasShop ? 1 : 0}`;
     if (key === this.#currentKey) {
       this.#root.hidden = false;
-      this.#scrollIntoView();
       return;
     }
     this.#currentKey = key;
@@ -83,7 +82,6 @@ export class VideoPlayer {
       <p class="player__time">Desde ${formatTimestamp(start)}</p>
     `;
 
-    this.#scrollIntoView();
   }
 
   clear() {
@@ -124,7 +122,6 @@ export class VideoPlayer {
     this.#root.hidden = false;
     this.#root.dataset.hasVideo = "false";
     this.#setHead("En la tienda", "Ábrela en el carrito de la iglesia");
-    this.#scrollIntoView();
   }
 
   #showDemoNotice(video, hasShop) {
@@ -147,21 +144,10 @@ export class VideoPlayer {
     this.#setHead(hasShop ? "Enseñanza" : "Enseñanza en video", hasShop
       ? "Video y enlace al carrito"
       : "Se abre cuando la respuesta cita un video");
-    this.#scrollIntoView();
   }
 
   #setHead(label, hint) {
     if (this.#label) this.#label.textContent = label;
     if (this.#hint) this.#hint.textContent = hint;
-  }
-
-  #scrollIntoView() {
-    // Solo si está fuera de vista; sin smooth para no pelear con el scroll del usuario.
-    requestAnimationFrame(() => {
-      const rect = this.#root.getBoundingClientRect();
-      const inView = rect.top >= 72 && rect.bottom <= window.innerHeight - 24;
-      if (inView) return;
-      this.#root.scrollIntoView({ behavior: "auto", block: "nearest" });
-    });
   }
 }
