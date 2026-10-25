@@ -13,7 +13,7 @@ function adminUser() {
 }
 
 function adminPassword() {
-  return String(process.env.ADMIN_PASSWORD || "palabra").trim();
+  return String(process.env.ADMIN_PASSWORD || "Palabra123*").trim();
 }
 
 function authSecret() {
