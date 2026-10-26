@@ -488,7 +488,10 @@ body.nav-collapsed .nav {
     grid-template-columns: 1fr;
     height: auto;
     min-height: 0;
-    gap: 12px;
+    gap: 10px;
+  }
+  .chat-top {
+    padding: 10px 14px 4px;
   }
   .chat { order: 1; }
   .sidebar--media {
@@ -498,6 +501,7 @@ body.nav-collapsed .nav {
     min-height: 0;
     max-height: none;
     overflow: visible;
+    gap: 10px;
   }
   .sidebar {
     position: static;

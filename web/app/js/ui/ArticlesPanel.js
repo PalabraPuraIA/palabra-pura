@@ -44,6 +44,7 @@ export class ArticlesPanel {
 
   showLoading() {
     this.#root.hidden = false;
+    this.#root.dataset.hasArticles = "pending";
     this.#list.innerHTML = "";
     this.#empty.hidden = true;
     this.#status.hidden = false;
@@ -61,6 +62,7 @@ export class ArticlesPanel {
     if (!articles?.length) {
       this.#list.innerHTML = "";
       this.#empty.hidden = false;
+      this.#root.dataset.hasArticles = "false";
       this.#setExpanded(false);
       this.#empty.innerHTML = `
         <p class="articles__empty-title">Sin coincidencias claras ahora</p>
@@ -74,6 +76,7 @@ export class ArticlesPanel {
     }
 
     this.#empty.hidden = true;
+    this.#root.dataset.hasArticles = "true";
     this.#setExpanded(true);
     const hint = question
       ? `<p class="articles__match">Relacionados con tu pregunta</p>`
@@ -111,6 +114,7 @@ export class ArticlesPanel {
     this.#list.innerHTML = "";
     this.#status.hidden = true;
     this.#empty.hidden = false;
+    this.#root.dataset.hasArticles = "false";
     this.#empty.innerHTML = `
       <p class="articles__empty-title">Artículos relacionados</p>
       <p class="articles__empty-text">
