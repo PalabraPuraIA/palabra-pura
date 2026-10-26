@@ -1434,9 +1434,10 @@
 
 .composer__box {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
-  padding: 7px 7px 7px 16px;
+  min-height: 56px;
+  padding: 6px 6px 6px 18px;
   border-radius: 28px;
   background:
     linear-gradient(#1A1330, #16102A) padding-box,
@@ -1452,20 +1453,6 @@
   box-shadow:
     0 0 0 5px rgba(255, 0, 102, .22),
     0 20px 48px -16px rgba(255, 0, 102, .6);
-}
-
-.composer__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 42px;
-  color: var(--c-rose);
-}
-
-.composer__icon svg {
-  width: 22px;
-  height: 22px;
 }
 
 .composer textarea {

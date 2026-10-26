@@ -3,7 +3,7 @@
  * del historial y de la columna de video/artículos.
  */
 
-import { isNavDrawer, isPhone } from "./shellState.js?v=chat-shell-5";
+import { isNavDrawer, isPhone } from "./shellState.js?v=fit-1";
 
 const KEY = "pp-split-v1";
 const NAV_MIN = 200;
@@ -39,20 +39,23 @@ export class WorkspaceSplit {
   #apply(sizes) {
     const nav = clamp(Number(sizes.nav) || 280, NAV_MIN, NAV_MAX);
     const media = clamp(Number(sizes.media) || 360, MEDIA_MIN, MEDIA_MAX);
-    document.documentElement.style.setProperty("--nav-w", `${nav}px`);
-    document.documentElement.style.setProperty("--media-w", `${media}px`);
+    const root = document.documentElement;
+    root.style.setProperty("--nav-w", `${nav}px`);
+    root.style.setProperty("--media-w", `${media}px`);
   }
 
   #start(event, which) {
+    if (event.button != null && event.button !== 0) return;
     if (which === "nav" && isNavDrawer()) return;
     if (which === "media" && isPhone()) return;
+
     event.preventDefault();
     const handle = event.currentTarget;
     const startX = event.clientX;
     const startNav = document.querySelector("[data-nav]")?.getBoundingClientRect().width || 280;
     const startMedia = document.querySelector("[data-media]")?.getBoundingClientRect().width || 360;
     handle.classList.add("is-dragging");
-    handle.setPointerCapture?.(event.pointerId);
+    document.body.classList.add("is-resizing");
 
     const move = (moveEvent) => {
       const dx = moveEvent.clientX - startX;
@@ -65,12 +68,25 @@ export class WorkspaceSplit {
 
     const stop = () => {
       handle.classList.remove("is-dragging");
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", stop);
+      document.body.classList.remove("is-resizing");
+      document.removeEventListener("pointermove", move, true);
+      document.removeEventListener("pointerup", stop, true);
+      document.removeEventListener("pointercancel", stop, true);
+      try {
+        handle.releasePointerCapture(event.pointerId);
+      } catch {
+        /* already released */
+      }
     };
 
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", stop);
+    document.addEventListener("pointermove", move, true);
+    document.addEventListener("pointerup", stop, true);
+    document.addEventListener("pointercancel", stop, true);
+    try {
+      handle.setPointerCapture(event.pointerId);
+    } catch {
+      /* document listeners already cover the drag */
+    }
   }
 }
 

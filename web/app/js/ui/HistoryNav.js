@@ -4,7 +4,7 @@
 
 import { listConversations } from "../data/conversations.js";
 import { escapeHtml } from "../utils/format.js";
-import { setNavOpen, toggleNav } from "./shellState.js?v=chat-shell-5";
+import { setNavOpen, toggleNav } from "./shellState.js?v=fit-1";
 
 export class HistoryNav {
   #root;

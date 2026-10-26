@@ -22,10 +22,10 @@ import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-8";
 import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
-import { HistoryNav } from "./ui/HistoryNav.js?v=chat-shell-5";
-import { MediaDrawer } from "./ui/MediaDrawer.js?v=chat-shell-5";
-import { WorkspaceSplit } from "./ui/WorkspaceSplit.js?v=chat-shell-5";
-import { initShell } from "./ui/shellState.js?v=chat-shell-5";
+import { HistoryNav } from "./ui/HistoryNav.js?v=fit-1";
+import { MediaDrawer } from "./ui/MediaDrawer.js?v=fit-1";
+import { WorkspaceSplit } from "./ui/WorkspaceSplit.js?v=fit-1";
+import { initShell } from "./ui/shellState.js?v=fit-1";
 import {
   appendTurn,
   getConversation,

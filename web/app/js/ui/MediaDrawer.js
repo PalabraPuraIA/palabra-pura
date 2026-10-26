@@ -2,7 +2,7 @@
  * MediaDrawer.js — En celular, video y artículos viven en un cajón derecho.
  */
 
-import { isPhone, setMediaOpen, toggleMedia, syncShell } from "./shellState.js?v=chat-shell-5";
+import { isPhone, setMediaOpen, toggleMedia, syncShell } from "./shellState.js?v=fit-1";
 
 export class MediaDrawer {
   #fab;
