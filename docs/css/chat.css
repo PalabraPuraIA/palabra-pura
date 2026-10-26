@@ -1424,17 +1424,48 @@
 /* ---------- Composer ---------- */
 .composer {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  flex-direction: column;
   margin-top: auto;
   flex: none;
-  padding: var(--sp-2) 14px 14px;
-  border-top: 1px solid var(--c-line);
-  background: var(--c-surface-2);
+  padding: 12px 16px 16px;
+  background: transparent;
+  border-top: 0;
 }
 
-.composer__media {
-  display: none;
+.composer__box {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 7px 7px 7px 16px;
+  border-radius: 28px;
+  background:
+    linear-gradient(#1A1330, #16102A) padding-box,
+    var(--g-brand) border-box;
+  border: 2px solid transparent;
+  box-shadow:
+    0 0 0 4px rgba(255, 0, 102, .14),
+    0 18px 40px -18px rgba(255, 0, 102, .5);
+  transition: box-shadow var(--transition);
+}
+
+.composer:focus-within .composer__box {
+  box-shadow:
+    0 0 0 5px rgba(255, 0, 102, .22),
+    0 20px 48px -16px rgba(255, 0, 102, .6);
+}
+
+.composer__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 42px;
+  color: var(--c-rose);
+}
+
+.composer__icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .composer textarea {
@@ -1442,28 +1473,26 @@
   resize: none;
   font-size: 16px; /* <16px en iOS hace zoom y corre la página */
   color: var(--c-ink);
-  background: var(--c-bg-soft);
-  border: 1.5px solid var(--c-line);
-  border-radius: var(--r-md);
-  padding: 10px 14px;
-  min-height: 44px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 10px 4px;
+  min-height: 42px;
   max-height: 110px;
   line-height: 1.45;
   touch-action: manipulation;
-  transition: border-color var(--transition), background var(--transition),
-              box-shadow var(--transition);
 }
-.composer textarea::placeholder { color: var(--c-ink-faint); }
+.composer textarea::placeholder { color: var(--c-ink-soft); font-weight: 500; }
 .composer textarea:focus {
   outline: none;
-  border-color: var(--c-rose);
-  background: var(--c-surface-2);
-  box-shadow: 0 0 0 3px rgba(255, 0, 102, .1);
+  border: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 .composer__send {
   flex: none;
-  width: 42px; height: 42px;
+  width: 46px; height: 46px;
   display: grid; place-items: center;
   border: none;
   border-radius: 50%;
@@ -1588,31 +1617,6 @@
     min-height: 0;
     overflow: hidden;
   }
-  .composer__media:not([hidden]) {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex: none;
-    height: 42px;
-    padding: 0 12px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--g-brand);
-    color: var(--c-white);
-    font: inherit;
-    font-size: .75rem;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-  .composer__media-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, .45);
-  }
-  .composer__media.is-live .composer__media-dot {
-    background: #fff;
-  }
   .chat__empty {
     padding: 16px 16px 4px;
     gap: 6px;
@@ -1668,25 +1672,12 @@
     position: sticky;
     bottom: 0;
     z-index: 20;
-    flex: none;
-    gap: 10px;
-    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
-    border-top: 1px solid rgba(255, 255, 255, .2);
-    background: #1A1330;
+    padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
     background: color-mix(in srgb, var(--c-surface) 88%, #000);
     box-shadow: 0 -10px 28px rgba(0, 0, 0, .45);
   }
-  .composer textarea {
-    padding: 12px 14px;
-    min-height: 48px;
-    font-size: 16px;
-    border-width: 2px;
-    border-color: color-mix(in srgb, var(--c-rose) 45%, var(--c-line));
-    background: #120D22;
-  }
-  .composer textarea:focus {
-    box-shadow: 0 0 0 3px rgba(255, 0, 102, .22);
-  }
+  .composer__box { padding: 6px 6px 6px 14px; }
+  .composer textarea { min-height: 46px; font-size: 16px; }
   .composer__send { width: 48px; height: 48px; }
   .composer__send svg { width: 20px; height: 20px; }
   .player__head,
