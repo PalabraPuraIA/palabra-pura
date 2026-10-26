@@ -13,17 +13,21 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-7" />
-  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-7" />
+  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-8" />
+  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-8" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body class="app-shell">
 
   <aside class="nav" data-nav>
     <div class="nav__head">
-      <p class="nav__eyebrow">Enciclopedia</p>
-      <p class="nav__name">de Palabra Pura</p>
-      <button class="nav__new" type="button" data-new-chat>Nueva conversación</button>
+      <div class="nav__brand">
+        <p class="nav__eyebrow">Enciclopedia</p>
+        <p class="nav__name">de Palabra Pura</p>
+      </div>
+      <button class="nav__new" type="button" data-new-chat title="Nueva conversación" aria-label="Nueva conversación">
+        <span aria-hidden="true">+</span>
+      </button>
     </div>
     <p class="nav__label">Historial</p>
     <div class="nav__list" data-history-list></div>
@@ -32,7 +36,7 @@
         <span class="status-pill__dot" data-connect-dot></span>
         <span data-connect-label>Demo · Conectar</span>
       </button>
-      <a class="nav__login" href="/login.html" title="Ingresar al panel de administración">Login</a>
+      <a class="nav__login" href="/login.html" title="Ingresar con Gmail o al panel">Login con Gmail</a>
     </div>
   </aside>
   <button class="split-handle split-handle--nav" type="button" data-resize="nav" aria-label="Ajustar ancho del historial"></button>
@@ -164,6 +168,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=chat-shell-7"></script>
+  <script type="module" src="./js/main.js?v=chat-shell-8"></script>
 </body>
 </html>

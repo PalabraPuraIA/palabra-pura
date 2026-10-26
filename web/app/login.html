@@ -194,6 +194,43 @@
       color: var(--c-rose);
     }
 
+    .login-btn--google {
+      width: 100%;
+      gap: 10px;
+      background: #fff;
+      color: #1f1f1f;
+      border: 1px solid rgba(255, 255, 255, .18);
+    }
+
+    .login-btn--google:hover {
+      box-shadow: 0 10px 24px -16px rgba(255, 255, 255, .35);
+    }
+
+    .login-btn--google svg {
+      width: 18px;
+      height: 18px;
+      flex: none;
+    }
+
+    .login-divider {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      margin: 18px 0 14px;
+      color: var(--c-ink-faint);
+      font-size: .72rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .login-divider::before,
+    .login-divider::after {
+      content: "";
+      height: 1px;
+      background: var(--c-line-soft);
+    }
+
     .login-msg {
       margin: 14px 0 0;
       font-size: .88rem;
@@ -202,6 +239,10 @@
 
     .login-msg--err {
       color: #ff6b8a;
+    }
+
+    .login-msg--ok {
+      color: #8dffb0;
     }
 
     .login-foot {
@@ -232,7 +273,19 @@
       </div>
 
       <h1>Ingresar</h1>
-      <p class="sub">El chat sigue abierto para todos. Este acceso es solo para el panel de administración.</p>
+      <p class="sub">Entra con tu cuenta de Gmail. El chat sigue abierto para todos; el usuario y contraseña son solo para el panel de administración.</p>
+
+      <button class="login-btn login-btn--google" type="button" data-google-login>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path fill="#EA4335" d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.3-1.9 3l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.3-.2-1.9H12z"/>
+          <path fill="#34A853" d="M6.6 14.3l-.8.6-2.5 1.9C5 19.5 8.2 21.5 12 21.5c2.3 0 4.3-.8 5.8-2.1l-3.1-2.4c-.8.6-1.9.9-2.7.9-2.1 0-3.9-1.4-4.5-3.3z"/>
+          <path fill="#4A90E2" d="M3.3 7.2C2.5 8.7 2 10.3 2 12s.5 3.3 1.3 4.8l3.3-2.5C6.2 13.4 6 12.7 6 12s.2-1.4.5-2.1L3.3 7.2z"/>
+          <path fill="#FBBC05" d="M12 5.5c1.3 0 2.5.5 3.4 1.3l2.5-2.5C16.3 2.7 14.3 2 12 2 8.2 2 5 4 3.3 7.2l3.3 2.5C7.1 7 8.9 5.5 12 5.5z"/>
+        </svg>
+        Continuar con Google
+      </button>
+
+      <div class="login-divider">Panel admin</div>
 
       <label class="field">
         <span>Usuario</span>
@@ -245,12 +298,12 @@
 
       <div class="login-actions">
         <button class="login-btn login-btn--primary" type="submit" data-submit>Entrar</button>
-        <a class="login-btn login-btn--ghost" href="./">Ir al chat</a>
+        <a class="login-btn login-btn--ghost" href="/">Ir al chat</a>
       </div>
       <p class="login-msg" data-msg hidden></p>
       <p class="login-foot">Panel de Blaze · Escuela Bíblica</p>
     </form>
   </div>
-  <script type="module" src="./js/login-page.js?v=panel-login-1"></script>
+  <script type="module" src="/js/login-page.js?v=google-login-1"></script>
 </body>
 </html>

@@ -1,6 +1,9 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { apiUrl, setToken, getToken } from "./auth-client.js";
+import { config } from "./config.js";
 
 const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
+const GOOGLE_SESSION_KEY = "pp_google_session";
 
 /** Misma clave que stack/docker-compose.yml (ADMIN_PASSWORD). */
 const PANEL_USER = "admin";
@@ -79,8 +82,80 @@ async function tryRemoteLogin(username, password) {
 const form = document.querySelector("[data-login-form]");
 const msg = document.querySelector("[data-msg]");
 const submit = document.querySelector("[data-submit]");
+const googleBtn = document.querySelector("[data-google-login]");
+
+function showMsg(text, ok = false) {
+  msg.hidden = false;
+  msg.className = `login-msg ${ok ? "login-msg--ok" : "login-msg--err"}`;
+  msg.textContent = text;
+}
+
+function supabaseClient() {
+  const url = String(config.supabaseUrl || "").replace(/\/+$/, "");
+  const key = String(config.publishableKey || "");
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: {
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: "pkce",
+    },
+  });
+}
+
+function rememberGoogleUser(user) {
+  try {
+    localStorage.setItem(
+      GOOGLE_SESSION_KEY,
+      JSON.stringify({
+        email: user?.email || "",
+        name: user?.user_metadata?.full_name || user?.user_metadata?.name || "",
+        at: Date.now(),
+      }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
 
 await resolveApiBase();
+
+const supabase = supabaseClient();
+if (supabase) {
+  const { data } = await supabase.auth.getSession();
+  if (data?.session?.user) {
+    rememberGoogleUser(data.session.user);
+    // Google abre el chat; el panel admin sigue con usuario/contraseña.
+    location.href = ON_PAGES ? new URL("./", location.href).href : "/";
+  }
+}
+
+googleBtn?.addEventListener("click", async () => {
+  msg.hidden = true;
+  if (!supabase) {
+    showMsg("Falta la configuración de Supabase para Google.");
+    return;
+  }
+  googleBtn.disabled = true;
+  try {
+    const redirectTo = new URL("./login.html", location.href).href;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+    if (error) throw error;
+  } catch (err) {
+    showMsg(
+      err?.message?.includes("provider is not enabled")
+        ? "Activa el proveedor Google en Supabase (Authentication → Providers) y agrega esta URL de redirección."
+        : err?.message || String(err),
+    );
+    googleBtn.disabled = false;
+  }
+});
 
 // Ya logueado → panel. En Pages el túnel no tiene que estar vivo.
 if (getToken()) {

@@ -106,7 +106,14 @@ body.app-shell {
   border-right: 1px solid var(--c-line);
 }
 
-.nav__head { padding: 2px 6px 12px; }
+.nav__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 6px 12px;
+}
+.nav__brand { min-width: 0; }
 .nav__eyebrow {
   font-size: .6rem;
   letter-spacing: .22em;
@@ -122,14 +129,21 @@ body.app-shell {
 }
 
 .nav__new {
-  width: 100%;
-  margin-top: 14px;
-  padding: 10px 12px;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  margin-top: 2px;
+  padding: 0;
+  display: grid;
+  place-items: center;
   border: 1px solid color-mix(in srgb, var(--c-rose) 45%, var(--c-line));
   border-radius: 12px;
   background: var(--c-surface-2);
   color: var(--c-ink);
-  font-weight: 600;
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
 }
 
 .nav__new:hover { border-color: var(--c-rose); color: var(--c-rose); }
