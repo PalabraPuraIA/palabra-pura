@@ -1,6 +1,6 @@
 /**
  * shellState.js — Abre/cierra el historial y el cajón de enseñanza.
- * En celular solo uno puede estar abierto; el chat se desplaza.
+ * En celular solo uno puede estar abierto; el otro se cierra.
  */
 
 export const NAV_DRAWER = "(max-width: 1100px)";

@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=fit-3" />
-  <link rel="stylesheet" href="./css/chat.css?v=fit-3" />
+  <link rel="stylesheet" href="./css/layout.css?v=fit-4" />
+  <link rel="stylesheet" href="./css/chat.css?v=fit-4" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body class="app-shell">
@@ -39,7 +39,11 @@
     </div>
   </aside>
   <div class="split-handle split-handle--nav" data-resize="nav" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Ocultar historial" title="Clic para ocultar · arrastra para ajustar">
-    <span class="split-handle__tab" aria-hidden="true"><span class="split-handle__chev"></span></span>
+    <span class="split-handle__tab" aria-hidden="true">
+      <svg class="split-handle__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+        <path d="M14 6 8 12l6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
   </div>
   <button class="nav-backdrop" type="button" data-nav-backdrop hidden aria-label="Cerrar historial"></button>
 
@@ -89,7 +93,11 @@
       </main>
 
       <div class="split-handle split-handle--media" data-resize="media" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Ocultar enseñanza" title="Clic para ocultar · arrastra para ajustar">
-        <span class="split-handle__tab" aria-hidden="true"><span class="split-handle__chev"></span></span>
+        <span class="split-handle__tab" aria-hidden="true">
+          <svg class="split-handle__chev" viewBox="0 0 24 24" width="14" height="14" fill="none" aria-hidden="true">
+            <path d="M14 6 8 12l6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </div>
 
       <aside class="sidebar sidebar--media" data-media aria-label="Enseñanza y lecturas relacionadas">
@@ -173,6 +181,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=fit-3"></script>
+  <script type="module" src="./js/main.js?v=fit-4"></script>
 </body>
 </html>

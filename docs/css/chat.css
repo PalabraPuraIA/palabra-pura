@@ -1605,12 +1605,13 @@
     overflow: hidden;
   }
   .chat__empty {
-    padding: 16px 16px 4px;
+    padding: 16px 36px 4px 16px;
     gap: 6px;
   }
   .chat__empty p {
     font-size: .82rem;
-    max-width: 36ch;
+    max-width: 34ch;
+    overflow-wrap: break-word;
   }
   /* En celular no mostramos placeholders vacíos: solo video/artículos con contenido. */
   .sidebar--media .player[data-has-video="false"]:not([data-has-shop="true"]) {
@@ -1642,7 +1643,7 @@
     max-height: none;
     border-radius: var(--r-lg);
   }
-  .chat__empty { padding: 16px 16px 4px; }
+  .chat__empty { padding: 16px 36px 4px 16px; }
   .chat__empty h2 { display: none; }
   .chat__empty p { font-size: .92rem; }
   .msg--bot { gap: 6px; max-width: 100%; }
