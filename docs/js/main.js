@@ -22,7 +22,10 @@ import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-8";
 import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
-import { HistoryNav } from "./ui/HistoryNav.js?v=chat-shell-3";
+import { HistoryNav } from "./ui/HistoryNav.js?v=chat-shell-5";
+import { MediaDrawer } from "./ui/MediaDrawer.js?v=chat-shell-5";
+import { WorkspaceSplit } from "./ui/WorkspaceSplit.js?v=chat-shell-5";
+import { initShell } from "./ui/shellState.js?v=chat-shell-5";
 import {
   appendTurn,
   getConversation,
@@ -38,11 +41,15 @@ class App {
   #articlesPanel;
   #chips;
   #nav;
+  #media;
   #chatEl;
   #busy = false;
   #started = false;
 
   init() {
+    initShell();
+    new WorkspaceSplit();
+    this.#media = new MediaDrawer();
     this.#chatEl = qs("[data-chat]");
     this.#view = new ChatView(qs("[data-messages]"));
     this.#player = new VideoPlayer(qs("[data-player]"));
@@ -148,6 +155,7 @@ class App {
     this.#view.clear();
     this.#player.clear();
     this.#articlesPanel.clear();
+    this.#media.hide();
     this.#service.resetSession();
     this.#nav.setActive(this.#service.sessionId);
     this.#showEmpty();
@@ -166,10 +174,12 @@ class App {
     this.#nav.setActive(convo.id);
     const turns = Array.isArray(convo.turns) ? convo.turns : [];
     if (!turns.length) {
+      this.#media.hide();
       this.#showEmpty();
       return;
     }
     this.#showThread();
+    this.#media.reveal();
     for (const turn of turns) {
       if (turn.question) this.#view.addUserMessage(turn.question);
       if (turn.response) this.#view.addBotMessage(turn.response);
@@ -289,6 +299,9 @@ class App {
     }
 
     this.#articlesPanel.render(articles, question);
+    this.#media.reveal({
+      hasVideo: Boolean(response?.video?.youtube_id || response?.offer || response?.offers?.length),
+    });
 
     this.#busy = false;
   }

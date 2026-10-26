@@ -1572,8 +1572,8 @@
   .chat {
     position: static;
     top: auto;
-    height: min(58dvh, 560px);
-    max-height: min(58dvh, 560px);
+    height: calc(100dvh - 4.75rem);
+    max-height: calc(100dvh - 4.75rem);
     min-height: 360px;
     overflow: hidden;
   }
@@ -1611,8 +1611,8 @@
 @media (max-width: 640px) {
   .chat {
     min-height: 0;
-    height: calc(100svh - 7.5rem);
-    max-height: calc(100svh - 7.5rem);
+    height: calc(100svh - 4.5rem);
+    max-height: calc(100svh - 4.5rem);
     border-radius: var(--r-lg);
   }
   .chat__empty { padding: 16px 16px 4px; }

@@ -4,6 +4,7 @@
 
 import { listConversations } from "../data/conversations.js";
 import { escapeHtml } from "../utils/format.js";
+import { setNavOpen, toggleNav } from "./shellState.js?v=chat-shell-5";
 
 export class HistoryNav {
   #root;
@@ -44,9 +45,6 @@ export class HistoryNav {
       btn.addEventListener("click", () => this.toggle());
     });
     this.#backdrop?.addEventListener("click", () => this.close());
-    window.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") this.close();
-    });
   }
 
   setActive(id) {
@@ -69,24 +67,10 @@ export class HistoryNav {
   }
 
   toggle() {
-    if (window.matchMedia("(max-width: 1100px)").matches) {
-      document.body.classList.toggle("nav-open");
-    } else {
-      document.body.classList.toggle("nav-collapsed");
-    }
-    this.#syncBackdrop();
+    toggleNav();
   }
 
   close() {
-    document.body.classList.remove("nav-open");
-    this.#syncBackdrop();
-  }
-
-  #syncBackdrop() {
-    const open = document.body.classList.contains("nav-open");
-    if (this.#backdrop) this.#backdrop.hidden = !open;
-    document.querySelectorAll("[data-nav-toggle]").forEach((btn) => {
-      btn.setAttribute("aria-expanded", open ? "true" : "false");
-    });
+    setNavOpen(false);
   }
 }

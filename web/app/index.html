@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-4" />
-  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-4" />
+  <link rel="stylesheet" href="./css/layout.css?v=chat-shell-6" />
+  <link rel="stylesheet" href="./css/chat.css?v=chat-shell-6" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body class="app-shell">
@@ -35,11 +35,12 @@
       <a class="nav__login" href="/login.html" title="Ingresar al panel de administración">Login</a>
     </div>
   </aside>
-  <button class="nav-backdrop" type="button" data-nav-backdrop hidden aria-label="Cerrar menú"></button>
+  <button class="split-handle split-handle--nav" type="button" data-resize="nav" aria-label="Ajustar ancho del historial"></button>
+  <button class="nav-backdrop" type="button" data-nav-backdrop hidden aria-label="Cerrar historial"></button>
 
   <div class="app">
     <header class="chat-top">
-      <button class="chat-top__menu" type="button" data-nav-toggle aria-expanded="false" aria-label="Abrir historial">
+      <button class="chat-top__menu" type="button" data-nav-toggle aria-expanded="true" aria-label="Cerrar historial">
         <span class="chat-top__menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
         Historial
       </button>
@@ -48,7 +49,7 @@
 
   <div class="wrap">
 
-    <div class="workspace">
+    <div class="workspace" data-workspace>
       <main class="chat" data-chat aria-label="Conversación con el chatbot">
         <div class="chat__empty" data-empty>
           <span class="blaze blaze--lg" aria-hidden="true">
@@ -81,7 +82,13 @@
         </form>
       </main>
 
-      <aside class="sidebar sidebar--media" aria-label="Enseñanza y lecturas relacionadas">
+      <button class="split-handle split-handle--media" type="button" data-resize="media" aria-label="Ajustar ancho de la enseñanza"></button>
+
+      <aside class="sidebar sidebar--media" data-media aria-label="Enseñanza y lecturas relacionadas">
+        <div class="media-drawer__bar">
+          <p>Enseñanza y artículos</p>
+          <button type="button" data-media-close>Cerrar</button>
+        </div>
         <section class="player" data-player data-has-video="false" aria-label="Reproductor de la enseñanza">
           <div class="player__head">
             <p class="player__label" data-player-label>Enseñanza en video</p>
@@ -137,6 +144,12 @@
   </div>
   </div>
 
+  <button class="media-fab" type="button" data-media-toggle hidden aria-expanded="false" aria-label="Abrir enseñanza y artículos">
+    <span class="media-fab__dot" aria-hidden="true"></span>
+    Enseñanza
+  </button>
+  <button class="media-backdrop" type="button" data-media-backdrop hidden aria-label="Cerrar enseñanza"></button>
+
   <div class="modal" data-modal role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal__card">
       <h3 id="modalTitle">Conectar tu chatbot</h3>
@@ -152,6 +165,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=chat-shell-4"></script>
+  <script type="module" src="./js/main.js?v=chat-shell-6"></script>
 </body>
 </html>
