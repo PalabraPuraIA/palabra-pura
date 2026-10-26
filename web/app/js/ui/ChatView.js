@@ -7,7 +7,7 @@
 
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
-import { renderSourceCard } from "./SourceCard.js?v=paid-cta-8";
+import { renderSourceCard } from "./SourceCard.js?v=sources-1";
 import { isShopRecommendation } from "./shopCart.js?v=paid-cta-8";
 
 /** Logo animado de Blaze junto a cada respuesta. */
@@ -136,10 +136,8 @@ export class ChatView {
         ? `<p class="msg__hint">Puedes ver una sola o abrirlas todas juntas en el carrito.</p>`
         : hasPaidCta
         ? `<p class="msg__hint">Respuesta breve. Para más información, abre la enseñanza completa en el carrito.</p>`
-        : isVideo && response.excerpt
-        ? `<p class="msg__hint">Resumen corto.</p>`
-        : isVideo && hasVerses
-          ? `<p class="msg__hint">Lo que enseñó el pastor, con versículos y el video abajo.</p>`
+        : isVideo && (response.excerpt || hasVerses)
+        ? `<p class="msg__hint">Resumen corto. Abre transcripción y versículo si quieres el detalle.</p>`
           : tips
             ? `<p class="msg__hint">Abre el menú y elige un contenido relacionado.</p>`
             : "";

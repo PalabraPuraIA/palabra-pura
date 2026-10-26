@@ -415,6 +415,49 @@
   opacity: .92;
 }
 
+.source__details {
+  border: 1px solid var(--c-line-soft);
+  border-radius: 14px;
+  background: var(--c-surface-2);
+  overflow: hidden;
+}
+.source__details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  list-style: none;
+  cursor: pointer;
+  font-size: .84rem;
+  font-weight: 600;
+  color: var(--c-ink);
+  user-select: none;
+}
+.source__details-toggle::-webkit-details-marker {
+  display: none;
+}
+.source__details-toggle::after {
+  content: "▾";
+  flex: none;
+  color: var(--c-rose);
+  font-size: .85rem;
+  transition: transform .18s ease;
+}
+.source__details[open] .source__details-toggle {
+  border-bottom: 1px solid var(--c-line-soft);
+}
+.source__details[open] .source__details-toggle::after {
+  transform: rotate(180deg);
+}
+.source__details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
 /* ---------- Tarjeta de fuente (enseñanza + versículo + video) ---------- */
 .source {
   margin-top: 4px;

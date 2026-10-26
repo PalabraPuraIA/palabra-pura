@@ -222,7 +222,7 @@ export function renderSourceCard({ passage, passages, video, excerpt, source, of
     source === "biblia" && verses
       ? `<p class="source__origin">Pasajes bíblicos relacionados con tu pregunta.</p>`
       : source === "video" && verses
-        ? `<p class="source__origin">Resumen del audio del ministerio, con versículos citados y el video donde se enseña.</p>`
+        ? `<p class="source__origin">Resumen del audio del ministerio. Abre transcripción y versículo si quieres el detalle.</p>`
         : source === "video"
           ? `<p class="source__origin">Basado en la enseñanza en audio del ministerio.</p>`
           : source === "dato"
@@ -233,5 +233,21 @@ export function renderSourceCard({ passage, passages, video, excerpt, source, of
               ? `<p class="source__origin">Respuesta breve; para más información abre la enseñanza en la tienda de la iglesia.</p>`
               : "";
 
-  return `<div class="source">${origin}${transcript}${verses}${vid}${buy}</div>`;
+  const detailsLabel =
+    transcript && verses
+      ? "Ver transcripción y versículo"
+      : transcript
+        ? "Ver transcripción"
+        : verses
+          ? "Ver versículo"
+          : "";
+  const details =
+    transcript || verses
+      ? `<details class="source__details">
+           <summary class="source__details-toggle">${detailsLabel}</summary>
+           <div class="source__details-body">${transcript}${verses}</div>
+         </details>`
+      : "";
+
+  return `<div class="source">${origin}${details}${vid}${buy}</div>`;
 }
