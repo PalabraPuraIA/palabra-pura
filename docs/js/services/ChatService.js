@@ -8,6 +8,7 @@
 import { config, isConnected } from "../config.js";
 import { demoResponses, fallbackDemoResponse } from "../data/demoResponses.js";
 import { resolveBackend } from "./backend.js";
+import { ensureTlaInResponse } from "../utils/tlaPassage.js";
 
 const NETWORK_ERROR_MESSAGE =
   "No pude conectar con el chatbot. Revisa que la URL sea correcta y que la función esté desplegada, " +
@@ -175,8 +176,9 @@ export class ChatService {
           }
           response.mode =
             response.mode || (/supabase\.co/.test(endpoint) ? "supabase" : "server");
-          this.#remember(question, response);
-          return response;
+          const withTla = await ensureTlaInResponse(response);
+          this.#remember(question, withTla);
+          return withTla;
         } catch (error) {
           console.warn("[ChatService]", endpoint, attempt, error);
         }

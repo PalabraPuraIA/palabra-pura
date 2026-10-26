@@ -251,7 +251,7 @@ async function attachLifeContext(payload: Record<string, unknown>, question: str
   const passages = [];
   for (const ref of area.verses) {
     const resolved = await resolvePassage(ref);
-    if (resolved) passages.push({ ...resolved, bible_version: "Reina-Valera Antigua" });
+    if (resolved) passages.push(resolved);
   }
   if (passages.length) {
     payload.passage = passages[0];
@@ -676,25 +676,128 @@ function parseRef(ref) {
     endVerse: m[4] ? parseInt(m[4]) : startVerse
   };
 }
-// Dada una referencia, devuelve el TEXTO EXACTO desde `verses` (nunca del LLM).
+
+const TLA_URL = "https://mrk214.github.io/snapshots/es___spa___spa/TLA_vid_176.json";
+const TLA_LABEL = "Traducción en Lenguaje Actual";
+const RVA_LABEL = "Reina-Valera Antigua";
+const USFM_BY_NORM: Record<string, string> = {
+  genesis: "GEN", exodo: "EXO", levitico: "LEV", numeros: "NUM", deuteronomio: "DEU",
+  josue: "JOS", jueces: "JDG", rut: "RUT", "1 samuel": "1SA", "2 samuel": "2SA",
+  "1 reyes": "1KI", "2 reyes": "2KI", "1 cronicas": "1CH", "2 cronicas": "2CH",
+  esdras: "EZR", nehemias: "NEH", ester: "EST", job: "JOB", salmos: "PSA",
+  proverbios: "PRO", eclesiastes: "ECC", cantares: "SNG", cantar: "SNG",
+  isaias: "ISA", jeremias: "JER", lamentaciones: "LAM", ezequiel: "EZK", daniel: "DAN",
+  oseas: "HOS", joel: "JOL", amos: "AMO", abdias: "OBA", jonas: "JON", miqueas: "MIC",
+  nahum: "NAM", habacuc: "HAB", sofonias: "ZEP", hageo: "HAG", zacarias: "ZEC",
+  malaquias: "MAL", mateo: "MAT", "san mateo": "MAT", marcos: "MRK", "san marcos": "MRK",
+  lucas: "LUK", "san lucas": "LUK", juan: "JHN", "san juan": "JHN", hechos: "ACT",
+  romanos: "ROM", "1 corintios": "1CO", "2 corintios": "2CO", galatas: "GAL",
+  efesios: "EPH", filipenses: "PHP", colosenses: "COL", "1 tesalonicenses": "1TH",
+  "2 tesalonicenses": "2TH", "1 timoteo": "1TI", "2 timoteo": "2TI", tito: "TIT",
+  filemon: "PHM", hebreos: "HEB", santiago: "JAS", "1 pedro": "1PE", "2 pedro": "2PE",
+  "1 juan": "1JN", "2 juan": "2JN", "3 juan": "3JN", judas: "JUD", apocalipsis: "REV",
+  revelacion: "REV",
+};
+
+let tlaBibleCache: unknown = null;
+let tlaLoadPromise: Promise<unknown> | null = null;
+
+async function loadTlaBible() {
+  if (tlaBibleCache) return tlaBibleCache;
+  if (!tlaLoadPromise) {
+    tlaLoadPromise = (async () => {
+      const res = await fetch(TLA_URL);
+      if (!res.ok) throw new Error(`TLA ${res.status}`);
+      const data = await res.json();
+      tlaBibleCache = data;
+      return data;
+    })().catch((err) => {
+      tlaLoadPromise = null;
+      throw err;
+    });
+  }
+  return tlaLoadPromise;
+}
+
+async function fetchTlaText(parsed: { book: string; chapter: number; startVerse: number | null; endVerse: number | null }) {
+  const usfm = USFM_BY_NORM[norm(parsed.book)];
+  if (!usfm || parsed.startVerse == null) return null;
+  try {
+    const bible = await loadTlaBible() as {
+      books?: Array<{
+        book_usfm?: string;
+        chapters?: Array<{
+          chapter_usfm?: string;
+          items?: Array<{ type?: string; lines?: string[]; verse_numbers?: number[] }>;
+        }>;
+      }>;
+    };
+    const book = bible.books?.find((b) => b.book_usfm === usfm);
+    if (!book) return null;
+    const ch = book.chapters?.find((c) => c.chapter_usfm === `${usfm}.${parsed.chapter}`);
+    if (!ch) return null;
+    const lo = parsed.startVerse;
+    const hi = parsed.endVerse ?? parsed.startVerse;
+    const chunks: string[] = [];
+    for (const item of ch.items || []) {
+      if (item.type !== "verse") continue;
+      const text = (item.lines || []).join(" ").replace(/\s+/g, " ").trim();
+      if (!text) continue;
+      for (const vn of item.verse_numbers || []) {
+        if (vn >= lo && vn <= hi) chunks.push(text);
+      }
+    }
+    if (!chunks.length) return null;
+    return [...new Set(chunks)].join(" ");
+  } catch (e) {
+    console.warn("TLA fetch:", e);
+    return null;
+  }
+}
+
+/** Texto exacto: TLA por defecto; RVA de `verses` como alternativa. */
 async function resolvePassage(reference) {
   if (!reference || typeof reference !== "string" || reference.trim() === "") return null;
   const parsed = parseRef(reference);
   if (!parsed) return null;
+
   const books = await getBooksMap();
   const bookId = books.get(norm(parsed.book));
-  if (!bookId) return null;
-  let q = supabase.from("verses").select("verse, text").eq("book_id", bookId).eq("chapter", parsed.chapter).order("verse");
-  if (parsed.startVerse != null) {
-    q = q.gte("verse", parsed.startVerse).lte("verse", parsed.endVerse);
+  let rvaText: string | null = null;
+  let label = "";
+  if (bookId) {
+    let q = supabase.from("verses").select("verse, text").eq("book_id", bookId).eq("chapter", parsed.chapter).order("verse");
+    if (parsed.startVerse != null) {
+      q = q.gte("verse", parsed.startVerse).lte("verse", parsed.endVerse);
+    }
+    const { data: verses } = await q;
+    if (verses && verses.length > 0) {
+      rvaText = verses.map((v) => v.text).join(" ");
+    }
   }
-  const { data: verses } = await q;
-  if (!verses || verses.length === 0) return null;
-  const text = verses.map((v)=>v.text).join(" ");
-  const label = parsed.startVerse == null ? `${parsed.book} ${parsed.chapter}` : parsed.startVerse === parsed.endVerse ? `${parsed.book} ${parsed.chapter}:${parsed.startVerse}` : `${parsed.book} ${parsed.chapter}:${parsed.startVerse}-${parsed.endVerse}`;
+  label = parsed.startVerse == null
+    ? `${parsed.book} ${parsed.chapter}`
+    : parsed.startVerse === parsed.endVerse
+      ? `${parsed.book} ${parsed.chapter}:${parsed.startVerse}`
+      : `${parsed.book} ${parsed.chapter}:${parsed.startVerse}-${parsed.endVerse}`;
+
+  const tlaText = await fetchTlaText(parsed);
+  if (!rvaText && !tlaText) return null;
+
+  const versions = [];
+  if (tlaText) {
+    versions.push({ id: "tla", bible_version: TLA_LABEL, text: tlaText });
+  }
+  if (rvaText) {
+    versions.push({ id: "rva", bible_version: RVA_LABEL, text: rvaText });
+  }
+  const preferred = versions.find((v) => v.id === "tla") || versions[0];
+
   return {
     reference: label,
-    text
+    text: preferred.text,
+    bible_version: preferred.bible_version,
+    versions,
   };
 }
 function filterBySimilarity(rows, minSimilarity = MIN_SIMILARITY, fallbackTop = 3) {
@@ -1132,10 +1235,7 @@ Deno.serve(async (req)=>{
         const passage = await resolvePassage(vid.reference);
         const payload = await attachLifeContext({
           answer: sanitizeAnswer(vid.answer ?? ""),
-          passage: passage ? {
-            ...passage,
-            bible_version: "Reina-Valera Antigua"
-          } : undefined,
+          passage: passage || undefined,
           excerpt: selected.excerpt,
           retrieval: selected.retrieval,
           video: {
@@ -1217,10 +1317,7 @@ Deno.serve(async (req)=>{
     const answer = sanitizeAnswer(bib.answer ?? "");
     const payload = {
       answer,
-      passage: passage ? {
-        ...passage,
-        bible_version: "Reina-Valera Antigua"
-      } : undefined,
+      passage: passage || undefined,
       source: "biblia"
     };
     if (SOFT_NOT_FOUND_RE.test(answer) && tips.length) {

@@ -11,8 +11,9 @@ import {
   applyBibleVersionEverywhere,
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
+import { preloadTlaBible } from "./utils/tlaPassage.js";
 
-import { ChatService } from "./services/ChatService.js?v=reply-1";
+import { ChatService } from "./services/ChatService.js?v=tla-1";
 import { ArticleService } from "./services/ArticleService.js";
 import { ChatView } from "./ui/ChatView.js?v=sources-1";
 import { Composer } from "./ui/Composer.js?v=composer-mobile-2";
@@ -47,6 +48,8 @@ class App {
   #started = false;
 
   init() {
+    setPreferredBibleVersion("tla");
+    preloadTlaBible();
     initShell();
     new WorkspaceSplit();
     this.#media = new MediaDrawer();
