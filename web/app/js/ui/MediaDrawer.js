@@ -21,7 +21,7 @@ export class MediaDrawer {
     this.hide();
   }
 
-  /** Aparece el botón flotante después de la primera respuesta. */
+  /** En celular, el botón Enseñanza aparece en la barra después de responder. */
   reveal({ hasVideo = false } = {}) {
     if (!this.#fab) return;
     this.#fab.hidden = false;

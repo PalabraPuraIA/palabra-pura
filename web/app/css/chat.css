@@ -16,8 +16,13 @@
   overflow: hidden;
 }
 
-.chat__empty {
+.chat__empty,
+.chat__scroll {
   flex: 1;
+  min-height: 0;
+}
+
+.chat__empty {
   display: grid;
   place-content: center;
   justify-items: center;
@@ -1382,7 +1387,7 @@
 }
 
 /* ---------- Chips de ejemplo ---------- */
-.examples { padding: var(--sp-2) 16px 2px; }
+.examples { flex: none; padding: var(--sp-2) 16px 2px; }
 .examples[hidden] { display: none; }
 
 .examples__label {
@@ -1421,9 +1426,15 @@
   display: flex;
   align-items: flex-end;
   gap: 8px;
+  margin-top: auto;
+  flex: none;
   padding: var(--sp-2) 14px 14px;
   border-top: 1px solid var(--c-line);
   background: var(--c-surface-2);
+}
+
+.composer__media {
+  display: none;
 }
 
 .composer textarea {
@@ -1572,10 +1583,35 @@
   .chat {
     position: static;
     top: auto;
-    height: calc(100dvh - 4.75rem);
-    max-height: calc(100dvh - 4.75rem);
-    min-height: 360px;
+    height: 100%;
+    max-height: none;
+    min-height: 0;
     overflow: hidden;
+  }
+  .composer__media:not([hidden]) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    height: 42px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--g-brand);
+    color: var(--c-white);
+    font: inherit;
+    font-size: .75rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .composer__media-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .45);
+  }
+  .composer__media.is-live .composer__media-dot {
+    background: #fff;
   }
   .chat__empty {
     padding: 16px 16px 4px;
@@ -1611,8 +1647,8 @@
 @media (max-width: 640px) {
   .chat {
     min-height: 0;
-    height: calc(100svh - 4.5rem);
-    max-height: calc(100svh - 4.5rem);
+    height: 100%;
+    max-height: none;
     border-radius: var(--r-lg);
   }
   .chat__empty { padding: 16px 16px 4px; }

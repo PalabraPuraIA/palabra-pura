@@ -77,6 +77,10 @@
             aria-label="Tu pregunta"
             enterkeyhint="send"
             autocomplete="off"></textarea>
+          <button class="composer__media" type="button" data-media-toggle hidden aria-expanded="false" aria-label="Abrir enseñanza y artículos">
+            <span class="composer__media-dot" aria-hidden="true"></span>
+            Enseñanza
+          </button>
           <button class="composer__send" data-send type="submit" aria-label="Enviar pregunta">
             <svg viewBox="0 0 24 24" fill="none">
               <path d="M4 12h13M11 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -147,10 +151,6 @@
   </div>
   </div>
 
-  <button class="media-fab" type="button" data-media-toggle hidden aria-expanded="false" aria-label="Abrir enseñanza y artículos">
-    <span class="media-fab__dot" aria-hidden="true"></span>
-    Enseñanza
-  </button>
   <button class="media-backdrop" type="button" data-media-backdrop hidden aria-label="Cerrar enseñanza"></button>
 
   <div class="modal" data-modal role="dialog" aria-modal="true" aria-labelledby="modalTitle">
