@@ -10,9 +10,9 @@
   max-height: none;
   margin-top: 0;
   background: var(--g-surface);
-  border: 1px solid var(--c-line);
-  border-radius: var(--r-xl);
-  box-shadow: var(--shadow-lift);
+  border: 1px solid var(--c-line-soft);
+  border-radius: 16px;
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -773,9 +773,9 @@
 .player {
   margin-top: var(--sp-3);
   background: var(--g-surface);
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-line-soft);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -1154,9 +1154,9 @@
   margin-top: var(--sp-2);
   margin-bottom: 6px;
   background: var(--g-surface);
-  border: 1px solid var(--c-line);
+  border: 1px solid var(--c-line-soft);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
   overflow: hidden;
 }
 

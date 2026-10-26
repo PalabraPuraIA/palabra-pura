@@ -18,7 +18,11 @@ export function syncShell() {
   const navOpen = document.body.classList.contains("nav-open");
   const navCollapsed = document.body.classList.contains("nav-collapsed");
   const mediaOpen = document.body.classList.contains("media-open");
+  const mediaCollapsed = document.body.classList.contains("media-collapsed");
   const drawer = isNavDrawer();
+  const phone = isPhone();
+  const navExpanded = drawer ? navOpen : !navCollapsed;
+  const mediaExpanded = phone ? mediaOpen : !mediaCollapsed;
 
   const navBackdrop = document.querySelector("[data-nav-backdrop]");
   if (navBackdrop) navBackdrop.hidden = !navOpen;
@@ -27,13 +31,25 @@ export function syncShell() {
   if (mediaBackdrop) mediaBackdrop.hidden = !mediaOpen;
 
   document.querySelectorAll("[data-nav-toggle]").forEach((btn) => {
-    const expanded = drawer ? navOpen : !navCollapsed;
-    btn.setAttribute("aria-expanded", expanded ? "true" : "false");
-    btn.setAttribute("aria-label", expanded ? "Cerrar historial" : "Abrir historial");
+    btn.setAttribute("aria-expanded", navExpanded ? "true" : "false");
+    btn.setAttribute("aria-label", navExpanded ? "Ocultar historial" : "Abrir historial");
+  });
+
+  document.querySelectorAll("[data-resize=nav]").forEach((el) => {
+    el.setAttribute("aria-label", navExpanded ? "Ocultar historial" : "Mostrar historial");
+    el.title = navExpanded ? "Clic para ocultar · arrastra para ajustar" : "Clic para mostrar el historial";
   });
 
   document.querySelectorAll("[data-media-toggle]").forEach((btn) => {
-    btn.setAttribute("aria-expanded", mediaOpen ? "true" : "false");
+    btn.setAttribute("aria-expanded", mediaExpanded ? "true" : "false");
+    btn.setAttribute("aria-label", mediaExpanded ? "Cerrar enseñanza" : "Abrir enseñanza y artículos");
+  });
+
+  document.querySelectorAll("[data-resize=media]").forEach((el) => {
+    el.setAttribute("aria-label", mediaExpanded ? "Ocultar enseñanza" : "Mostrar enseñanza");
+    el.title = phone
+      ? (mediaExpanded ? "Cerrar enseñanza" : "Abrir enseñanza y artículos")
+      : (mediaExpanded ? "Clic para ocultar · arrastra para ajustar" : "Clic para mostrar la enseñanza");
   });
 }
 
@@ -59,8 +75,12 @@ export function toggleNav() {
 }
 
 export function toggleMedia() {
-  if (!isPhone()) return;
-  setMediaOpen(!document.body.classList.contains("media-open"));
+  if (isPhone()) {
+    setMediaOpen(!document.body.classList.contains("media-open"));
+    return;
+  }
+  document.body.classList.toggle("media-collapsed");
+  syncShell();
 }
 
 export function initShell() {
@@ -71,7 +91,9 @@ export function initShell() {
       setMediaOpen(false);
       return;
     }
-    setNavOpen(false);
+    if (document.body.classList.contains("nav-open")) {
+      setNavOpen(false);
+    }
   });
   window.matchMedia(PHONE).addEventListener("change", (event) => {
     if (!event.matches) setMediaOpen(false);

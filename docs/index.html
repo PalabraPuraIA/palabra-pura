@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=fit-1" />
-  <link rel="stylesheet" href="./css/chat.css?v=fit-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=fit-2" />
+  <link rel="stylesheet" href="./css/chat.css?v=fit-2" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body class="app-shell">
@@ -38,12 +38,14 @@
       <a class="nav__login" href="./login.html" title="Ingresar al panel">Ingresar</a>
     </div>
   </aside>
-  <div class="split-handle split-handle--nav" data-resize="nav" role="separator" aria-orientation="vertical" aria-label="Ajustar ancho del historial" title="Arrastra para ajustar el historial"></div>
+  <div class="split-handle split-handle--nav" data-resize="nav" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Ocultar historial" title="Clic para ocultar · arrastra para ajustar">
+    <span class="split-handle__tab" aria-hidden="true"><span class="split-handle__chev"></span></span>
+  </div>
   <button class="nav-backdrop" type="button" data-nav-backdrop hidden aria-label="Cerrar historial"></button>
 
   <div class="app">
     <header class="chat-top">
-      <button class="chat-top__menu" type="button" data-nav-toggle aria-expanded="false" aria-label="Abrir menú">
+      <button class="chat-top__menu" type="button" data-nav-toggle aria-expanded="true" aria-label="Ocultar historial">
         <span class="chat-top__menu-bars" aria-hidden="true"><span></span><span></span><span></span></span>
       </button>
       <h1>Pregúntale a <em>Blaze</em></h1>
@@ -86,7 +88,9 @@
         </form>
       </main>
 
-      <div class="split-handle split-handle--media" data-resize="media" role="separator" aria-orientation="vertical" aria-label="Ajustar ancho de la enseñanza" title="Arrastra para ajustar el video y los artículos"></div>
+      <div class="split-handle split-handle--media" data-resize="media" role="separator" aria-orientation="vertical" tabindex="0" aria-label="Ocultar enseñanza" title="Clic para ocultar · arrastra para ajustar">
+        <span class="split-handle__tab" aria-hidden="true"><span class="split-handle__chev"></span></span>
+      </div>
 
       <aside class="sidebar sidebar--media" data-media aria-label="Enseñanza y lecturas relacionadas">
         <div class="media-drawer__bar">
@@ -169,6 +173,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=fit-1"></script>
+  <script type="module" src="./js/main.js?v=fit-2"></script>
 </body>
 </html>
