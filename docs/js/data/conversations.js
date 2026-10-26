@@ -1,13 +1,23 @@
 /**
- * conversations.js — Historial local de chats (como un chat de IA).
+ * conversations.js — Historial solo de esta pestaña/sesión.
+ * No se comparte entre usuarios ni se guarda en la nube.
  */
 
-const KEY = "pp-conversations-v1";
+const KEY = "pp-conversations-session-v1";
+const LEGACY_KEYS = ["pp-conversations-v1"];
 const MAX = 50;
+
+for (const old of LEGACY_KEYS) {
+  try {
+    localStorage.removeItem(old);
+  } catch {
+    /* ignore */
+  }
+}
 
 function read() {
   try {
-    const data = JSON.parse(localStorage.getItem(KEY) || "[]");
+    const data = JSON.parse(sessionStorage.getItem(KEY) || "[]");
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
@@ -16,7 +26,7 @@ function read() {
 
 function write(list) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX)));
+    sessionStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX)));
   } catch {
     /* quota / modo privado */
   }
@@ -52,7 +62,7 @@ export function appendTurn(id, question, response) {
   const all = read();
   let convo = all.find((item) => item.id === id);
   if (!convo) {
-    convo = { id, title: "Nueva conversación", updatedAt: Date.now(), turns: [] };
+    convo = { id, title: "Nuevo chat", updatedAt: Date.now(), turns: [] };
     all.unshift(convo);
   }
   const q = String(question || "").trim();

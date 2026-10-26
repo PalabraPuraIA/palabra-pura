@@ -30,7 +30,7 @@ import {
   appendTurn,
   getConversation,
   historyFromTurns,
-} from "./data/conversations.js?v=chat-shell-1";
+} from "./data/conversations.js?v=session-1";
 
 class App {
   #service = new ChatService();

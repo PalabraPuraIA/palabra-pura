@@ -55,13 +55,13 @@ export class HistoryNav {
   render() {
     const items = listConversations();
     if (!items.length) {
-      this.#list.innerHTML = `<p class="nav__empty">Tus preguntas de esta conversación aparecerán aquí.</p>`;
+      this.#list.innerHTML = `<p class="nav__empty">Los chats de esta sesión aparecerán aquí. Se borran al cerrar la pestaña.</p>`;
       return;
     }
     this.#list.innerHTML = items
       .map((item) => {
         const active = item.id === this.#activeId ? " is-active" : "";
-        return `<button type="button" class="nav__item${active}" data-history-id="${escapeHtml(item.id)}">${escapeHtml(item.title || "Conversación")}</button>`;
+        return `<button type="button" class="nav__item${active}" data-history-id="${escapeHtml(item.id)}">${escapeHtml(item.title || "Nuevo chat")}</button>`;
       })
       .join("");
   }

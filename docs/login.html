@@ -151,6 +151,10 @@
       align-items: center;
       margin-top: 6px;
     }
+    .login-actions--stack {
+      flex-direction: column;
+      align-items: stretch;
+    }
 
     .login-btn {
       display: inline-flex;
@@ -256,7 +260,7 @@
 </head>
 <body>
   <div class="login-wrap">
-    <form class="login-card" data-login-form>
+    <div class="login-card">
       <div class="login-brand">
         <img
           class="login-brand__logo"
@@ -273,7 +277,7 @@
       </div>
 
       <h1>Ingresar</h1>
-      <p class="sub">Entra con tu cuenta de Gmail. El chat sigue abierto para todos; el usuario y contraseña son solo para el panel de administración.</p>
+      <p class="sub">Entra o crea tu cuenta con el correo. Tus chats quedan solo en esta sesión; no se mezclan con los de otras personas.</p>
 
       <button class="login-btn login-btn--google" type="button" data-google-login>
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -285,25 +289,43 @@
         Continuar con Google
       </button>
 
+      <div class="login-divider">Correo</div>
+
+      <form data-email-form>
+        <label class="field">
+          <span>Correo</span>
+          <input type="email" name="email" autocomplete="email" placeholder="tucorreo@ejemplo.com" required />
+        </label>
+        <label class="field">
+          <span>Contraseña</span>
+          <input type="password" name="password" autocomplete="current-password" placeholder="Mínimo 6 caracteres" minlength="6" required />
+        </label>
+        <div class="login-actions login-actions--stack">
+          <button class="login-btn login-btn--primary" type="submit" data-email-signin>Entrar</button>
+          <button class="login-btn login-btn--ghost" type="button" data-email-signup>Crear cuenta</button>
+        </div>
+      </form>
+
       <div class="login-divider">Panel admin</div>
 
-      <label class="field">
-        <span>Usuario</span>
-        <input type="text" name="username" autocomplete="username" placeholder="Tu usuario" required />
-      </label>
-      <label class="field">
-        <span>Contraseña</span>
-        <input type="password" name="password" autocomplete="current-password" placeholder="••••••••" required />
-      </label>
-
-      <div class="login-actions">
-        <button class="login-btn login-btn--primary" type="submit" data-submit>Entrar</button>
-        <a class="login-btn login-btn--ghost" href="./">Ir al chat</a>
-      </div>
+      <form data-login-form>
+        <label class="field">
+          <span>Usuario</span>
+          <input type="text" name="username" autocomplete="username" placeholder="Tu usuario" required />
+        </label>
+        <label class="field">
+          <span>Contraseña</span>
+          <input type="password" name="password" autocomplete="current-password" placeholder="••••••••" required />
+        </label>
+        <div class="login-actions">
+          <button class="login-btn login-btn--primary" type="submit" data-submit>Entrar al panel</button>
+          <a class="login-btn login-btn--ghost" href="./">Ir al chat</a>
+        </div>
+      </form>
       <p class="login-msg" data-msg hidden></p>
       <p class="login-foot">Panel de Blaze · Escuela Bíblica</p>
-    </form>
+    </div>
   </div>
-  <script type="module" src="./js/login-page.js?v=google-login-1"></script>
+  <script type="module" src="./js/login-page.js?v=email-1"></script>
 </body>
 </html>

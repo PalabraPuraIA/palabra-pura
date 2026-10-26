@@ -103,7 +103,7 @@ function supabaseClient() {
   });
 }
 
-function rememberGoogleUser(user) {
+function rememberAuthUser(user) {
   try {
     localStorage.setItem(
       GOOGLE_SESSION_KEY,
@@ -118,15 +118,31 @@ function rememberGoogleUser(user) {
   }
 }
 
+function chatHome() {
+  return ON_PAGES ? new URL("./", location.href).href : "/";
+}
+
+function friendlyAuthError(err) {
+  const message = String(err?.message || err || "");
+  if (/already registered|already been registered/i.test(message)) {
+    return "Ese correo ya tiene cuenta. Entra con tu contraseña.";
+  }
+  if (/invalid login/i.test(message)) return "Correo o contraseña incorrectos.";
+  if (/email not confirmed/i.test(message)) return "Confirma tu correo y vuelve a entrar.";
+  if (/provider is not enabled|signup is disabled|Email logins are disabled/i.test(message)) {
+    return "Activa el proveedor Email en Supabase (Authentication → Providers).";
+  }
+  return message || "No se pudo entrar.";
+}
+
 await resolveApiBase();
 
 const supabase = supabaseClient();
 if (supabase) {
   const { data } = await supabase.auth.getSession();
   if (data?.session?.user) {
-    rememberGoogleUser(data.session.user);
-    // Google abre el chat; el panel admin sigue con usuario/contraseña.
-    location.href = ON_PAGES ? new URL("./", location.href).href : "/";
+    rememberAuthUser(data.session.user);
+    location.href = chatHome();
   }
 }
 
@@ -173,6 +189,61 @@ if (getToken()) {
     }
   }
 }
+
+const emailForm = document.querySelector("[data-email-form]");
+const emailSignin = document.querySelector("[data-email-signin]");
+const emailSignup = document.querySelector("[data-email-signup]");
+
+async function emailAuth(mode) {
+  if (!emailForm) return;
+  const fd = new FormData(emailForm);
+  const email = String(fd.get("email") || "").trim();
+  const password = String(fd.get("password") || "");
+  if (!email || !password) {
+    showMsg("Escribe tu correo y una contraseña.");
+    return;
+  }
+  if (password.length < 6) {
+    showMsg("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
+  if (!supabase) {
+    showMsg("Falta la configuración de Supabase.");
+    return;
+  }
+  if (emailSignin) emailSignin.disabled = true;
+  if (emailSignup) emailSignup.disabled = true;
+  try {
+    if (mode === "signup") {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      if (data.session?.user) {
+        rememberAuthUser(data.session.user);
+        location.href = chatHome();
+        return;
+      }
+      showMsg("Cuenta creada. Revisa tu correo para confirmarla y luego entra.", true);
+      return;
+    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (data.session?.user) {
+      rememberAuthUser(data.session.user);
+      location.href = chatHome();
+    }
+  } catch (err) {
+    showMsg(friendlyAuthError(err));
+  } finally {
+    if (emailSignin) emailSignin.disabled = false;
+    if (emailSignup) emailSignup.disabled = false;
+  }
+}
+
+emailForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  emailAuth("signin");
+});
+emailSignup?.addEventListener("click", () => emailAuth("signup"));
 
 form.addEventListener("submit", async (ev) => {
   ev.preventDefault();
