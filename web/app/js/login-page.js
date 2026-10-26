@@ -4,6 +4,49 @@ import { config } from "./config.js";
 
 const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
 const GOOGLE_SESSION_KEY = "pp_google_session";
+const DEVICE_KEY = "pp_device_id";
+const MAX_GOOGLE_EMAILS = 2;
+
+/** Id estable del navegador para limitar correos distintos de Google. */
+function getDeviceId() {
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (id && id.length >= 8) return id.slice(0, 64);
+    id =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID().replace(/-/g, "")
+        : `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+    localStorage.setItem(DEVICE_KEY, id);
+    return id;
+  } catch {
+    return `d${Date.now().toString(36)}fallback`;
+  }
+}
+
+/**
+ * Guarda el usuario en app_user y valida el tope de correos por dispositivo.
+ * @returns {Promise<{ok: boolean, error?: string}>}
+ */
+async function registerGoogleUser(supabase, user) {
+  const name =
+    user?.user_metadata?.full_name || user?.user_metadata?.name || "";
+  const { data, error } = await supabase.rpc("register_google_login", {
+    p_device_id: getDeviceId(),
+    p_name: name,
+  });
+  if (error) {
+    console.warn("[login] register_google_login", error.message);
+    // Si la migración aún no está en la nube, no bloqueamos el chat.
+    if (/register_google_login|schema cache|does not exist/i.test(error.message || "")) {
+      return { ok: true, skipped: true };
+    }
+    return { ok: false, error: error.message };
+  }
+  if (data && data.ok === false) {
+    return { ok: false, error: data.error || "register_failed", limit: data.limit };
+  }
+  return { ok: true, data };
+}
 
 /** Misma clave que stack/docker-compose.yml (ADMIN_PASSWORD). */
 const PANEL_USER = "admin";
@@ -141,8 +184,23 @@ const supabase = supabaseClient();
 if (supabase) {
   const { data } = await supabase.auth.getSession();
   if (data?.session?.user) {
-    rememberAuthUser(data.session.user);
-    location.href = chatHome();
+    const reg = await registerGoogleUser(supabase, data.session.user);
+    if (!reg.ok) {
+      await supabase.auth.signOut().catch(() => {});
+      try {
+        localStorage.removeItem(GOOGLE_SESSION_KEY);
+      } catch {
+        /* ignore */
+      }
+      showMsg(
+        reg.error === "too_many_accounts"
+          ? `Este dispositivo ya usó ${reg.limit || MAX_GOOGLE_EMAILS} correos distintos. Entra con uno de los que ya registraste.`
+          : "No se pudo validar tu cuenta de Google. Intenta de nuevo.",
+      );
+    } else {
+      rememberAuthUser(data.session.user);
+      location.href = chatHome();
+    }
   }
 }
 
