@@ -829,28 +829,80 @@ function mergeFragments(preferred, fallback, max = CONTEXT_MAX) {
   return out;
 }
 
-async function retrieveVideoFragments(embStr, question = "") {
-  const { data: fragMatches, error: fragErr } = await supabase.rpc("match_fragments", {
-    query_embedding: embStr,
-    match_count: VECTOR_CANDIDATES,
+async function searchFragmentsByText(question = "") {
+  const tokens = titleTokens(question).slice(0, 3);
+  const titled = (await findVideosByTitle(question)).filter((video) => {
+    if (!/metamorfosis|audio38meta|local-metamorfosis/i.test(`${video.title} ${video.youtube_id}`)) return true;
+    return namesPaidTeaching(question);
   });
-  if (fragErr) throw new Error("match_fragments: " + fragErr.message);
-  const filtered = filterBySimilarity(fragMatches || []);
-  const seeds = filtered.slice(0, SEED_LIMIT);
-  const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 160);
-  const expanded = seeds.length ? await expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX) : [];
+  if (titled.length) return (await fragmentsFromVideos(titled)).slice(0, CONTEXT_MAX);
+  if (!tokens.length) return [];
+  const or = tokens.map((t) => `content.ilike.%${t}%`).join(",");
+  const { data, error } = await supabase
+    .from("fragment")
+    .select("id, position, content, start_second, word_count, video_id")
+    .or(or)
+    .limit(10);
+  if (error || !data?.length) return [];
+  const videoIds = [...new Set(data.map((row) => row.video_id).filter(Boolean))];
+  const { data: videos } = videoIds.length
+    ? await supabase.from("video").select("id, title, episode, youtube_id").in("id", videoIds)
+    : { data: [] };
+  const byId = new Map((videos || []).map((video) => [Number(video.id), video]));
+  return data.map((row) => {
+    const video = byId.get(Number(row.video_id));
+    return {
+      ...row,
+      title: video?.title,
+      episode: video?.episode,
+      youtube_id: video?.youtube_id,
+      similarity: 0.5,
+    };
+  });
+}
+
+function fallbackFromFragments(fragments) {
+  const top = fragments?.[0];
+  const excerpt = clean(String(top?.content || "")).slice(0, 420);
+  const title = top?.title || "esta enseñanza";
+  if (!excerpt) return { found: false };
+  return {
+    found: true,
+    answer: `Según la enseñanza «${title}», esto es lo que el ministerio explica sobre tu pregunta: ${excerpt.slice(0, 340)}${excerpt.length > 340 ? "…" : ""}`,
+    reference: "",
+    evidence: { fragment: 1, start_sentence: 1, end_sentence: 2 },
+  };
+}
+
+async function retrieveVideoFragments(embStr, question = "") {
   const titled = (await findVideosByTitle(question)).filter((video) => {
     if (!/metamorfosis|audio38meta|local-metamorfosis/i.test(`${video.title} ${video.youtube_id}`)) return true;
     return namesPaidTeaching(question);
   });
   const fromTitle = titled.length ? await fragmentsFromVideos(titled) : [];
   if (fromTitle.length) return fromTitle.slice(0, CONTEXT_MAX);
-  return expanded;
+  if (!embStr) return searchFragmentsByText(question);
+  const { data: fragMatches, error: fragErr } = await supabase.rpc("match_fragments", {
+    query_embedding: embStr,
+    match_count: VECTOR_CANDIDATES,
+  });
+  if (fragErr) {
+    console.error("match_fragments:", fragErr.message);
+    return searchFragmentsByText(question);
+  }
+  const filtered = filterBySimilarity(fragMatches || []);
+  const seeds = filtered.slice(0, SEED_LIMIT);
+  const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 160);
+  const expanded = seeds.length ? await expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX) : [];
+  return expanded.length ? expanded : searchFragmentsByText(question);
 }
 
 // Embebe la pregunta del usuario (rota keys si una falla).
 async function embedQuery(question) {
-  if (!GEMINI_API_KEYS.length) throw new Error("GEMINI_API_KEY missing");
+  if (!GEMINI_API_KEYS.length) {
+    console.error("GEMINI_API_KEY missing");
+    return null;
+  }
   let lastErr = "unknown";
   for (const key of GEMINI_API_KEYS) {
     const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent", {
@@ -879,13 +931,17 @@ async function embedQuery(question) {
     const data = await res.json();
     return data.embedding.values;
   }
-  throw new Error("Gemini embedding: " + lastErr);
+  console.error("Gemini embedding: " + lastErr);
+  return null;
 }
 
 // Llama al LLM (Gemini). thinkingBudget=0 evita que se coma los tokens;
 // si el modelo no admite thinkingConfig, reintenta sin él.
 async function askLLM(system, userContent) {
-  if (!GEMINI_API_KEYS.length) throw new Error("GEMINI_API_KEY missing");
+  if (!GEMINI_API_KEYS.length) {
+    console.error("GEMINI_API_KEY missing");
+    return { found: false };
+  }
   let lastErr = "unknown";
   const genConfigs = [
     {
@@ -941,7 +997,8 @@ async function askLLM(system, userContent) {
       }
     }
   }
-  throw new Error("Gemini LLM: " + lastErr);
+  console.error("Gemini LLM: " + lastErr);
+  return { found: false };
 }
 
 // ---- Handler ----
@@ -955,6 +1012,7 @@ Deno.serve(async (req)=>{
       service: "chatbot-iglesia-palabra-pura"
     });
   }
+  let asked = "";
   try {
     const body = await req.json().catch(()=>({}));
     if (body?.action === "rate") {
@@ -981,6 +1039,7 @@ Deno.serve(async (req)=>{
       return json({ ok: true, id, vote });
     }
     const question = String(body?.question || body?.message || body?.q || "").trim();
+    asked = question;
     if (!question) {
       return json({
         answer: "Escribeme una pregunta y con gusto te acompano."
@@ -990,7 +1049,7 @@ Deno.serve(async (req)=>{
     const searchQ = retrievalQuestion(question, history);
     const prior = historyBlock(history);
     const embedding = await embedQuery(searchQ);
-    const embStr = JSON.stringify(embedding); // halfvec como texto "[...]"
+    const embStr = embedding ? JSON.stringify(embedding) : "";
     const factHit = await findMinistryFact(question);
     if (factHit && !isPaidGateFact(factHit)) {
       return json(await attachLifeContext(factHit, searchQ));
@@ -999,7 +1058,7 @@ Deno.serve(async (req)=>{
       const recs = await recommendShopTeachings(question, searchQ, embStr);
       if (recs) return json(recs);
     }
-    const docs = await findKnowledgeDocs(embStr);
+    const docs = embStr ? await findKnowledgeDocs(embStr) : [];
     // ========== 1) VIDEOS primero ==========
     const titledPaid = [];
     for (const video of await findVideosByTitle(question)) {
@@ -1026,7 +1085,17 @@ Deno.serve(async (req)=>{
         paidFrags,
       ));
     }
-    const allFrags = await retrieveVideoFragments(embStr, question);
+    let allFrags = [];
+    try {
+      allFrags = await retrieveVideoFragments(embStr, question);
+    } catch (retrieveErr) {
+      console.error("retrieveVideoFragments", retrieveErr);
+      try {
+        allFrags = await searchFragmentsByText(question);
+      } catch {
+        allFrags = [];
+      }
+    }
     const paidTop = allFrags[0] ? await paidOfferFor(allFrags[0].youtube_id) : null;
     if (paidTop && namesPaidTeaching(question)) {
       const paidFrags = (allFrags || []).filter((row) => row.youtube_id === allFrags[0].youtube_id);
@@ -1051,6 +1120,10 @@ Deno.serve(async (req)=>{
           );
           if (vid.answer) vid.found = true;
         }
+      }
+      if (!vid.found) {
+        const fb = fallbackFromFragments(fragMatches);
+        if (fb.found) vid = fb;
       }
       // Si el LLM pudo responder con los videos, terminamos aqui.
       if (vid.found) {
@@ -1108,11 +1181,23 @@ Deno.serve(async (req)=>{
       }
     }
     // ========== 2) BIBLIA (solo si el video NO respondio) ==========
+    if (!embStr) {
+      return json(await attachLifeContext({
+        answer: "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
+        suggestions: tips.length ? tips : undefined
+      }, searchQ));
+    }
     const { data: chunkMatches, error: chunkErr } = await supabase.rpc("match_bible_chunks", {
       query_embedding: embStr,
       match_count: 5
     });
-    if (chunkErr) throw new Error("match_bible_chunks: " + chunkErr.message);
+    if (chunkErr) {
+      console.error("match_bible_chunks:", chunkErr.message);
+      return json(await attachLifeContext({
+        answer: "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
+        suggestions: tips.length ? tips : undefined
+      }, searchQ));
+    }
     if (!chunkMatches || chunkMatches.length === 0) {
       return json(await attachLifeContext({
         answer: "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
@@ -1147,6 +1232,31 @@ Deno.serve(async (req)=>{
     return json(await attachLifeContext(payload, searchQ));
   } catch (e) {
     console.error(e);
+    try {
+      if (asked) {
+        const rescue = await searchFragmentsByText(asked);
+        if (rescue.length) {
+          const fb = fallbackFromFragments(rescue);
+          if (fb.found) {
+            const selected = literalExcerpt(rescue, fb.evidence);
+            const top = selected.fragment;
+            return json(await attachLifeContext({
+              answer: sanitizeAnswer(fb.answer ?? ""),
+              excerpt: selected.excerpt,
+              video: top ? {
+                title: top.title,
+                episode: top.episode,
+                youtube_id: top.youtube_id,
+                start_second: top.start_second ?? 0,
+              } : undefined,
+              source: "video",
+            }, asked));
+          }
+        }
+      }
+    } catch (rescueErr) {
+      console.error("rescue", rescueErr);
+    }
     return json({
       answer: "Tuve un problema para responder ahora mismo. Intenta de nuevo en un momento."
     });

@@ -12,7 +12,7 @@ import {
   setPreferredBibleVersion,
 } from "./utils/bibleVersion.js";
 
-import { ChatService } from "./services/ChatService.js?v=chat-shell-1";
+import { ChatService } from "./services/ChatService.js?v=reply-1";
 import { ArticleService } from "./services/ArticleService.js";
 import { ChatView } from "./ui/ChatView.js?v=sources-1";
 import { Composer } from "./ui/Composer.js?v=composer-mobile-2";
@@ -23,7 +23,7 @@ import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
 import { HistoryNav } from "./ui/HistoryNav.js?v=fit-2";
-import { MediaDrawer } from "./ui/MediaDrawer.js?v=fit-2";
+import { MediaDrawer } from "./ui/MediaDrawer.js?v=reply-1";
 import { WorkspaceSplit } from "./ui/WorkspaceSplit.js?v=fit-2";
 import { initShell } from "./ui/shellState.js?v=fit-2";
 import {
@@ -217,6 +217,9 @@ class App {
           hideVideo: item.source === "oferta",
         });
       }
+      this.#media.reveal({
+        hasVideo: Boolean(item.video?.youtube_id || item.offer || item.offers?.length),
+      });
       return;
     }
 
@@ -272,38 +275,47 @@ class App {
     this.#view.showTyping();
     this.#articlesPanel.showLoading();
 
-    const [response, articles] = await Promise.all([
-      this.#service.ask(question),
-      this.#articles.recommend(question),
-    ]);
+    try {
+      const [response, articles] = await Promise.all([
+        this.#service.ask(question),
+        this.#articles.recommend(question).catch(() => []),
+      ]);
 
-    this.#view.hideTyping();
-    const interactionId =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}`;
-    this.#view.addBotMessage({ ...response, interactionId, question });
-    appendTurn(this.#service.sessionId, question, { ...response, interactionId, question });
-    this.#nav.setActive(this.#service.sessionId);
-    this.#analytics.trackQuestion(question, response, interactionId);
+      this.#view.hideTyping();
+      const interactionId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}`;
+      this.#view.addBotMessage({ ...response, interactionId, question });
+      appendTurn(this.#service.sessionId, question, { ...response, interactionId, question });
+      this.#nav.setActive(this.#service.sessionId);
+      this.#analytics.trackQuestion(question, response, interactionId);
 
-    if (response?.video?.youtube_id || response?.offer || response?.offers?.length) {
-      this.#player.load(response.video, {
-        autoplay: false,
-        offer: response.offer,
-        offers: response.offers,
-        hideVideo: response.source === "oferta",
+      if (response?.video?.youtube_id || response?.offer || response?.offers?.length) {
+        this.#player.load(response.video, {
+          autoplay: false,
+          offer: response.offer,
+          offers: response.offers,
+          hideVideo: response.source === "oferta",
+        });
+      } else {
+        this.#player.clear();
+      }
+
+      this.#articlesPanel.render(articles, question);
+      this.#media.reveal({
+        hasVideo: Boolean(response?.video?.youtube_id || response?.offer || response?.offers?.length),
       });
-    } else {
-      this.#player.clear();
+    } catch (error) {
+      console.warn("[App] ask", error);
+      this.#view.hideTyping();
+      this.#view.addBotMessage({
+        answer: "No pude terminar esta respuesta. Inténtalo de nuevo, el chat sigue disponible.",
+      });
+      this.#articlesPanel.clear();
+    } finally {
+      this.#busy = false;
     }
-
-    this.#articlesPanel.render(articles, question);
-    this.#media.reveal({
-      hasVideo: Boolean(response?.video?.youtube_id || response?.offer || response?.offers?.length),
-    });
-
-    this.#busy = false;
   }
 }
 

@@ -1,17 +1,15 @@
 /**
  * MediaDrawer.js — En celular, video y artículos viven en un cajón derecho.
+ * La flecha del borde titila cuando hay enseñanza; no usamos el FAB.
  */
 
-import { isPhone, setMediaOpen, toggleMedia, syncShell } from "./shellState.js?v=fit-2";
+import { isPhone, setMediaOpen, syncShell } from "./shellState.js?v=fit-2";
 
 export class MediaDrawer {
-  #fab;
+  #handle;
 
   constructor() {
-    this.#fab = document.querySelector("[data-media-toggle]");
-    document.querySelectorAll("[data-media-toggle]").forEach((btn) => {
-      btn.addEventListener("click", () => toggleMedia());
-    });
+    this.#handle = document.querySelector("[data-resize=media]");
     document.querySelector("[data-media-close]")?.addEventListener("click", () => {
       setMediaOpen(false);
     });
@@ -21,22 +19,19 @@ export class MediaDrawer {
     this.hide();
   }
 
-  /** En celular, el botón flotante aparece después de la primera respuesta. */
+  /** En celular, la flecha derecha avisa que hay video o artículos. */
   reveal({ hasVideo = false } = {}) {
-    if (!this.#fab) return;
-    this.#fab.hidden = false;
-    this.#fab.classList.toggle("is-live", Boolean(hasVideo));
-    this.#fab.classList.remove("is-ready");
-    void this.#fab.offsetWidth;
-    this.#fab.classList.add("is-ready");
+    if (!this.#handle) {
+      syncShell();
+      return;
+    }
+    this.#handle.classList.add("is-live");
+    this.#handle.classList.toggle("is-ready", Boolean(hasVideo));
     syncShell();
   }
 
   hide() {
-    if (this.#fab) {
-      this.#fab.hidden = true;
-      this.#fab.classList.remove("is-live", "is-ready");
-    }
+    this.#handle?.classList.remove("is-live", "is-ready");
     if (isPhone()) setMediaOpen(false);
     else syncShell();
   }

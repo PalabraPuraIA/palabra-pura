@@ -12,6 +12,9 @@ import { resolveBackend } from "./backend.js";
 const NETWORK_ERROR_MESSAGE =
   "No pude conectar con el chatbot. Revisa que la URL sea correcta y que la función esté desplegada, " +
   "y vuelve a intentarlo.";
+const UPSTREAM_FAIL = /tuve un problema para responder/i;
+const POST_TIMEOUT_MS = 50000;
+const RETRIES = 2;
 
 const MAX_HISTORY = 12;
 const SESSION_KEY = "pp-chat-session";
@@ -160,17 +163,26 @@ export class ChatService {
       if (cloud && !endpoints.includes(cloud)) endpoints.push(cloud);
     }
 
-    for (const endpoint of endpoints) {
-      try {
-        const response = this.#normalize(
-          await this.#post(endpoint, question, this.#history),
-        );
-        response.mode =
-          response.mode || (/supabase\.co/.test(endpoint) ? "supabase" : "server");
-        this.#remember(question, response);
-        return response;
-      } catch (error) {
-        console.warn("[ChatService]", endpoint, error);
+    for (let attempt = 0; attempt <= RETRIES; attempt++) {
+      for (const endpoint of endpoints) {
+        try {
+          const response = this.#normalize(
+            await this.#post(endpoint, question, this.#history),
+          );
+          const answer = String(response.answer || "").trim();
+          if (!answer || UPSTREAM_FAIL.test(answer)) {
+            throw new Error("empty-or-upstream-fail");
+          }
+          response.mode =
+            response.mode || (/supabase\.co/.test(endpoint) ? "supabase" : "server");
+          this.#remember(question, response);
+          return response;
+        } catch (error) {
+          console.warn("[ChatService]", endpoint, attempt, error);
+        }
+      }
+      if (attempt < RETRIES) {
+        await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
       }
     }
 
@@ -185,18 +197,24 @@ export class ChatService {
       headers.Authorization = `Bearer ${config.publishableKey}`;
     }
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        question,
-        session_id: this.#sessionId,
-        history: history.slice(-MAX_HISTORY),
-      }),
-    });
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return response.json();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), POST_TIMEOUT_MS);
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          question,
+          session_id: this.#sessionId,
+          history: history.slice(-MAX_HISTORY),
+        }),
+        signal: ctrl.signal,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   #remember(question, response) {

@@ -295,6 +295,20 @@ body.media-collapsed .split-handle--media .split-handle__chev {
 .split-handle:focus-visible .split-handle__tab {
   border-color: var(--c-rose);
 }
+@keyframes pp-tab-pulse {
+  0%, 100% {
+    border-color: color-mix(in srgb, var(--c-rose) 72%, var(--c-line));
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .35), 0 0 0 0 color-mix(in srgb, var(--c-rose) 50%, transparent);
+  }
+  50% {
+    border-color: var(--c-rose);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, .35), 0 0 0 8px color-mix(in srgb, var(--c-rose) 0%, transparent);
+  }
+}
+@keyframes pp-chev-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .35; }
+}
 .split-handle:hover .split-handle__chev,
 .split-handle.is-dragging .split-handle__chev {
   color: var(--c-rose);
@@ -658,8 +672,19 @@ body.media-collapsed .sidebar--media {
     transform: none;
     border-radius: 14px 0 0 14px;
   }
+  .split-handle--media.is-live .split-handle__tab {
+    animation: pp-tab-pulse 1.35s ease-in-out infinite;
+  }
+  .split-handle--media.is-live .split-handle__chev {
+    animation: pp-chev-blink 1.35s ease-in-out infinite;
+    color: var(--c-rose);
+  }
   .split-handle--media .split-handle__chev {
     transform: none;
+  }
+  body.media-open .split-handle--media.is-live .split-handle__tab,
+  body.media-open .split-handle--media.is-live .split-handle__chev {
+    animation: none;
   }
   body.media-open .split-handle--media {
     right: min(320px, 80vw);
@@ -733,36 +758,6 @@ body.media-collapsed .sidebar--media {
     background: rgba(8, 6, 15, .55);
   }
   .media-backdrop[hidden] { display: none; }
-
-  .media-fab:not([hidden]) {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    position: fixed;
-    right: 14px;
-    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-    z-index: 45;
-    padding: 12px 16px;
-    border: 0;
-    border-radius: 999px;
-    background: var(--g-brand);
-    color: var(--c-white);
-    font: inherit;
-    font-size: .82rem;
-    font-weight: 700;
-    box-shadow: var(--shadow-rose);
-  }
-  .media-fab__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, .45);
-  }
-  .media-fab.is-live .media-fab__dot {
-    background: #fff;
-    box-shadow: 0 0 0 4px rgba(255, 255, 255, .18);
-  }
-  body.media-open .media-fab { display: none; }
 }
 
 /* ---------- Paneles inferiores ---------- */
