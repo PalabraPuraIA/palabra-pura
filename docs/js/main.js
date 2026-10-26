@@ -23,7 +23,7 @@ import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
 import { HistoryNav } from "./ui/HistoryNav.js?v=fit-2";
-import { MediaDrawer } from "./ui/MediaDrawer.js?v=reply-1";
+import { MediaDrawer } from "./ui/MediaDrawer.js?v=play-1";
 import { WorkspaceSplit } from "./ui/WorkspaceSplit.js?v=fit-2";
 import { initShell } from "./ui/shellState.js?v=fit-2";
 import {
@@ -125,6 +125,7 @@ class App {
 
       const btn = event.target.closest("[data-play-here]");
       if (!btn) return;
+      this.#media.open({ hasVideo: true });
       this.#player.load(
         {
           youtube_id: btn.dataset.youtubeId,
@@ -132,7 +133,7 @@ class App {
           title: btn.dataset.title || undefined,
           episode: btn.dataset.episode ? Number(btn.dataset.episode) : undefined,
         },
-        { autoplay: false },
+        { autoplay: true },
       );
     });
 

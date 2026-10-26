@@ -30,6 +30,16 @@ export class MediaDrawer {
     syncShell();
   }
 
+  /** Abre el cajón de enseñanza (celular) o lo muestra (escritorio). */
+  open({ hasVideo = true } = {}) {
+    this.reveal({ hasVideo });
+    if (isPhone()) setMediaOpen(true);
+    else {
+      document.body.classList.remove("media-collapsed");
+      syncShell();
+    }
+  }
+
   hide() {
     this.#handle?.classList.remove("is-live", "is-ready");
     if (isPhone()) setMediaOpen(false);
