@@ -170,15 +170,35 @@ function cardKey(record) {
   return String(record.id || `${record.at || ""}|${record.question || ""}`);
 }
 
+function displayAnswer(raw) {
+  let text = String(raw || "").trim();
+  if (!text) return "";
+  for (let i = 0; i < 3; i++) {
+    if (!text.startsWith("{") || !/"answer"\s*:/.test(text)) break;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && parsed.answer != null) {
+        text = String(parsed.answer).trim();
+        continue;
+      }
+    } catch {
+      break;
+    }
+    break;
+  }
+  return text;
+}
+
 function renderRecentCard(record) {
   const tags = (record.topics || [])
     .map((id) => `<span class="tag">${escapeHtml(TOPIC_LABELS[id] || id)}</span>`)
     .join("");
   const source = sourceLabel(record.source, record.mode);
-  const answer = record.answer
+  const cleanAnswer = displayAnswer(record.answer);
+  const answer = cleanAnswer
     ? `<section class="qa-card__section">
          <h3>Respuesta de Blaze</h3>
-         <p>${escapeHtml(record.answer)}</p>
+         <p>${escapeHtml(cleanAnswer)}</p>
        </section>`
     : `<p class="qa-card__legacy">Esta consulta es anterior al registro de respuestas.</p>`;
   const excerpt = record.excerpt

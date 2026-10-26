@@ -63,6 +63,38 @@ function isGitHubPages() {
   );
 }
 
+/** Si el backend dejó JSON crudo en answer, extrae el texto legible. */
+function unwrapAnswerText(raw) {
+  let text = String(raw ?? "").trim();
+  if (!text) return text;
+  for (let i = 0; i < 3; i++) {
+    if (!text.startsWith("{") || !/"answer"\s*:/.test(text)) break;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && parsed.answer != null) {
+        text = String(parsed.answer).trim();
+        continue;
+      }
+    } catch {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        try {
+          const parsed = JSON.parse(text.slice(start, end + 1));
+          if (parsed && typeof parsed === "object" && parsed.answer != null) {
+            text = String(parsed.answer).trim();
+            continue;
+          }
+        } catch {
+          /* keep */
+        }
+      }
+    }
+    break;
+  }
+  return text;
+}
+
 export class ChatService {
   /** Historial solo de ESTA pestaña (sessionStorage). Otra pestaña = otra sesión, vacía. */
   #sessionId = readTabSession().id;
@@ -198,7 +230,7 @@ export class ChatService {
     const isPaid = Boolean(offer);
 
     return {
-      answer: data.answer ?? data.text ?? "",
+      answer: unwrapAnswerText(data.answer ?? data.text ?? ""),
       excerpt: isPaid ? undefined : data.excerpt ?? undefined,
       passage: isPaid ? undefined : data.passage ?? undefined,
       passages: isPaid ? undefined : data.passages ?? undefined,

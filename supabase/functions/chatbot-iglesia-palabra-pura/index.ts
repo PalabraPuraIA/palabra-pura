@@ -10,6 +10,8 @@ const GEMINI_API_KEYS = [
 const LLM_MODELS = [
   Deno.env.get("GEMINI_CHAT_MODEL") || "gemini-3.6-flash",
   "gemini-3-flash-preview",
+  "gemini-2.5-flash",
+  "gemini-2.0-flash",
 ];
 
 // Cuantos capitulos-padre completos enviar como contexto (control de tokens).
@@ -52,19 +54,93 @@ Si SI puedes orientar con lo que hay, responde con:
 Responde SOLO con el objeto JSON, sin texto adicional.`;
 // Segunda etapa: contexto biblico ampliado (capitulo completo via parent-child).
 const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
-Responde con base en el pasaje biblico (contexto ampliado) que se te entrega. Si el contexto no contiene la respuesta, dilo con claridad y no inventes nada.
+Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
+Si el contexto NO habla de lo preguntado, NO digas "el texto compartido no aborda..." ni enumeres los pasajes irrelevantes. Responde con claridad que no hay material claro en esta lectura y deja reference vacia.
 Tono: amable, cercano y claro, en 4 a 8 frases, con el contexto necesario para entender el punto. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 Si hay conversacion reciente, interpreta seguimientos y pronombres con ese hilo. No ignores la pregunta actual.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
+El campo "answer" debe ser SOLO el texto para el usuario, nunca un objeto JSON anidado.
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
 // ---- Helpers ----
 // Normaliza para comparar nombres de libros (minusculas, sin acentos).
 const norm = (s)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 const clean = (s)=>String(s ?? "").replace(/\s+/g, " ").trim();
+/** Si el modelo devolvió JSON stringificado dentro de answer, saca el texto. */
+function unwrapAnswerText(raw) {
+  let text = String(raw ?? "").trim();
+  if (!text) return text;
+  for (let i = 0; i < 3; i++) {
+    if (!text.startsWith("{") || !/"answer"\s*:/.test(text)) break;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && parsed.answer != null) {
+        text = String(parsed.answer).trim();
+        continue;
+      }
+    } catch {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        try {
+          const parsed = JSON.parse(text.slice(start, end + 1));
+          if (parsed && typeof parsed === "object" && parsed.answer != null) {
+            text = String(parsed.answer).trim();
+            continue;
+          }
+        } catch {
+          /* keep text */
+        }
+      }
+    }
+    break;
+  }
+  return text;
+}
+
+/** Parsea la respuesta del LLM aunque venga con fences o JSON anidado. */
+function parseModelJson(content) {
+  let text = String(content ?? "").trim();
+  if (!text) return { found: false };
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        parsed = JSON.parse(text.slice(start, end + 1));
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+  if (!parsed || typeof parsed !== "object") {
+    return { found: true, answer: unwrapAnswerText(text) };
+  }
+  if (typeof parsed.answer === "string") {
+    const inner = unwrapAnswerText(parsed.answer);
+    if (inner !== parsed.answer && inner.startsWith("{")) {
+      try {
+        const nested = JSON.parse(inner);
+        if (nested && typeof nested === "object") {
+          parsed = { ...parsed, ...nested, answer: nested.answer ?? inner };
+        }
+      } catch {
+        parsed = { ...parsed, answer: inner };
+      }
+    } else {
+      parsed = { ...parsed, answer: inner };
+    }
+  }
+  return parsed;
+}
+
 /** Quita la palabra/frases de "humildad" literales; deja el tono amable. */
 function sanitizeAnswer(answer) {
-  let text = String(answer ?? "");
+  let text = unwrapAnswerText(answer);
   if (!text) return text;
   text = text
     .replace(/\bcon\s+mucho\s+amor\s+y\s+(mucha\s+)?humildad\s+(te\s+)?(digo|comparto)[,:]?\s*/gi, "")
@@ -806,52 +882,62 @@ async function embedQuery(question) {
   throw new Error("Gemini embedding: " + lastErr);
 }
 
-// Llama al LLM (Gemini 3.x). thinkingBudget=0 evita que se coma los tokens.
+// Llama al LLM (Gemini). thinkingBudget=0 evita que se coma los tokens;
+// si el modelo no admite thinkingConfig, reintenta sin él.
 async function askLLM(system, userContent) {
   if (!GEMINI_API_KEYS.length) throw new Error("GEMINI_API_KEY missing");
   let lastErr = "unknown";
+  const genConfigs = [
+    {
+      temperature: 0.3,
+      maxOutputTokens: 2048,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+    {
+      temperature: 0.3,
+      maxOutputTokens: 2048,
+      responseMimeType: "application/json",
+    },
+  ];
   for (const model of LLM_MODELS) {
     for (const key of GEMINI_API_KEYS) {
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": key,
-            },
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: system }] },
-              contents: [{ role: "user", parts: [{ text: userContent }] }],
-              generationConfig: {
-                temperature: 0.3,
-                maxOutputTokens: 2048,
-                responseMimeType: "application/json",
-                thinkingConfig: { thinkingBudget: 0 },
-              },
-            }),
-          },
-        );
-        if (!res.ok) {
-          lastErr = await res.text();
-          console.error("Gemini LLM fail:", model, res.status, lastErr.slice(0, 220));
-          continue;
-        }
-        const data = await res.json();
-        const content = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ?? "";
-        if (!content.trim()) {
-          lastErr = "empty LLM content";
-          continue;
-        }
+      for (const generationConfig of genConfigs) {
         try {
-          return JSON.parse(content);
-        } catch {
-          return { answer: content };
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-goog-api-key": key,
+              },
+              body: JSON.stringify({
+                systemInstruction: { parts: [{ text: system }] },
+                contents: [{ role: "user", parts: [{ text: userContent }] }],
+                generationConfig,
+              }),
+            },
+          );
+          if (!res.ok) {
+            lastErr = await res.text();
+            console.error("Gemini LLM fail:", model, res.status, lastErr.slice(0, 220));
+            // thinkingConfig inválido → probar sin él; otros errores → otra clave/modelo
+            if (res.status === 400 && generationConfig.thinkingConfig) continue;
+            break;
+          }
+          const data = await res.json();
+          const parts = data?.candidates?.[0]?.content?.parts ?? [];
+          const content = parts.map((p) => p.text || "").join("");
+          if (!content.trim()) {
+            lastErr = "empty LLM content:" + (data?.candidates?.[0]?.finishReason || "");
+            continue;
+          }
+          return parseModelJson(content);
+        } catch (e) {
+          lastErr = String(e);
+          console.error("Gemini LLM network:", model, lastErr);
         }
-      } catch (e) {
-        lastErr = String(e);
-        console.error("Gemini LLM network:", model, lastErr);
       }
     }
   }

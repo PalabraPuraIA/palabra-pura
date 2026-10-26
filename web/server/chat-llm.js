@@ -158,11 +158,42 @@ async function callProvider(provider, system, userContent) {
 
   const data = await res.json();
   const content = data?.choices?.[0]?.message?.content ?? "";
+  return parseModelJson(content);
+}
+
+/** Parsea JSON del modelo aunque venga con fences o answer anidado. */
+function parseModelJson(content) {
+  let text = String(content ?? "").trim();
+  if (!text) return { found: false };
+  text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+  let parsed = null;
   try {
-    return JSON.parse(content);
+    parsed = JSON.parse(text);
   } catch {
-    return { found: true, answer: content };
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start >= 0 && end > start) {
+      try {
+        parsed = JSON.parse(text.slice(start, end + 1));
+      } catch {
+        /* fall through */
+      }
+    }
   }
+  if (!parsed || typeof parsed !== "object") {
+    return { found: true, answer: text };
+  }
+  if (typeof parsed.answer === "string" && parsed.answer.trim().startsWith("{")) {
+    try {
+      const nested = JSON.parse(parsed.answer);
+      if (nested && typeof nested === "object" && nested.answer != null) {
+        return { ...parsed, ...nested, answer: nested.answer };
+      }
+    } catch {
+      /* keep */
+    }
+  }
+  return parsed;
 }
 
 /** Recorre la cadena hasta que uno conteste. Null si ninguno pudo. */

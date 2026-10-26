@@ -127,8 +127,40 @@ export function offTopicAnswer() {
  * Quita groserías evidentes de una respuesta ya generada (red de seguridad).
  * Si el texto queda vacío, usa el mensaje de respeto.
  */
+/** Si el modelo dejó JSON crudo en answer ({"answer":"..."}), saca el texto. */
+export function unwrapAnswerText(raw) {
+  let text = String(raw ?? "").trim();
+  if (!text) return text;
+  for (let i = 0; i < 3; i++) {
+    if (!text.startsWith("{") || !/"answer"\s*:/.test(text)) break;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object" && parsed.answer != null) {
+        text = String(parsed.answer).trim();
+        continue;
+      }
+    } catch {
+      const start = text.indexOf("{");
+      const end = text.lastIndexOf("}");
+      if (start >= 0 && end > start) {
+        try {
+          const parsed = JSON.parse(text.slice(start, end + 1));
+          if (parsed && typeof parsed === "object" && parsed.answer != null) {
+            text = String(parsed.answer).trim();
+            continue;
+          }
+        } catch {
+          /* keep */
+        }
+      }
+    }
+    break;
+  }
+  return text;
+}
+
 export function sanitizeAnswer(answer) {
-  let text = String(answer ?? "");
+  let text = unwrapAnswerText(answer);
   if (!text) return text;
 
   if (INSULT_RE.test(norm(text)) || VULGAR_RE.test(norm(text))) {
