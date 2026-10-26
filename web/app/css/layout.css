@@ -61,21 +61,15 @@ body.app-shell {
 .chat-top__menu {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  width: auto;
-  min-width: 40px;
+  justify-content: center;
+  width: 40px;
   height: 40px;
   flex: none;
-  padding: 0 12px 0 10px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--c-rose) 45%, var(--c-line));
   border-radius: 12px;
   background: var(--c-surface-2);
   color: var(--c-ink);
-  font: inherit;
-  font-size: .72rem;
-  font-weight: 700;
-  letter-spacing: .04em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 .chat-top__menu:hover,
