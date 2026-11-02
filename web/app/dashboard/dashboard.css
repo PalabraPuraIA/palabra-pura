@@ -940,7 +940,7 @@ th {
 .cal-pop__day:hover { background: var(--c-surface-3); }
 .cal-pop__day:disabled {
   color: var(--c-ink-faint);
-  opacity: .35;
+  opacity: .38;
   cursor: default;
   background: transparent;
 }
