@@ -22,6 +22,18 @@ body.app-shell {
   min-height: 100dvh;
   overflow-x: hidden;
 }
+body.kb-open {
+  overflow: hidden;
+}
+body.kb-open .app {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vv-top, 0px);
+  height: var(--vv-height, 100dvh);
+  min-height: 0;
+  max-height: var(--vv-height, 100dvh);
+}
 body.is-resizing {
   cursor: col-resize;
   user-select: none;

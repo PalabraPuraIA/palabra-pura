@@ -24,8 +24,8 @@ export class Composer {
     this.#onSubmit = onSubmit;
 
     this.#bindEvents();
-    this.#fitChatToViewport();
-    this.#keepBarVisible();
+    this.#syncViewport();
+    this.#bindViewport();
   }
 
   #bindEvents() {
@@ -46,63 +46,67 @@ export class Composer {
     this.#input.addEventListener("input", () => this.#autoResize());
   }
 
-  /** Encaja el chat en la pantalla para que la barra no quede abajo, fuera de vista. */
-  #fitChatToViewport() {
-    const chat = this.#form.closest(".chat");
-    if (!chat) return;
-    const apply = () => {
-      if (!window.matchMedia("(max-width: 640px)").matches) {
-        chat.style.removeProperty("height");
-        chat.style.removeProperty("max-height");
-        return;
-      }
-      if (window.scrollY > 24) return;
-      const top = chat.getBoundingClientRect().top;
-      const room = Math.floor(window.innerHeight - top - 8);
-      if (room < 280) return;
-      chat.style.height = `${room}px`;
-      chat.style.maxHeight = `${room}px`;
-    };
-    apply();
-    window.addEventListener("resize", apply);
-    window.visualViewport?.addEventListener("resize", apply);
+  /**
+   * En iPhone el teclado no encoge la página: deja el recuadro debajo
+   * y Safari arma otra barra. Encajamos el chat en el área visible.
+   */
+  #bindViewport() {
+    const sync = () => this.#syncViewport();
+    this.#input.addEventListener("focus", () => {
+      sync();
+      requestAnimationFrame(sync);
+      setTimeout(sync, 80);
+      setTimeout(sync, 280);
+      setTimeout(sync, 520);
+    });
+    this.#input.addEventListener("blur", () => setTimeout(sync, 40));
+    window.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("resize", sync);
+    window.visualViewport?.addEventListener("scroll", sync);
   }
 
-  /** En celular, el teclado no debe tapar ni desplazar la barra fuera de vista. */
-  #keepBarVisible() {
-    const form = this.#form;
-    const input = this.#input;
-    const phone = () => window.matchMedia("(max-width: 640px)").matches;
+  #syncViewport() {
+    const chat = this.#form.closest(".chat");
+    const app = document.querySelector(".app");
+    const vv = window.visualViewport;
+    const phone = window.matchMedia("(max-width: 900px)").matches;
+    const focused = document.activeElement === this.#input;
+    const root = document.documentElement;
 
-    const pin = () => {
-      if (!phone()) {
-        form.style.removeProperty("transform");
-        return;
-      }
-      const vv = window.visualViewport;
-      if (!vv || document.activeElement !== input) {
-        form.style.removeProperty("transform");
-        return;
-      }
-      const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      if (covered > 0) {
-        form.style.transform = `translateY(-${covered}px)`;
-      } else {
-        form.style.removeProperty("transform");
-      }
-      form.scrollIntoView({ block: "end", inline: "nearest" });
+    const clearKb = () => {
+      document.body.classList.remove("kb-open");
+      root.style.removeProperty("--vv-top");
+      root.style.removeProperty("--vv-height");
+      this.#form.style.removeProperty("transform");
     };
 
-    input.addEventListener("focus", () => {
-      pin();
-      setTimeout(pin, 80);
-      setTimeout(pin, 320);
-    });
-    input.addEventListener("blur", () => {
-      form.style.removeProperty("transform");
-    });
-    window.visualViewport?.addEventListener("resize", pin);
-    window.visualViewport?.addEventListener("scroll", pin);
+    if (!phone) {
+      clearKb();
+      chat?.style.removeProperty("height");
+      chat?.style.removeProperty("max-height");
+      return;
+    }
+
+    if (focused && vv) {
+      const overlap = window.innerHeight - vv.height - vv.offsetTop;
+      if (overlap >= 80) {
+        root.style.setProperty("--vv-top", `${Math.max(0, Math.round(vv.offsetTop))}px`);
+        root.style.setProperty("--vv-height", `${Math.round(vv.height)}px`);
+        document.body.classList.add("kb-open");
+        this.#form.style.removeProperty("transform");
+        chat?.style.removeProperty("height");
+        chat?.style.removeProperty("max-height");
+        return;
+      }
+    }
+
+    clearKb();
+    if (!chat || !vv || window.scrollY > 24) return;
+    const top = chat.getBoundingClientRect().top;
+    const room = Math.floor(vv.height - top - 8);
+    if (room < 280) return;
+    chat.style.height = `${room}px`;
+    chat.style.maxHeight = `${room}px`;
   }
 
   #submit() {

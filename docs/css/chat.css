@@ -1700,12 +1700,16 @@
   .examples__chips { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
   .chip { white-space: nowrap; padding: 5px 10px; }
   .composer {
-    position: sticky;
-    bottom: 0;
+    position: relative;
+    bottom: auto;
     z-index: 20;
     padding: 10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
     background: color-mix(in srgb, var(--c-surface) 88%, #000);
     box-shadow: 0 -10px 28px rgba(0, 0, 0, .45);
+    transform: none;
+  }
+  body.kb-open .composer {
+    padding-bottom: 8px;
   }
   .composer__box { padding: 6px 6px 6px 14px; }
   .composer textarea { min-height: 46px; font-size: 16px; }

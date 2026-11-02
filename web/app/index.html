@@ -13,8 +13,8 @@
 
   <link rel="stylesheet" href="./css/tokens.css?v=blaze-spin-2" />
   <link rel="stylesheet" href="./css/base.css?v=blaze-spin-2" />
-  <link rel="stylesheet" href="./css/layout.css?v=reply-1" />
-  <link rel="stylesheet" href="./css/chat.css?v=sources-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=ios-kb-1" />
+  <link rel="stylesheet" href="./css/chat.css?v=ios-kb-1" />
   <link rel="stylesheet" href="./css/modal.css?v=blaze-spin-2" />
 </head>
 <body class="app-shell">
@@ -74,15 +74,20 @@
           <div class="examples__chips" data-chips></div>
         </div>
 
-        <form class="composer" data-composer>
+        <form class="composer" data-composer method="post" action="#">
           <div class="composer__box">
             <textarea
               data-input
+              name="pregunta"
               rows="1"
               placeholder="Pregúntale a Blaze…"
               aria-label="Tu pregunta"
               enterkeyhint="send"
-              autocomplete="off"></textarea>
+              inputmode="text"
+              autocomplete="off"
+              autocorrect="on"
+              autocapitalize="sentences"
+              spellcheck="true"></textarea>
             <button class="composer__send" data-send type="submit" aria-label="Enviar pregunta">
               <svg viewBox="0 0 24 24" fill="none" width="18" height="18">
                 <path d="M4 12h13M11 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -177,6 +182,6 @@
     </div>
   </div>
 
-  <script type="module" src="./js/main.js?v=tla-1"></script>
+  <script type="module" src="./js/main.js?v=ios-kb-1"></script>
 </body>
 </html>
