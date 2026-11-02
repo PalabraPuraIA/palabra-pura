@@ -821,6 +821,7 @@ th {
   overflow: visible;
 }
 .card-head--range .card__hint { margin-bottom: 0; }
+.card-head--range .pager-meta { display: block; margin-top: 6px; }
 .range-tools {
   position: relative;
   z-index: 5;

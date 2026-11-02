@@ -494,6 +494,35 @@ function updateRangeHint() {
   }
 }
 
+function updateRecentHint() {
+  const el = document.querySelector("[data-recent-hint]");
+  if (!el) return;
+  const suffix = " 20 por página. Abre una ficha para ver la respuesta.";
+  if (rangeFilter === "today") {
+    el.textContent = `Consultas de hoy.${suffix}`;
+  } else if (rangeFilter === "7d") {
+    el.textContent = `Consultas de los últimos 7 días.${suffix}`;
+  } else if (rangeFilter === "30d") {
+    el.textContent = `Consultas de los últimos 30 días.${suffix}`;
+  } else if (rangeFilter === "all") {
+    el.textContent = `Todas las consultas, de lo más reciente a lo más viejo.${suffix}`;
+  } else if (rangeFilter === "custom" && customFrom && customTo) {
+    el.textContent = customFrom === customTo
+      ? `Consultas del ${fmtDayLabel(customFrom)}.${suffix}`
+      : `Consultas del ${fmtRangeLabel(customFrom, customTo)}.${suffix}`;
+  }
+}
+
+function applyRangeChange() {
+  syncRangeButtons();
+  updateRangeHint();
+  updateRecentHint();
+  renderTopicsAndRepeats();
+  page = 0;
+  allRecent = eventsInRange(allEvents, rangeFilter);
+  renderRecentPage();
+}
+
 function setRange(next) {
   if (!next || next === rangeFilter) return;
   rangeFilter = next;
@@ -503,45 +532,44 @@ function setRange(next) {
     calPending = null;
     closeCal();
   }
-  syncRangeButtons();
-  updateRangeHint();
-  renderTopicsAndRepeats();
+  applyRangeChange();
 }
 
 function applyCustom(from, to) {
   customFrom = from;
   customTo = to;
   rangeFilter = "custom";
-  syncRangeButtons();
-  updateRangeHint();
-  renderTopicsAndRepeats();
+  applyRangeChange();
 }
 
 function syncRangeButtons() {
   document.querySelectorAll("[data-range-filter] [data-range]").forEach((btn) => {
     btn.setAttribute("aria-pressed", btn.dataset.range === rangeFilter ? "true" : "false");
   });
-  const calBtn = document.querySelector("[data-cal-open]");
-  const label = document.querySelector("[data-cal-label]");
-  if (calBtn) calBtn.setAttribute("aria-pressed", rangeFilter === "custom" ? "true" : "false");
-  if (label) {
-    if (rangeFilter === "custom" && customFrom && customTo) {
+  const customOn = rangeFilter === "custom";
+  document.querySelectorAll("[data-cal-open]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", customOn ? "true" : "false");
+  });
+  document.querySelectorAll("[data-cal-label]").forEach((label) => {
+    if (customOn && customFrom && customTo) {
       label.hidden = false;
       label.textContent = fmtRangeLabel(customFrom, customTo);
     } else {
       label.hidden = true;
       label.textContent = "";
     }
-  }
+  });
+}
+
+function allCalTools() {
+  return [...document.querySelectorAll("[data-range-tools]")];
 }
 
 function isCalOpen() {
-  return !document.querySelector("[data-cal-pop]")?.hidden;
+  return allCalTools().some((tools) => !tools.querySelector("[data-cal-pop]")?.hidden);
 }
 
-function openCal() {
-  const pop = document.querySelector("[data-cal-pop]");
-  const btn = document.querySelector("[data-cal-open]");
+function openCal(tools) {
   const today = ymdParts(bogotaYmd());
   if (customFrom) {
     const p = ymdParts(customFrom);
@@ -549,36 +577,38 @@ function openCal() {
   } else {
     calView = { y: today.y, m: today.m };
   }
-  if (pop) pop.hidden = false;
-  if (btn) btn.setAttribute("aria-expanded", "true");
-  renderCal();
+  allCalTools().forEach((other) => {
+    const pop = other.querySelector("[data-cal-pop]");
+    const btn = other.querySelector("[data-cal-open]");
+    const on = other === tools;
+    if (pop) pop.hidden = !on;
+    if (btn) btn.setAttribute("aria-expanded", on ? "true" : "false");
+  });
+  renderCal(tools);
 }
 
 function closeCal() {
-  const pop = document.querySelector("[data-cal-pop]");
-  const btn = document.querySelector("[data-cal-open]");
-  if (pop) pop.hidden = true;
-  if (btn) btn.setAttribute("aria-expanded", "false");
   calPending = null;
+  allCalTools().forEach((tools) => {
+    const pop = tools.querySelector("[data-cal-pop]");
+    const btn = tools.querySelector("[data-cal-open]");
+    if (pop) pop.hidden = true;
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  });
 }
 
-function toggleCal() {
-  if (isCalOpen()) closeCal();
-  else openCal();
+function toggleCal(tools) {
+  const pop = tools?.querySelector("[data-cal-pop]");
+  if (!pop) return;
+  if (!pop.hidden) closeCal();
+  else openCal(tools);
 }
 
-function renderCal() {
-  const monthEl = document.querySelector("[data-cal-month]");
-  const grid = document.querySelector("[data-cal-grid]");
-  const nextBtn = document.querySelector("[data-cal-next]");
-  if (!monthEl || !grid) return;
+function renderCal(tools) {
+  const targets = tools ? [tools] : allCalTools().filter((t) => !t.querySelector("[data-cal-pop]")?.hidden);
   const today = bogotaYmd();
   const todayParts = ymdParts(today);
   if (!calView) calView = { y: todayParts.y, m: todayParts.m };
-  monthEl.textContent = monthTitle(calView.y, calView.m);
-  if (nextBtn) {
-    nextBtn.disabled = calView.y > todayParts.y || (calView.y === todayParts.y && calView.m >= todayParts.m);
-  }
   const dots = eventDaySet();
   const firstPad = weekdayMonday0(calView.y, calView.m, 1);
   const nDays = daysInMonth(calView.y, calView.m);
@@ -594,7 +624,16 @@ function renderCal() {
     const disabled = ymd > today ? " disabled" : "";
     cells.push(`<button type="button" class="${classes.join(" ")}" data-ymd="${ymd}"${disabled}>${d}</button>`);
   }
-  grid.innerHTML = cells.join("");
+  const html = cells.join("");
+  const canGoNext = !(calView.y > todayParts.y || (calView.y === todayParts.y && calView.m >= todayParts.m));
+  targets.forEach((target) => {
+    const monthEl = target.querySelector("[data-cal-month]");
+    const grid = target.querySelector("[data-cal-grid]");
+    const nextBtn = target.querySelector("[data-cal-next]");
+    if (monthEl) monthEl.textContent = monthTitle(calView.y, calView.m);
+    if (nextBtn) nextBtn.disabled = !canGoNext;
+    if (grid) grid.innerHTML = html;
+  });
 }
 
 function pickDay(ymd) {
@@ -624,37 +663,41 @@ function initFilters() {
 }
 
 function initCal() {
-  const tools = document.querySelector("[data-range-tools]");
-  if (!tools || tools.dataset.bound === "1") return;
-  tools.dataset.bound = "1";
-  tools.querySelector("[data-cal-open]")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    toggleCal();
+  allCalTools().forEach((tools) => {
+    if (tools.dataset.bound === "1") return;
+    tools.dataset.bound = "1";
+    tools.querySelector("[data-cal-open]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleCal(tools);
+    });
+    tools.querySelector("[data-cal-prev]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (!calView) return;
+      calView = shiftMonth(calView.y, calView.m, -1);
+      renderCal(tools);
+    });
+    tools.querySelector("[data-cal-next]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (!calView) return;
+      const next = shiftMonth(calView.y, calView.m, 1);
+      const today = ymdParts(bogotaYmd());
+      if (next.y > today.y || (next.y === today.y && next.m > today.m)) return;
+      calView = next;
+      renderCal(tools);
+    });
+    tools.querySelector("[data-cal-grid]")?.addEventListener("click", (event) => {
+      const day = event.target.closest("[data-ymd]");
+      if (!day || day.disabled) return;
+      pickDay(day.dataset.ymd);
+    });
   });
-  tools.querySelector("[data-cal-prev]")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    if (!calView) return;
-    calView = shiftMonth(calView.y, calView.m, -1);
-    renderCal();
-  });
-  tools.querySelector("[data-cal-next]")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    if (!calView) return;
-    const next = shiftMonth(calView.y, calView.m, 1);
-    const today = ymdParts(bogotaYmd());
-    if (next.y > today.y || (next.y === today.y && next.m > today.m)) return;
-    calView = next;
-    renderCal();
-  });
-  tools.querySelector("[data-cal-grid]")?.addEventListener("click", (event) => {
-    const day = event.target.closest("[data-ymd]");
-    if (!day || day.disabled) return;
-    pickDay(day.dataset.ymd);
-  });
+  if (document.documentElement.dataset.calDocBound === "1") return;
+  document.documentElement.dataset.calDocBound = "1";
   document.addEventListener("click", (event) => {
     if (!isCalOpen()) return;
-    if (!tools.contains(event.target)) closeCal();
+    if (allCalTools().some((tools) => tools.contains(event.target))) return;
+    closeCal();
   });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && isCalOpen()) closeCal();
@@ -714,6 +757,7 @@ function render(data) {
   initCal();
   syncRangeButtons();
   updateRangeHint();
+  updateRecentHint();
   renderTopicsAndRepeats();
   if (isCalOpen()) renderCal();
 
@@ -734,7 +778,7 @@ function render(data) {
       .join("");
   }
 
-  allRecent = data.recent || [];
+  allRecent = eventsInRange(allEvents, rangeFilter);
   const pages = pageCount();
   if (page >= pages) page = Math.max(0, pages - 1);
   renderRecentPage();

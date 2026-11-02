@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=dash-cal-2" />
+  <link rel="stylesheet" href="./dashboard.css?v=dash-list-1" />
 </head>
 <body>
   <div class="wrap dash-compact">
@@ -111,15 +111,47 @@
     </section>
 
     <section class="card card--wide">
-      <div class="card-head">
+      <div class="card-head card-head--range">
         <div>
           <h2>Últimas consultas</h2>
-          <p class="card__hint">De lo más reciente a lo más viejo. 20 por página. Abre una ficha para ver la respuesta.</p>
+          <p class="card__hint" data-recent-hint>Consultas de hoy. 20 por página. Abre una ficha para ver la respuesta.</p>
+          <p class="pager-meta" data-page-meta></p>
         </div>
-        <p class="pager-meta" data-page-meta></p>
+        <div class="range-tools" data-range-tools>
+          <div class="range-filter" data-range-filter role="group" aria-label="Periodo de consultas">
+            <button type="button" data-range="today" aria-pressed="true">Hoy</button>
+            <button type="button" data-range="7d">7 días</button>
+            <button type="button" data-range="30d">30 días</button>
+            <button type="button" data-range="all">Todo</button>
+            <span class="range-filter__sep" aria-hidden="true"></span>
+            <button type="button" class="range-cal__btn" data-cal-open aria-expanded="false" aria-haspopup="dialog" aria-pressed="false" aria-label="Calendario" title="Elegir fecha">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M3 10h18" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <rect x="7" y="13" width="2.3" height="2.3" rx=".4" fill="currentColor"/>
+                <rect x="11" y="13" width="2.3" height="2.3" rx=".4" fill="currentColor"/>
+                <rect x="15" y="13" width="2.3" height="2.3" rx=".4" fill="currentColor"/>
+              </svg>
+              <span class="range-cal__label" data-cal-label hidden></span>
+            </button>
+          </div>
+          <div class="cal-pop" data-cal-pop hidden role="dialog" aria-label="Calendario">
+            <div class="cal-pop__head">
+              <button type="button" data-cal-prev aria-label="Mes anterior">‹</button>
+              <p data-cal-month></p>
+              <button type="button" data-cal-next aria-label="Mes siguiente">›</button>
+            </div>
+            <div class="cal-pop__week" aria-hidden="true">
+              <span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sá</span><span>do</span>
+            </div>
+            <div class="cal-pop__grid" data-cal-grid></div>
+            <p class="cal-pop__hint">Un día, o dos para un rango.</p>
+          </div>
+        </div>
       </div>
       <div class="qa-list" data-recent></div>
-      <p class="empty" data-recent-empty hidden>Todavía no hay consultas registradas. Prueba el chat y vuelve aquí.</p>
+      <p class="empty" data-recent-empty hidden>Aún no hay consultas en este periodo.</p>
       <div class="pager" data-pager hidden>
         <button class="btn" type="button" data-page-prev>Anterior</button>
         <span data-page-label>Página 1</span>
@@ -130,6 +162,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="./dashboard.js?v=dash-cal-2"></script>
+  <script type="module" src="./dashboard.js?v=dash-list-1"></script>
 </body>
 </html>
