@@ -130,11 +130,15 @@ function deterministicSelection(fragments, question) {
 const EXCERPT_FILLER_RE =
   /^(oh|ok|okay|si|sí|no|amen|amén|aja|ajá|claro|exacto|ya|bueno|vale)\b|ya\s+entend[ií]|vuelve\s+y\s+p[oó]ng|p[oó]ngamelo|rep[ií]temelo|d[ií]gamelo\s+otra/i;
 
+const EXCERPT_INTRO_RE =
+  /te damos la bienvenida|bienvenid[oa]s?\s+a\s+la\s+escuela|escuela\s+b[ií]blica\s+de\s+palabra\s+pura|en estas\s+\d+\s+ense[nñ]anzas|mi pueblo se pierde porque le falta conocimiento|este programa (te )?llega|apoyo financiero de los miembros/i;
+
 function isWeakExcerpt(text, terms) {
   const raw = normalize(text);
   if (!raw) return true;
   if (raw.length < 55) return true;
   if (EXCERPT_FILLER_RE.test(raw)) return true;
+  if (EXCERPT_INTRO_RE.test(raw)) return true;
   // Solo fuerza coincidencia de tema en recortes cortos (asides / relleno).
   if (terms?.length && raw.length < 120 && termHitsInText(raw, terms) === 0) return true;
   return false;

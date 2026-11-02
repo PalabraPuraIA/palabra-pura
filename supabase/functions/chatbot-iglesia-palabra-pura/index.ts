@@ -635,6 +635,9 @@ function numberedFragments(fragments) {
 const EXCERPT_FILLER_RE =
   /^(oh|ok|okay|si|sí|no|amen|amén|aja|ajá|claro|exacto|ya|bueno|vale)\b|ya\s+entend[ií]|vuelve\s+y\s+p[oó]ng|p[oó]ngamelo|rep[ií]temelo|d[ií]gamelo\s+otra/i;
 
+const EXCERPT_INTRO_RE =
+  /te damos la bienvenida|bienvenid[oa]s?\s+a\s+la\s+escuela|escuela\s+b[ií]blica\s+de\s+palabra\s+pura|en estas\s+\d+\s+ense[nñ]anzas|mi pueblo se pierde porque le falta conocimiento|este programa (te )?llega|apoyo financiero de los miembros/i;
+
 function excerptQuestionTerms(question: string) {
   return [...new Set(
     norm(question)
@@ -658,11 +661,25 @@ function excerptTermHits(text: string, terms: string[]) {
   }, 0);
 }
 
-function isWeakExcerpt(text: string, terms: string[]) {
+function isIntroBumper(text: string, fragment?: { start_second?: number; position?: number }) {
+  const raw = clean(text);
+  if (!raw) return false;
+  if (EXCERPT_INTRO_RE.test(raw)) return true;
+  const start = Number(fragment?.start_second);
+  const pos = Number(fragment?.position);
+  const nearStart =
+    (Number.isFinite(start) && start <= 45)
+    || (Number.isFinite(pos) && pos <= 1);
+  if (nearStart && /bienvenid|escuela\s+b[ií]blica|227\s+ense/i.test(raw)) return true;
+  return false;
+}
+
+function isWeakExcerpt(text: string, terms: string[], fragment?: { start_second?: number; position?: number }) {
   const raw = clean(text);
   if (!raw) return true;
   if (raw.length < 55) return true;
   if (EXCERPT_FILLER_RE.test(raw)) return true;
+  if (isIntroBumper(raw, fragment)) return true;
   if (terms.length && raw.length < 120 && excerptTermHits(raw, terms) === 0) return true;
   return false;
 }
@@ -671,13 +688,14 @@ function termDensitySelection(fragments, question: string) {
   const terms = excerptQuestionTerms(question);
   let best: { fragmentIndex: number; sentenceIndex: number; hits: number } | null = null;
   fragments.forEach((fragment, fragmentIndex) => {
+    if (isIntroBumper(fragment?.content || "", fragment)) return;
     sentences(fragment?.content).forEach((sentence, sentenceIndex) => {
-      if (isWeakExcerpt(sentence, [])) return;
+      if (isWeakExcerpt(sentence, [], fragment)) return;
       const hits = excerptTermHits(sentence, terms);
       if (!best || hits > best.hits) best = { fragmentIndex, sentenceIndex, hits };
     });
   });
-  if (!best) return null;
+  if (!best || best.hits < 1) return null;
   const list = sentences(fragments[best.fragmentIndex]?.content);
   const wanted = best.hits >= 3 ? 5 : best.hits >= 2 ? 3 : 3;
   const start = Math.max(0, best.sentenceIndex - 1);
@@ -714,17 +732,26 @@ function literalExcerpt(fragments, evidence, question = "") {
       }
     : null;
   let excerpt = picked ? clean(list.slice(picked.start, picked.end).join(" ")) : "";
-  if (!picked || isWeakExcerpt(excerpt, terms)) {
+  if (!picked || isWeakExcerpt(excerpt, terms, fragment)) {
     picked = termDensitySelection(fragments, question);
     if (picked) {
       excerpt = clean(sentences(fragments[picked.fragmentIndex]?.content).slice(picked.start, picked.end).join(" "));
     }
   }
-  if (!picked || isWeakExcerpt(excerpt, terms)) {
-    const fallbackFragment = fragments[0];
-    const fallbackList = sentences(fallbackFragment?.content).filter((s) => !isWeakExcerpt(s, []));
+  if (!picked || isWeakExcerpt(excerpt, terms, fragments[picked?.fragmentIndex])) {
+    // Busca el primer fragmento con contenido de enseñanza, no el intro del minuto 0.
+    let fallbackIndex = fragments.findIndex((row) =>
+      !isIntroBumper(row?.content || "", row)
+      && excerptTermHits(row?.content || "", terms) > 0
+    );
+    if (fallbackIndex < 0) {
+      fallbackIndex = fragments.findIndex((row) => !isIntroBumper(row?.content || "", row));
+    }
+    if (fallbackIndex < 0) fallbackIndex = 0;
+    const fallbackFragment = fragments[fallbackIndex];
+    const fallbackList = sentences(fallbackFragment?.content).filter((s) => !isWeakExcerpt(s, terms, fallbackFragment));
     picked = {
-      fragmentIndex: 0,
+      fragmentIndex: fallbackIndex,
       start: 0,
       end: Math.min(3, fallbackList.length || sentences(fallbackFragment?.content).length),
       strategy: "first-sentences" as const,
@@ -950,6 +977,10 @@ const TITLE_STOP = new Set([
   "que", "de", "la", "el", "los", "las", "un", "una", "del", "para", "por", "con",
   "como", "sobre", "serie", "habla", "ensena", "ensenanza", "ensenanzas", "parte",
   "video", "audio", "cual", "cuales", "hay", "esta", "este", "esto", "the", "dice", "dices",
+  // Palabras teológicas comunes: no bastan solas para elegir un video por título.
+  "dios", "jesus", "cristo", "senor", "espiritu", "biblia", "biblica", "escritura",
+  "palabra", "pura", "blaze", "pastor", "pastores", "rafael", "adriana", "escuela",
+  "voluntad", "buena", "amor", "fe", "gracia", "salvacion", "oracion", "sanidad",
 ]);
 
 function titleTokens(s: string) {
@@ -985,8 +1016,8 @@ async function findVideosByTitle(question: string) {
     const t = titleTokens(v.title || "");
     const matched = qTokens.filter((w) => t.some((x) => titleTokenHit(w, x)));
     const hits = matched.length;
-    const distinctive = matched.some((w) => w.length >= 8);
-    if (qTokens.length >= 2 && hits < 2 && !distinctive) continue;
+    // Una sola palabra larga ya no basta: "voluntad" no debe abrir "Su buena voluntad".
+    if (qTokens.length >= 2 && hits < 2) continue;
     if (qTokens.length < 2 && hits < 1) continue;
     let score = hits;
     const tParte = String(v.title || "").match(/parte\s*0*(\d+)/i);
@@ -1067,16 +1098,32 @@ async function searchFragmentsByText(question = "") {
   });
 }
 
-function fallbackFromFragments(fragments) {
-  const top = fragments?.[0];
-  const excerpt = clean(String(top?.content || "")).slice(0, 420);
+function fallbackFromFragments(fragments, question = "") {
+  const list = Array.isArray(fragments) ? fragments : [];
+  const terms = excerptQuestionTerms(question);
+  const scored = list
+    .map((row, index) => ({
+      row,
+      index,
+      hits: excerptTermHits(row?.content || "", terms),
+      intro: isIntroBumper(row?.content || "", row),
+    }))
+    .filter((item) => !item.intro && item.hits > 0)
+    .sort((a, b) => b.hits - a.hits || a.index - b.index);
+  const top = scored[0]?.row;
+  if (!top) return { found: false };
+  const excerpt = clean(String(top.content || "")).slice(0, 420);
   const title = top?.title || "esta enseñanza";
-  if (!excerpt) return { found: false };
+  if (!excerpt || isIntroBumper(excerpt, top)) return { found: false };
   return {
     found: true,
     answer: `Según la enseñanza «${title}», esto es lo que el ministerio explica sobre tu pregunta: ${excerpt.slice(0, 340)}${excerpt.length > 340 ? "…" : ""}`,
     reference: "",
-    evidence: { fragment: 1, start_sentence: 1, end_sentence: 2 },
+    evidence: {
+      fragment: (scored[0]?.index ?? 0) + 1,
+      start_sentence: 1,
+      end_sentence: 2,
+    },
   };
 }
 
@@ -1085,9 +1132,16 @@ async function retrieveVideoFragments(embStr, question = "") {
     if (!/metamorfosis|audio38meta|local-metamorfosis/i.test(`${video.title} ${video.youtube_id}`)) return true;
     return namesPaidTeaching(question);
   });
-  const fromTitle = titled.length ? await fragmentsFromVideos(titled) : [];
-  if (fromTitle.length) return fromTitle.slice(0, CONTEXT_MAX);
-  if (!embStr) return searchFragmentsByText(question);
+  // Con embedding: prioriza búsqueda semántica. El match por título ya no
+  // debe devolver solo el inicio del video (bienvenida / minuto 0).
+  if (!embStr) {
+    const fromTitle = titled.length ? await fragmentsFromVideos(titled) : [];
+    if (fromTitle.length) {
+      const useful = fromTitle.filter((row) => !isIntroBumper(row.content || "", row));
+      return (useful.length ? useful : fromTitle).slice(0, CONTEXT_MAX);
+    }
+    return searchFragmentsByText(question);
+  }
   const { data: fragMatches, error: fragErr } = await supabase.rpc("match_fragments", {
     query_embedding: embStr,
     match_count: VECTOR_CANDIDATES,
@@ -1096,11 +1150,22 @@ async function retrieveVideoFragments(embStr, question = "") {
     console.error("match_fragments:", fragErr.message);
     return searchFragmentsByText(question);
   }
-  const filtered = filterBySimilarity(fragMatches || []);
-  const seeds = filtered.slice(0, SEED_LIMIT);
+  const titledIds = new Set(titled.map((v) => Number(v.id)));
+  const ranked = [...(fragMatches || [])].sort((a, b) => {
+    const aBoost = titledIds.has(Number(a.video_id)) ? 0.05 : 0;
+    const bBoost = titledIds.has(Number(b.video_id)) ? 0.05 : 0;
+    return (Number(b.similarity) + bBoost) - (Number(a.similarity) + aBoost);
+  });
+  const filtered = filterBySimilarity(ranked).filter((row) => !isIntroBumper(row.content || "", row));
+  const seeds = (filtered.length ? filtered : filterBySimilarity(ranked)).slice(0, SEED_LIMIT);
   const shortHit = seeds.some((s) => Number(s.word_count) > 0 && Number(s.word_count) < 160);
   const expanded = seeds.length ? await expandAdjacent(seeds, shortHit ? 3 : 2, CONTEXT_MAX) : [];
-  return expanded.length ? expanded : searchFragmentsByText(question);
+  if (expanded.length) return expanded;
+  if (titled.length) {
+    const fromTitle = (await fragmentsFromVideos(titled)).filter((row) => !isIntroBumper(row.content || "", row));
+    if (fromTitle.length) return fromTitle.slice(0, CONTEXT_MAX);
+  }
+  return searchFragmentsByText(question);
 }
 
 // Embebe la pregunta del usuario (rota keys si una falla).
@@ -1329,9 +1394,10 @@ Deno.serve(async (req)=>{
       }
       if (!vid.found) {
         const best = Number(fragMatches[0]?.similarity);
-        // El extracto literal solo si el fragmento sí es cercano. Si no, mejor decir que no hay material.
-        if (Number.isFinite(best) && best >= 0.72) {
-          const fb = fallbackFromFragments(fragMatches);
+        const contentHits = excerptTermHits(fragMatches[0]?.content || "", excerptQuestionTerms(question));
+        // Solo si el fragmento es cercano de verdad y habla del tema (no intro con similarity inventada).
+        if (Number.isFinite(best) && best >= 0.72 && best < 0.98 && contentHits > 0) {
+          const fb = fallbackFromFragments(fragMatches, question);
           if (fb.found) vid = fb;
         }
       }
@@ -1440,7 +1506,7 @@ Deno.serve(async (req)=>{
       if (asked) {
         const rescue = (await searchFragmentsByText(asked)).filter((row) => Number(row.similarity) >= 0.9);
         if (rescue.length) {
-          const fb = fallbackFromFragments(rescue);
+          const fb = fallbackFromFragments(rescue, asked);
           if (fb.found) {
             const selected = literalExcerpt(rescue, fb.evidence, asked);
             const top = selected.fragment;

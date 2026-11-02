@@ -90,3 +90,24 @@ test("rejects filler LLM evidence and picks teaching sentences", () => {
   assert.match(result.excerpt, /estatua/i);
   assert.equal(result.retrieval.strategy, "term-density");
 });
+
+test("rejects bible-school welcome bumper as relevant excerpt", () => {
+  const rows = [
+    {
+      id: 54,
+      position: 0,
+      start_second: 0,
+      score: 0.99,
+      title: "Su buena voluntad",
+      content:
+        "Te damos la bienvenida a la Escuela Bíblica de Palabra Pura Blaze. En estas 227 enseñanzas vas a aprender a profundidad lo que significan las Escrituras. La voluntad de Dios para el enfermo es sanidad y vida en Cristo, no resignarse a la muerte.",
+    },
+  ];
+  const result = selectLiteralExcerpt(rows, "es la voluntad de Dios que una persona enferma sane o se muera", {
+    fragment: 1,
+    start_sentence: 1,
+    end_sentence: 2,
+  });
+  assert.doesNotMatch(result.excerpt, /Te damos la bienvenida/i);
+  assert.match(result.excerpt, /sanidad|enfermo|voluntad/i);
+});
