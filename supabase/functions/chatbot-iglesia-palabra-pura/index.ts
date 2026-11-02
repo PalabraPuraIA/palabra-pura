@@ -1382,44 +1382,51 @@ Deno.serve(async (req)=>{
     if (fragMatches && fragMatches.length > 0) {
       const context = numberedFragments(fragMatches);
       let vid = await askLLM(SYSTEM_VIDEO, `${prior}Contexto de los videos:\n${context}\n\nPregunta actual: ${question}`);
+      // Solo fuerza respuesta por título si la persona nombra la serie/enseñanza con al menos 2 tokens.
       if (!vid.found) {
         const titled = await findVideosByTitle(question);
-        if (titled.length) {
+        const namesSeries = titleTokens(question).length >= 2 && titled.length > 0;
+        if (namesSeries) {
           vid = await askLLM(
             SYSTEM_VIDEO,
-            `${prior}Estos videos SON la serie o enseñanza que pregunta la persona. Resume lo que enseñan. No respondas found false.\n${context}\n\nPregunta actual: ${question}`,
+            `${prior}Estos videos SON la serie o enseñanza que pregunta la persona. Resume lo que enseñan sobre ESA pregunta. Si el audio no la responde, found false.\n${context}\n\nPregunta actual: ${question}`,
           );
-          if (vid.answer) vid.found = true;
+          if (vid.answer && vid.found !== false) vid.found = true;
         }
       }
-      if (!vid.found) {
-        const best = Number(fragMatches[0]?.similarity);
-        const contentHits = excerptTermHits(fragMatches[0]?.content || "", excerptQuestionTerms(question));
-        // Solo si el fragmento es cercano de verdad y habla del tema (no intro con similarity inventada).
-        if (Number.isFinite(best) && best >= 0.72 && best < 0.98 && contentHits > 0) {
-          const fb = fallbackFromFragments(fragMatches, question);
-          if (fb.found) vid = fb;
-        }
-      }
-      // Si el LLM pudo responder con los videos, terminamos aqui.
+      // NUNCA pegar un recorte crudo del audio como respuesta: eso mete temas ajenos.
+      // Si el LLM no pudo contestar con el contexto, seguimos a docs/Biblia.
       if (vid.found) {
         const selected = literalExcerpt(fragMatches, vid.evidence, question);
         const top = selected.fragment;
-        const passage = await resolvePassage(vid.reference);
-        const payload = await attachLifeContext({
-          answer: sanitizeAnswer(vid.answer ?? ""),
-          passage: passage || undefined,
-          excerpt: selected.excerpt,
-          retrieval: selected.retrieval,
-          video: {
-            title: top.title,
-            episode: top.episode,
-            youtube_id: top.youtube_id,
-            start_second: top.start_second ?? 0
-          },
-          source: "video"
-        }, searchQ);
-        return json(payload);
+        const terms = excerptQuestionTerms(question);
+        const supportHits = Math.max(
+          excerptTermHits(selected.excerpt || "", terms),
+          excerptTermHits(top?.content || "", terms),
+          excerptTermHits(String(vid.answer || ""), terms),
+        );
+        const titledOk = titleTokens(question).length >= 2
+          && (await findVideosByTitle(question)).length > 0;
+        // Sin ancla léxica al tema (ni serie nombrada) → no devolver ese video.
+        if (!top || isIntroBumper(selected.excerpt || top.content || "", top) || (terms.length && supportHits < 1 && !titledOk)) {
+          vid = { found: false };
+        } else {
+          const passage = await resolvePassage(vid.reference);
+          const payload = await attachLifeContext({
+            answer: sanitizeAnswer(vid.answer ?? ""),
+            passage: passage || undefined,
+            excerpt: selected.excerpt,
+            retrieval: selected.retrieval,
+            video: {
+              title: top.title,
+              episode: top.episode,
+              youtube_id: top.youtube_id,
+              start_second: top.start_second ?? 0
+            },
+            source: "video"
+          }, searchQ);
+          return json(payload);
+        }
       }
     }
     const paidDoc = docs.find((d: { category?: string }) => String(d.category || "") === "paid");
