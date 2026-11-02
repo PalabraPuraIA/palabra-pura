@@ -31,6 +31,7 @@ const cors = {
 const SYSTEM_VIDEO = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
 Tono: amable, cercano y claro. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
+PROHIBIDO empezar con saludos ("Hola", "Que alegria", "Que gusto acompanarte", "Bienvenido"). Ve directo a la respuesta.
 Si hay conversacion reciente, usala SOLO para seguimientos/pronombres. Si "Pregunta actual" es un tema nuevo, ignora el hilo anterior.
 Responde SOLO lo que la persona pregunto en "Pregunta actual". No cambies de tema ni contestes otra cosa que aparezca en el audio.
 Si el audio solo menciona palabras parecidas por casualidad pero NO ensena sobre lo preguntado, responde EXACTAMENTE con: {"found": false}
@@ -48,6 +49,7 @@ Responde SOLO con el objeto JSON, sin texto adicional.`;
 const SYSTEM_PAID = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde UNICAMENTE con base en las transcripciones que se te entregan.
 Tono: amable, cercano y claro. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
+PROHIBIDO empezar con saludos ("Hola", "Que alegria", "Bienvenido"). Ve directo a la respuesta.
 Esta ensenanza es de pago: da una respuesta breve y util (3 a 5 frases) que conteste la pregunta. No copies la ensenanza completa, no enumeres todos los puntos y no transcribas el audio.
 No menciones compra, tienda ni enlaces; el sistema anade esa invitacion.
 Si el contexto NO habla de lo preguntado, responde EXACTAMENTE con: {"found": false}
@@ -62,6 +64,7 @@ Si el contexto NO habla de lo preguntado, responde EXACTAMENTE:
 {"answer": "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado.", "reference": ""}
 PROHIBIDO narrar de que hablaban los pasajes irrelevantes (tabernaculo, Job, genealogias, etc.). No digas "las lecturas de hoy" ni "el texto no aborda".
 Si SI puedes responder con el pasaje, tono amable y claro en 4 a 8 frases. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
+PROHIBIDO empezar con saludos ("Hola", "Que alegria", "Que gusto acompanarte", "Bienvenido"). Ve directo a la respuesta.
 Si hay conversacion reciente, usala SOLO para seguimientos. Si la pregunta actual cambia de tema, ignora el hilo anterior.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
@@ -145,10 +148,19 @@ function parseModelJson(content) {
   return parsed;
 }
 
-/** Quita la palabra/frases de "humildad" literales; deja el tono amable. */
+/** Quita saludos de apertura y frases de "humildad"; deja el tono amable. */
 function sanitizeAnswer(answer) {
   let text = unwrapAnswerText(answer);
   if (!text) return text;
+  // El "Hola / Qué alegría..." solo vive en la pantalla de bienvenida, no en cada respuesta.
+  text = text
+    .replace(/^¡?\s*hola[!¡.,]?\s*/i, "")
+    .replace(/^qué\s+alegr[ií]a[^.!?]{0,120}[.!?]\s*/i, "")
+    .replace(/^que\s+alegr[ií]a[^.!?]{0,120}[.!?]\s*/i, "")
+    .replace(/^qué\s+gusto[^.!?]{0,100}[.!?]\s*/i, "")
+    .replace(/^que\s+gusto[^.!?]{0,100}[.!?]\s*/i, "")
+    .replace(/^bienvenid[oa]s?[^.!?]{0,100}[.!?]\s*/i, "")
+    .replace(/^me\s+alegra\s+(mucho\s+)?(poder\s+)?(acompanarte|acompañarte|saludarte)[^.!?]{0,80}[.!?]\s*/i, "");
   text = text
     .replace(/\bcon\s+mucho\s+amor\s+y\s+(mucha\s+)?humildad\s+(te\s+)?(digo|comparto)[,:]?\s*/gi, "")
     .replace(/\bcon\s+(mucha\s+)?humildad\s+(te\s+)?(digo|comparto|digo\s+que)[,:]?\s*/gi, "")
@@ -161,6 +173,11 @@ function sanitizeAnswer(answer) {
     .replace(/\s{2,}/g, " ")
     .replace(/^[,:\s]+/, "")
     .trim();
+  // Si quedaba "¡Hola! Qué alegría... camino de fe." pegado en una sola frase larga:
+  text = text.replace(
+    /^¡?\s*hola[!¡]?\s*qué\s+alegr[ií]a[^.!?]{0,160}(camino de fe|fe)[.!]?\s*/i,
+    "",
+  ).trim();
   return text;
 }
 
