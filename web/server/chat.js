@@ -345,7 +345,7 @@ async function answerLocal(question, history = []) {
   );
   if (!chunkMatches.length) {
     return {
-      answer: "Todavia no encuentro material sobre eso. ¿Quieres preguntarlo de otra forma?",
+      answer: "No se encontraron resultados. Por favor, intenta redactar la pregunta de otra manera, o abre el menú y elige un contenido relacionado.",
     };
   }
 
@@ -396,11 +396,11 @@ const UPSTREAM_FAILED = /tuve un problema para responder/i;
 
 const NOT_FOUND = {
   answer:
-    "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
+    "No se encontraron resultados. Por favor, intenta redactar la pregunta de otra manera, o abre el menú y elige un contenido relacionado.",
 };
 
 const SOFT_NOT_FOUND_RE =
-  /todav[ií]a no encuentro|no encuentro material|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n/i;
+  /todav[ií]a no encuentro|no encuentro material|no se encontraron resultados|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n/i;
 
 function looksLikeNotFound(payload) {
   if (!payload) return true;
@@ -531,7 +531,7 @@ async function answerGreeting(question) {
 }
 
 function isNotFoundAnswer(answer) {
-  return /todav[ií]a no encuentro material/i.test(answer ?? "");
+  return /no se encontraron resultados|todav[ií]a no encuentro material/i.test(answer ?? "");
 }
 
 async function searchOrNothing(question) {

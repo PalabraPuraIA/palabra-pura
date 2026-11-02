@@ -15,7 +15,7 @@ import { preloadTlaBible } from "./utils/tlaPassage.js";
 
 import { ChatService } from "./services/ChatService.js?v=tla-1";
 import { ArticleService } from "./services/ArticleService.js";
-import { ChatView } from "./ui/ChatView.js?v=sources-1";
+import { ChatView } from "./ui/ChatView.js?v=no-results-1";
 import { Composer } from "./ui/Composer.js?v=ios-kb-1";
 import { ExampleChips } from "./ui/ExampleChips.js?v=chat-shell-1";
 import { ConnectModal } from "./ui/ConnectModal.js";

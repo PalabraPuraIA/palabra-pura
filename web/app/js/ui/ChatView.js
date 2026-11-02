@@ -138,7 +138,7 @@ export class ChatView {
         ? `<p class="msg__hint">Respuesta breve. Para más información, abre la enseñanza completa en el carrito.</p>`
         : isVideo && (response.excerpt || hasVerses)
         ? `<p class="msg__hint">Resumen corto. Abre transcripción y versículo si quieres el detalle.</p>`
-          : tips
+          : tips && !/men[uú]|contenido relacionado|no se encontraron resultados/i.test(response.answer || "")
             ? `<p class="msg__hint">Abre el menú y elige un contenido relacionado.</p>`
             : "";
 

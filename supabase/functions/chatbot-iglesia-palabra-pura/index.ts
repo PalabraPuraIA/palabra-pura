@@ -61,7 +61,7 @@ const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que aco
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
 Contesta SOLO la pregunta actual. Si el pasaje es de otro tema, no lo uses para responder otra cosa.
 Si el contexto NO habla de lo preguntado, responde EXACTAMENTE:
-{"answer": "Todavía no encuentro material claro sobre eso. ¿Puedes escribir la pregunta de otra forma? Así te ayudo mejor.", "reference": ""}
+{"answer": "No se encontraron resultados. Por favor, intenta redactar la pregunta de otra manera, o abre el menú y elige un contenido relacionado.", "reference": ""}
 PROHIBIDO narrar de que hablaban los pasajes irrelevantes (tabernaculo, Job, genealogias, etc.). No digas "las lecturas de hoy" ni "el texto no aborda".
 Si SI puedes responder con el pasaje, tono amable y claro en 4 a 8 frases. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 PROHIBIDO empezar con saludos ("Hola", "Que alegria", "Que gusto acompanarte", "Bienvenido"). Ve directo a la respuesta.
@@ -71,7 +71,7 @@ NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo
 El campo "answer" debe ser SOLO el texto para el usuario, nunca un objeto JSON anidado.
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
 const NOT_FOUND_ANSWER =
-  "Todavía no encuentro material claro sobre eso. ¿Puedes escribir la pregunta de otra forma? Así te ayudo mejor.";
+  "No se encontraron resultados. Por favor, intenta redactar la pregunta de otra manera, o abre el menú y elige un contenido relacionado.";
 const BIBLE_NOT_FOUND_ANSWER = NOT_FOUND_ANSWER;
 // ---- Helpers ----
 // Normaliza para comparar nombres de libros (minusculas, sin acentos).
@@ -604,7 +604,7 @@ async function answerPaidTeaching(
 }
 
 const SOFT_NOT_FOUND_RE =
-  /todav[ií]a no encuentro|no encuentro material|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n|no (aborda|proporcionan?|hablan) (una )?(explicaci[oó]n|clara)|lecturas de hoy|texto(s)? (compartido|recuperado)|pasajes (irrelevantes|recuperados)|tabern[aá]culo|eli[uú]/i;
+  /todav[ií]a no encuentro|no encuentro material|no se encontraron resultados|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n|no (aborda|proporcionan?|hablan) (una )?(explicaci[oó]n|clara)|lecturas de hoy|texto(s)? (compartido|recuperado)|pasajes (irrelevantes|recuperados)|tabern[aá]culo|eli[uú]/i;
 
 /** Opciones relacionadas a partir de fragmentos recuperados (para el desplegable). */
 function relatedSuggestions(fragments, limit = 6) {
