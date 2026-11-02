@@ -50,9 +50,12 @@ const TOPIC_TERMS = new Set([
 const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
 const PAGE_SIZE = 20;
+const RANGE_MS = 24 * 3600 * 1000;
 
+let allEvents = [];
 let allRecent = [];
 let page = 0;
+let rangeFilter = "today";
 
 function fmtWhen(iso) {
   try {
@@ -99,7 +102,31 @@ function questionKey(q) {
     .trim();
 }
 
-function buildRepeated(events) {
+function bogotaDayStart(date = new Date()) {
+  const day = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+  return new Date(`${day}T00:00:00-05:00`).getTime();
+}
+
+function rangeStart(range) {
+  const today = bogotaDayStart();
+  if (range === "today") return today;
+  if (range === "7d") return today - 6 * RANGE_MS;
+  if (range === "30d") return today - 29 * RANGE_MS;
+  return 0;
+}
+
+function eventsInRange(events, range) {
+  const start = rangeStart(range);
+  if (!start) return events;
+  return events.filter((ev) => Date.parse(ev.at) >= start);
+}
+
+function buildRepeated(events, minCount = 2) {
   const map = new Map();
   for (const ev of events) {
     const key = questionKey(ev.question);
@@ -116,7 +143,7 @@ function buildRepeated(events) {
     }
   }
   return [...map.values()]
-    .filter((r) => r.count >= 2)
+    .filter((r) => r.count >= minCount)
     .sort((a, b) => b.count - a.count || String(b.lastAt).localeCompare(String(a.lastAt)))
     .slice(0, 25);
 }
@@ -163,7 +190,7 @@ function buildSummary(events) {
     topics,
     topTerms,
     recent,
-    repeatedQuestions: buildRepeated(events),
+    repeatedQuestions: buildRepeated(events, 2),
     generatedAt: new Date().toISOString(),
   };
 }
@@ -301,15 +328,17 @@ async function loadFromSupabase() {
     retrieval: row.retrieval_meta,
     at: row.created_at,
   }));
-  return buildSummary(events);
+  return events;
 }
 
-async function load() {
+async function loadEvents() {
   try {
-    return await loadFromLocal();
-  } catch (_) {
-    return loadFromSupabase();
+    const data = await loadFromLocal();
+    if (Array.isArray(data?.recent) && data.recent.length) return data.recent;
+  } catch {
+    /* Pages usa la nube */
   }
+  return loadFromSupabase();
 }
 
 function pageCount() {
@@ -380,13 +409,20 @@ function renderRepeated(items) {
   applyOpen(body, open);
 }
 
-function render(data) {
-  document.querySelector("[data-total]").textContent = data.totalQuestions ?? 0;
-  document.querySelector("[data-day]").textContent = data.last24h ?? 0;
+function syncRangeButtons() {
+  document.querySelectorAll("[data-range]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", btn.dataset.range === rangeFilter ? "true" : "false");
+  });
+}
+
+function renderTopicsAndRepeats() {
+  const slice = eventsInRange(allEvents, rangeFilter);
+  const data = buildSummary(slice);
   const topics = data.topics || [];
   const namedTopics = topics.filter((t) => t.id !== "otros");
   const otherTopic = topics.find((t) => t.id === "otros");
-  document.querySelector("[data-topics-n]").textContent = namedTopics.length;
+  const minCount = rangeFilter === "all" ? 2 : 1;
+  const repeats = buildRepeated(slice, minCount);
 
   const bars = document.querySelector("[data-topic-bars]");
   const topicsEmpty = document.querySelector("[data-topics-empty]");
@@ -419,6 +455,18 @@ function render(data) {
     }
   }
 
+  renderRepeated(repeats);
+}
+
+function render(data) {
+  document.querySelector("[data-total]").textContent = data.totalQuestions ?? 0;
+  document.querySelector("[data-day]").textContent = data.last24h ?? 0;
+  const namedTopics = (data.topics || []).filter((t) => t.id !== "otros");
+  document.querySelector("[data-topics-n]").textContent = namedTopics.length;
+
+  syncRangeButtons();
+  renderTopicsAndRepeats();
+
   const termsEl = document.querySelector("[data-terms]");
   const termsEmpty = document.querySelector("[data-terms-empty]");
   const terms = data.topTerms || [];
@@ -435,8 +483,6 @@ function render(data) {
       })
       .join("");
   }
-
-  renderRepeated(data.repeatedQuestions || []);
 
   allRecent = data.recent || [];
   const pages = pageCount();
@@ -457,13 +503,22 @@ function escapeHtml(value) {
 
 async function refresh() {
   try {
-    render(await load());
+    allEvents = await loadEvents();
+    render(buildSummary(allEvents));
   } catch (err) {
     console.error(err);
     document.querySelector("[data-generated]").textContent =
       "No se pudo cargar el resumen.";
   }
 }
+
+document.querySelector("[data-range-filter]")?.addEventListener("click", (event) => {
+  const btn = event.target.closest("[data-range]");
+  if (!btn?.dataset.range || btn.dataset.range === rangeFilter) return;
+  rangeFilter = btn.dataset.range;
+  syncRangeButtons();
+  renderTopicsAndRepeats();
+});
 
 document.querySelector("[data-refresh]").addEventListener("click", refresh);
 document.querySelector("[data-page-prev]").addEventListener("click", () => {

@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=dash-merge-1" />
+  <link rel="stylesheet" href="./dashboard.css?v=dash-range-1" />
 </head>
 <body>
   <div class="wrap dash-compact">
@@ -47,19 +47,33 @@
       </article>
     </section>
 
-    <section class="card card--wide card--split">
-      <div class="split-panel">
-        <h2>Temas más preguntados</h2>
-        <p class="card__hint">Temas reconocidos. Lo genérico no se grafica, para no tapar el resto.</p>
-        <div class="bars" data-topic-bars></div>
-        <p class="card__note" data-topics-other hidden></p>
-        <p class="empty" data-topics-empty hidden>Aún no hay suficientes consultas para mostrar temas.</p>
+    <section class="card card--wide">
+      <div class="card-head card-head--range">
+        <div>
+          <h2>Qué preguntan</h2>
+          <p class="card__hint">Temas y preguntas del periodo. Empieza en el día de hoy.</p>
+        </div>
+        <div class="range-filter" data-range-filter role="group" aria-label="Periodo">
+          <button type="button" data-range="today" aria-pressed="true">Hoy</button>
+          <button type="button" data-range="7d">7 días</button>
+          <button type="button" data-range="30d">30 días</button>
+          <button type="button" data-range="all">Todo</button>
+        </div>
       </div>
-      <div class="split-panel">
-        <h2>Preguntas que más se repiten</h2>
-        <p class="card__hint">Toca una para ver cuántas veces se hizo y la última fecha.</p>
-        <div class="repeat-list" data-repeated-body></div>
-        <p class="empty" data-repeated-empty hidden>Todavía no hay preguntas repetidas.</p>
+      <div class="card--split">
+        <div class="split-panel">
+          <h2>Temas más preguntados</h2>
+          <p class="card__hint">Temas reconocidos en este periodo.</p>
+          <div class="bars" data-topic-bars></div>
+          <p class="card__note" data-topics-other hidden></p>
+          <p class="empty" data-topics-empty hidden>Aún no hay temas en este periodo.</p>
+        </div>
+        <div class="split-panel">
+          <h2>Preguntas que más se repiten</h2>
+          <p class="card__hint">Las más hechas en este periodo. Toca una para ver el detalle.</p>
+          <div class="repeat-list" data-repeated-body></div>
+          <p class="empty" data-repeated-empty hidden>Aún no hay preguntas en este periodo.</p>
+        </div>
       </div>
     </section>
 
@@ -90,6 +104,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="./dashboard.js?v=dash-merge-1"></script>
+  <script type="module" src="./dashboard.js?v=dash-range-1"></script>
 </body>
 </html>
