@@ -409,9 +409,27 @@ function renderRepeated(items) {
   applyOpen(body, open);
 }
 
+function setRange(next) {
+  if (!next || next === rangeFilter) return;
+  rangeFilter = next;
+  syncRangeButtons();
+  renderTopicsAndRepeats();
+}
+
 function syncRangeButtons() {
-  document.querySelectorAll("[data-range]").forEach((btn) => {
+  document.querySelectorAll("[data-range-filter] [data-range]").forEach((btn) => {
     btn.setAttribute("aria-pressed", btn.dataset.range === rangeFilter ? "true" : "false");
+  });
+}
+
+function initFilters() {
+  document.querySelectorAll("[data-range-filter] [data-range]").forEach((btn) => {
+    if (btn.dataset.bound === "1") return;
+    btn.dataset.bound = "1";
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      setRange(btn.dataset.range);
+    });
   });
 }
 
@@ -464,6 +482,7 @@ function render(data) {
   const namedTopics = (data.topics || []).filter((t) => t.id !== "otros");
   document.querySelector("[data-topics-n]").textContent = namedTopics.length;
 
+  initFilters();
   syncRangeButtons();
   renderTopicsAndRepeats();
 
@@ -512,14 +531,7 @@ async function refresh() {
   }
 }
 
-document.querySelector("[data-range-filter]")?.addEventListener("click", (event) => {
-  const btn = event.target.closest("[data-range]");
-  if (!btn?.dataset.range || btn.dataset.range === rangeFilter) return;
-  rangeFilter = btn.dataset.range;
-  syncRangeButtons();
-  renderTopicsAndRepeats();
-});
-
+initFilters();
 document.querySelector("[data-refresh]").addEventListener("click", refresh);
 document.querySelector("[data-page-prev]").addEventListener("click", () => {
   if (page > 0) {
