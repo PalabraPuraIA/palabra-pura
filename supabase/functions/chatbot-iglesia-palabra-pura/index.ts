@@ -31,7 +31,7 @@ const cors = {
 const SYSTEM_VIDEO = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
 Tono: amable, cercano y claro. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
-Si hay conversacion reciente, interpreta seguimientos y pronombres (eso, y eso, por que, explicalo) con ese hilo. No ignores la pregunta actual.
+Si hay conversacion reciente, usala SOLO para seguimientos/pronombres. Si "Pregunta actual" es un tema nuevo, ignora el hilo anterior.
 Responde SOLO lo que la persona pregunto en "Pregunta actual". No cambies de tema ni contestes otra cosa que aparezca en el audio.
 Si el audio solo menciona palabras parecidas por casualidad pero NO ensena sobre lo preguntado, responde EXACTAMENTE con: {"found": false}
 Si solo hay una MENCION BREVE del tema sin ensenanza sustancial que responda la pregunta, responde EXACTAMENTE con: {"found": false}
@@ -60,7 +60,7 @@ Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
 Contesta SOLO la pregunta actual. Si el pasaje es de otro tema, no lo uses para responder otra cosa.
 Si el contexto NO habla de lo preguntado, NO digas "el texto compartido no aborda..." ni enumeres los pasajes irrelevantes. Responde con claridad que no hay material claro en esta lectura y deja reference vacia.
 Tono: amable, cercano y claro, en 4 a 8 frases, con el contexto necesario para entender el punto. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
-Si hay conversacion reciente, interpreta seguimientos y pronombres con ese hilo. No ignores la pregunta actual.
+Si hay conversacion reciente, usala SOLO para seguimientos. Si la pregunta actual cambia de tema, ignora el hilo anterior.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 El campo "answer" debe ser SOLO el texto para el usuario, nunca un objeto JSON anidado.
@@ -180,8 +180,9 @@ function normalizeHistory(raw: unknown) {
 }
 function isStandaloneAsk(question: string) {
   const q = norm(question);
-  return /^(que|quien|cual|como|cuando|donde|por que)\s+\S{3,}/.test(q)
-    || /^(explica|hablame|cuentame|dime|define)\b/.test(q);
+  return /^(que|quien|cual|como|cuando|donde|por que|para que)\s+\S{2,}/.test(q)
+    || /\b(que es|que son|que significa|que quiere decir|cual es|como puedo|como empiezo|que debo)\b/.test(q)
+    || /^(explica|hablame|cuentame|dime|define|significa)\b/.test(q);
 }
 
 function looksLikeFollowUp(question: string) {
@@ -193,11 +194,26 @@ function looksLikeFollowUp(question: string) {
   return /^(y |entonces |pero |tambien |también |por que\b|por qué\b|y que |y qué |explicame eso|explícame eso|y eso)/i.test(q)
     || /\b(eso mismo|lo anterior|dijiste|mencionaste)\b/i.test(q);
 }
+
+/** Si la pregunta nueva no comparte tema con la anterior, no reutilizar el hilo. */
+function isTopicShift(question: string, history: { role: string; content: string }[]) {
+  if (!history.length) return true;
+  if (isStandaloneAsk(question)) return true;
+  if (looksLikeFollowUp(question)) return false;
+  const lastUser = [...history].reverse().find((turn) => turn.role === "user");
+  if (!lastUser?.content) return true;
+  const prev = new Set(titleTokens(lastUser.content));
+  const curr = titleTokens(question);
+  if (!curr.length) return true;
+  const overlap = curr.filter((t) => prev.has(t)).length;
+  return overlap === 0;
+}
+
 function retrievalQuestion(question: string, history: { role: string; content: string }[]) {
   const q = String(question ?? "").trim();
   if (!q || !history.length) return q;
-  // Pregunta nueva (aunque sea corta): no mezclar matrimonio/tienda con "nacer de nuevo".
-  if (!looksLikeFollowUp(q)) return q;
+  // Pregunta nueva o cambio de tema: no mezclar con el hilo anterior.
+  if (!looksLikeFollowUp(q) || isTopicShift(q, history)) return q;
   const lastUser = [...history].reverse().find((turn) => turn.role === "user");
   const lastBot = [...history].reverse().find((turn) => turn.role === "assistant");
   const parts: string[] = [];
@@ -206,11 +222,14 @@ function retrievalQuestion(question: string, history: { role: string; content: s
   parts.push(q);
   return parts.join("\n");
 }
-function historyBlock(history: { role: string; content: string }[]) {
-  const hist = history.slice(-8);
-  if (!hist.length) return "";
+function historyBlock(history: { role: string; content: string }[], question = "") {
+  const q = String(question ?? "").trim();
+  // Pregunta nueva / otro tema: no mandar el chat anterior al modelo
+  // (si no, se queda contestando lo de antes).
+  if (!history.length || !q || !looksLikeFollowUp(q) || isTopicShift(q, history)) return "";
+  const hist = history.slice(-6);
   const lines = hist.map((turn) => `${turn.role === "user" ? "Usuario" : "Blaze"}: ${turn.content}`);
-  return `Conversacion reciente (usa este hilo para entender seguimientos; responde con el audio/Biblia de esta vuelta):\n${lines.join("\n")}\n\n`;
+  return `Conversacion reciente (SOLO para resolver pronombres/seguimientos de ESTA pregunta; si la pregunta actual es un tema nuevo, ignora el hilo):\n${lines.join("\n")}\n\n`;
 }
 
 const LIFE_AREAS = [
@@ -1318,7 +1337,7 @@ Deno.serve(async (req)=>{
     }
     const history = normalizeHistory(body?.history);
     const searchQ = retrievalQuestion(question, history);
-    const prior = historyBlock(history);
+    const prior = historyBlock(history, question);
     const embedding = await embedQuery(searchQ);
     const embStr = embedding ? JSON.stringify(embedding) : "";
     const factHit = await findMinistryFact(question);
