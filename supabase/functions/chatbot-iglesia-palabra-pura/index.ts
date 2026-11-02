@@ -41,7 +41,8 @@ Si SI puedes responder con base en los videos, responde con:
 {"found": true, "answer": "tu respuesta en 4 a 8 frases, con el contexto de la ensenanza para que se entienda el punto (por que lo dice, a que se refiere, que concluye). No resumas de mas ni inventes", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
-En "evidence", elige un rango continuo de oraciones numeradas que sustente la respuesta.
+En "evidence", elige un rango continuo de oraciones numeradas que SUSTENTEN la respuesta (la ensenanza sobre el tema).
+PROHIBIDO elegir asides, confirmaciones o relleno ("oh ya entendi", "vuelve y pongamelo", "amen", "si pastor").
 Responde SOLO con el objeto JSON, sin texto adicional.`;
 
 const SYSTEM_PAID = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
@@ -631,27 +632,123 @@ function numberedFragments(fragments) {
     return `Fragmento F${fi + 1} — video "${f.title}", episodio ${f.episode ?? "?"}:\n${lines.join("\n")}`;
   }).join("\n\n");
 }
-function literalExcerpt(fragments, evidence) {
+const EXCERPT_FILLER_RE =
+  /^(oh|ok|okay|si|sí|no|amen|amén|aja|ajá|claro|exacto|ya|bueno|vale)\b|ya\s+entend[ií]|vuelve\s+y\s+p[oó]ng|p[oó]ngamelo|rep[ií]temelo|d[ií]gamelo\s+otra/i;
+
+function excerptQuestionTerms(question: string) {
+  return [...new Set(
+    norm(question)
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter((term) => term.length >= 4),
+  )];
+}
+
+function excerptTermHits(text: string, terms: string[]) {
+  const words = norm(text).replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  if (!words.length || !terms.length) return 0;
+  return terms.reduce((sum, term) => {
+    const stem = term.slice(0, Math.min(4, term.length));
+    const hit = words.some((word) =>
+      word === term
+      || word.startsWith(stem)
+      || (word.length >= 4 && term.startsWith(word.slice(0, 4)))
+    );
+    return sum + (hit ? 1 : 0);
+  }, 0);
+}
+
+function isWeakExcerpt(text: string, terms: string[]) {
+  const raw = clean(text);
+  if (!raw) return true;
+  if (raw.length < 55) return true;
+  if (EXCERPT_FILLER_RE.test(raw)) return true;
+  if (terms.length && raw.length < 120 && excerptTermHits(raw, terms) === 0) return true;
+  return false;
+}
+
+function termDensitySelection(fragments, question: string) {
+  const terms = excerptQuestionTerms(question);
+  let best: { fragmentIndex: number; sentenceIndex: number; hits: number } | null = null;
+  fragments.forEach((fragment, fragmentIndex) => {
+    sentences(fragment?.content).forEach((sentence, sentenceIndex) => {
+      if (isWeakExcerpt(sentence, [])) return;
+      const hits = excerptTermHits(sentence, terms);
+      if (!best || hits > best.hits) best = { fragmentIndex, sentenceIndex, hits };
+    });
+  });
+  if (!best) return null;
+  const list = sentences(fragments[best.fragmentIndex]?.content);
+  const wanted = best.hits >= 3 ? 5 : best.hits >= 2 ? 3 : 3;
+  const start = Math.max(0, best.sentenceIndex - 1);
+  const end = Math.min(list.length, start + wanted);
+  return {
+    fragmentIndex: best.fragmentIndex,
+    start,
+    end,
+    strategy: "term-density" as const,
+  };
+}
+
+function literalExcerpt(fragments, evidence, question = "") {
+  const terms = excerptQuestionTerms(question);
   const fi = Number(evidence?.fragment) - 1;
   const start = Number(evidence?.start_sentence) - 1;
   const end = Number(evidence?.end_sentence);
-  const fragment = fragments[fi] ?? fragments[0];
+  const fragment = fragments[fi];
   const list = sentences(fragment?.content);
-  const valid = fragment && Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start && end <= list.length && end - start <= 9;
-  let excerpt = valid ? clean(list.slice(start, end).join(" ")) : clean(list.slice(0, Math.min(3, list.length)).join(" "));
-  excerpt = excerptWithoutSponsor(excerpt, fragment);
+  const validRange =
+    fragment
+    && Number.isInteger(start)
+    && Number.isInteger(end)
+    && start >= 0
+    && end > start
+    && end <= list.length
+    && end - start <= 9;
+  let picked = validRange
+    ? {
+        fragmentIndex: fi,
+        start,
+        end,
+        strategy: "llm-sentence-range" as const,
+      }
+    : null;
+  let excerpt = picked ? clean(list.slice(picked.start, picked.end).join(" ")) : "";
+  if (!picked || isWeakExcerpt(excerpt, terms)) {
+    picked = termDensitySelection(fragments, question);
+    if (picked) {
+      excerpt = clean(sentences(fragments[picked.fragmentIndex]?.content).slice(picked.start, picked.end).join(" "));
+    }
+  }
+  if (!picked || isWeakExcerpt(excerpt, terms)) {
+    const fallbackFragment = fragments[0];
+    const fallbackList = sentences(fallbackFragment?.content).filter((s) => !isWeakExcerpt(s, []));
+    picked = {
+      fragmentIndex: 0,
+      start: 0,
+      end: Math.min(3, fallbackList.length || sentences(fallbackFragment?.content).length),
+      strategy: "first-sentences" as const,
+    };
+    excerpt = clean(
+      (fallbackList.length ? fallbackList : sentences(fallbackFragment?.content))
+        .slice(0, picked.end)
+        .join(" "),
+    );
+  }
+  const outFragment = fragments[picked.fragmentIndex] ?? fragments[0];
+  excerpt = excerptWithoutSponsor(excerpt, outFragment);
   if (excerpt.length > 1800) excerpt = `${excerpt.slice(0, 1799).replace(/\s+\S*$/, "").trim()}…`;
   return {
     excerpt: excerpt || undefined,
-    fragment,
+    fragment: outFragment,
     retrieval: {
-      fragment_id: fragment?.id ?? null,
-      position: fragment?.position ?? null,
-      score: fragment?.similarity ?? null,
-      sentence_start: valid ? start + 1 : 1,
-      sentence_end: valid ? end : Math.min(3, list.length),
-      strategy: valid ? "llm-sentence-range" : "first-sentences"
-    }
+      fragment_id: outFragment?.id ?? null,
+      position: outFragment?.position ?? null,
+      score: outFragment?.similarity ?? null,
+      sentence_start: picked.start + 1,
+      sentence_end: picked.end,
+      strategy: picked.strategy,
+    },
   };
 }
 // Cache de la tabla `books` mientras el isolate esta caliente (66 filas, no cambia).
@@ -1240,7 +1337,7 @@ Deno.serve(async (req)=>{
       }
       // Si el LLM pudo responder con los videos, terminamos aqui.
       if (vid.found) {
-        const selected = literalExcerpt(fragMatches, vid.evidence);
+        const selected = literalExcerpt(fragMatches, vid.evidence, question);
         const top = selected.fragment;
         const passage = await resolvePassage(vid.reference);
         const payload = await attachLifeContext({
@@ -1345,7 +1442,7 @@ Deno.serve(async (req)=>{
         if (rescue.length) {
           const fb = fallbackFromFragments(rescue);
           if (fb.found) {
-            const selected = literalExcerpt(rescue, fb.evidence);
+            const selected = literalExcerpt(rescue, fb.evidence, asked);
             const top = selected.fragment;
             return json(await attachLifeContext({
               answer: sanitizeAnswer(fb.answer ?? ""),

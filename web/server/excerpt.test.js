@@ -69,3 +69,24 @@ test("falls back to a literal term-density window for invalid evidence", () => {
   assert.ok(fragments[0].content.includes(result.excerpt.replace(/…$/, "")));
   assert.equal(result.retrieval.strategy, "term-density");
 });
+
+test("rejects filler LLM evidence and picks teaching sentences", () => {
+  const statue = [
+    {
+      id: 22,
+      position: 8,
+      score: 0.8,
+      title: "El globalismo falso",
+      content:
+        "Oh, ya entendí. Vuelve y póngamelo. La estatua que se realizará en el futuro es la que Daniel vio con hierro y barro. Esas naciones no se unen del todo. Ese es el punto de la enseñanza.",
+    },
+  ];
+  const result = selectLiteralExcerpt(statue, "cual es la estatua que se realizara en el futuro", {
+    fragment: 1,
+    start_sentence: 1,
+    end_sentence: 2,
+  });
+  assert.doesNotMatch(result.excerpt, /Oh, ya entendí/);
+  assert.match(result.excerpt, /estatua/i);
+  assert.equal(result.retrieval.strategy, "term-density");
+});

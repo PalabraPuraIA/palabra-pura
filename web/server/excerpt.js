@@ -82,6 +82,26 @@ const normalizedTerms = (question) =>
       .filter((term) => term.length >= 4),
   )];
 
+function termHitsInText(text, terms) {
+  const words = String(text ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length || !terms?.length) return 0;
+  return terms.reduce((sum, term) => {
+    const stem = term.slice(0, Math.min(4, term.length));
+    const hit = words.some((word) =>
+      word === term
+      || word.startsWith(stem)
+      || (word.length >= 4 && term.startsWith(word.slice(0, 4)))
+    );
+    return sum + (hit ? 1 : 0);
+  }, 0);
+}
+
 function deterministicSelection(fragments, question) {
   const terms = normalizedTerms(question);
   let best = null;
@@ -89,8 +109,7 @@ function deterministicSelection(fragments, question) {
   fragments.forEach((fragment, fragmentIndex) => {
     const sentences = transcriptSentences(fragment.content);
     sentences.forEach((sentence, sentenceIndex) => {
-      const text = sentence.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const hits = terms.reduce((sum, term) => sum + (text.includes(term.slice(0, 7)) ? 1 : 0), 0);
+      const hits = termHitsInText(sentence, terms);
       if (!best || hits > best.hits) best = { fragmentIndex, sentenceIndex, hits };
     });
   });
@@ -108,9 +127,23 @@ function deterministicSelection(fragments, question) {
   };
 }
 
+const EXCERPT_FILLER_RE =
+  /^(oh|ok|okay|si|sí|no|amen|amén|aja|ajá|claro|exacto|ya|bueno|vale)\b|ya\s+entend[ií]|vuelve\s+y\s+p[oó]ng|p[oó]ngamelo|rep[ií]temelo|d[ií]gamelo\s+otra/i;
+
+function isWeakExcerpt(text, terms) {
+  const raw = normalize(text);
+  if (!raw) return true;
+  if (raw.length < 55) return true;
+  if (EXCERPT_FILLER_RE.test(raw)) return true;
+  // Solo fuerza coincidencia de tema en recortes cortos (asides / relleno).
+  if (terms?.length && raw.length < 120 && termHitsInText(raw, terms) === 0) return true;
+  return false;
+}
+
 export function selectLiteralExcerpt(fragments, question, evidence) {
   if (!Array.isArray(fragments) || !fragments.length) return {};
 
+  const terms = normalizedTerms(question);
   const fallback = deterministicSelection(fragments, question);
   const requested = evidence && typeof evidence === "object"
     ? {
@@ -134,6 +167,14 @@ export function selectLiteralExcerpt(fragments, question, evidence) {
     selection.end_sentence - selection.start_sentence > 8;
 
   if (invalid) selection = fallback;
+  if (selection && selection.strategy === "llm-sentence-range") {
+    const preview = normalize(
+      selectedSentences
+        .slice(selection.start_sentence - 1, selection.end_sentence)
+        .join(" "),
+    );
+    if (isWeakExcerpt(preview, terms)) selection = fallback;
+  }
   if (!selection) return {};
 
   const fragment = fragments[selection.fragment - 1];
