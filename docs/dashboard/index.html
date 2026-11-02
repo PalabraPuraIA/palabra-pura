@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=dash-nav-1" />
+  <link rel="stylesheet" href="./dashboard.css?v=dash-merge-1" />
 </head>
 <body>
   <div class="wrap dash-compact">
@@ -47,31 +47,30 @@
       </article>
     </section>
 
-    <div class="grid">
-      <section class="card">
+    <section class="card card--wide card--split">
+      <div class="split-panel">
         <h2>Temas más preguntados</h2>
         <p class="card__hint">Temas reconocidos. Lo genérico no se grafica, para no tapar el resto.</p>
         <div class="bars" data-topic-bars></div>
         <p class="card__note" data-topics-other hidden></p>
         <p class="empty" data-topics-empty hidden>Aún no hay suficientes consultas para mostrar temas.</p>
-      </section>
-
-      <section class="card">
-        <h2>Palabras más frecuentes</h2>
-        <p class="card__hint">Otras palabras útiles, sin repetir los temas de la izquierda.</p>
-        <ul class="chips" data-terms></ul>
-        <p class="empty" data-terms-empty hidden>Sin datos todavía.</p>
-      </section>
-    </div>
-
-    <section class="card card--wide" style="margin-top:14px">
-      <h2>Preguntas que más se repiten</h2>
-      <p class="card__hint">Toca una pregunta para ver cuántas veces se hizo y la última fecha.</p>
-      <div class="repeat-list" data-repeated-body></div>
-      <p class="empty" data-repeated-empty hidden>Todavía no hay preguntas repetidas.</p>
+      </div>
+      <div class="split-panel">
+        <h2>Preguntas que más se repiten</h2>
+        <p class="card__hint">Toca una para ver cuántas veces se hizo y la última fecha.</p>
+        <div class="repeat-list" data-repeated-body></div>
+        <p class="empty" data-repeated-empty hidden>Todavía no hay preguntas repetidas.</p>
+      </div>
     </section>
 
-    <section class="card card--wide" style="margin-top:14px">
+    <section class="card card--wide">
+      <h2>Palabras más frecuentes</h2>
+      <p class="card__hint">Otras palabras útiles, sin repetir los temas de arriba.</p>
+      <ul class="chips" data-terms></ul>
+      <p class="empty" data-terms-empty hidden>Sin datos todavía.</p>
+    </section>
+
+    <section class="card card--wide">
       <div class="card-head">
         <div>
           <h2>Últimas consultas</h2>
@@ -91,6 +90,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="./dashboard.js?v=dash-nav-1"></script>
+  <script type="module" src="./dashboard.js?v=dash-merge-1"></script>
 </body>
 </html>
