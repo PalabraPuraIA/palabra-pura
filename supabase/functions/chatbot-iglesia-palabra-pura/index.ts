@@ -351,7 +351,7 @@ const SHOP_TOPICS: { key: string; labels: string[]; words: RegExp }[] = [
   { key: "obediencia", labels: ["obediencia"], words: /obedienc|sumisi[oó]n|verdad/i },
   { key: "perdon", labels: ["perdón", "relaciones"], words: /perd[oó]n|ofensa|rencor/i },
   { key: "sanidad", labels: ["sanidad"], words: /sanidad|sanar|enfermedad/i },
-  { key: "mente", labels: ["metamorfosis", "imaginación"], words: /mente|metamorfosis|pensamiento|imaginaci[oó]n|renovaci[oó]n/i },
+  { key: "mente", labels: ["metamorfosis", "imaginación", "renovación"], words: /mente|metamorfosis|pensamiento|imaginaci[oó]n|renovaci[oó]n|transform/i },
   { key: "espiritu", labels: ["espíritu santo"], words: /esp[ií]ritu santo|ungimiento|dones/i },
 ];
 
@@ -396,20 +396,32 @@ function scoreShopItem(question: string, item: ReturnType<typeof parseShopDoc>) 
   const q = question.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const blob = `${item.title} ${item.topics} ${item.author} ${item.description}`.toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  let score = 0;
+  let relevance = 0;
   const tokens = q.split(/[^a-z0-9]+/).filter((w) => w.length >= 4);
+  // Palabras genéricas de "recomiéndame enseñanzas" no deben puntuar cualquier título.
+  const shopStop = new Set([
+    "cuales", "recomend", "recomien", "suger", "alguna", "ensena", "ensenanza", "ensenanzas",
+    "serie", "series", "para", "como", "puedo", "quiero", "busco", "tienda",
+  ]);
   for (const w of tokens) {
-    if (blob.includes(w)) score += w.length >= 8 ? 6 : 3;
+    if ([...shopStop].some((s) => w.startsWith(s))) continue;
+    if (blob.includes(w)) relevance += w.length >= 8 ? 6 : 3;
   }
   for (const topic of SHOP_TOPICS) {
     if (topic.words.test(question) && topic.labels.some((l) => blob.includes(l.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()))) {
-      score += 10;
-      if (topic.labels.some((l) => item.title.toLowerCase().includes(l.toLowerCase()))) score += 8;
+      relevance += 10;
+      if (topic.labels.some((l) => item.title.toLowerCase().includes(l.toLowerCase()))) relevance += 8;
     }
   }
-  if (item.featured) score += 4;
-  if (item.kind === "video") score += 1;
-  if (/serie/i.test(item.title)) score += 2;
+  // Transformación ≠ matrimonio: no colar series de pareja en ese pedido.
+  if (/transform|metamorf|renov/i.test(question) && /matrimonio|espos|divorcio|pareja|noviazgo/i.test(`${item.title} ${item.topics}`)) {
+    relevance -= 25;
+  }
+  let score = relevance;
+  // Destacada solo suma si ya hay afinidad real con la pregunta.
+  if (item.featured && relevance > 0) score += 4;
+  if (relevance > 0 && item.kind === "video") score += 1;
+  if (relevance > 0 && /serie/i.test(item.title)) score += 2;
   return score;
 }
 
@@ -431,34 +443,34 @@ async function recommendShopTeachings(question: string, searchQ: string, embStr:
     .eq("category", "tienda")
     .limit(400);
   const items = (data || []).map(parseShopDoc).filter((item) => item.title && item.cart);
-  const topicAsked = SHOP_TOPICS.some((t) => t.words.test(question));
   let ranked = items
     .map((item) => ({ item, score: scoreShopItem(question, item) }))
-    .sort((a, b) => b.score - a.score);
-  if (!topicAsked) {
-    ranked = ranked.filter((row) => row.item.featured || row.score >= 6);
-  } else {
-    ranked = ranked.filter((row) => row.score >= 6);
-  }
-  if (!ranked.length) {
+    .sort((a, b) => b.score - a.score)
+    .filter((row) => row.score >= 6);
+  if (!ranked.length && embStr) {
     const { data: hits } = await supabase.rpc("match_knowledge_chunks", {
       query_embedding: embStr,
       match_count: 10,
     });
     const shopHits = (hits || []).filter((row: { category?: string; similarity?: number }) =>
-      row.category === "tienda" && Number(row.similarity) >= 0.55,
+      row.category === "tienda" && Number(row.similarity) >= 0.62,
     );
     const byTitle = new Map(items.map((item) => [item.title, item]));
     ranked = shopHits
       .map((row: { title?: string; similarity?: number }) => {
         const item = byTitle.get(String(row.title || ""));
-        return item ? { item, score: Number(row.similarity) * 20 } : null;
+        if (!item) return null;
+        // Misma regla: no meter matrimonio en pedidos de transformación.
+        if (/transform|metamorf|renov/i.test(question) && /matrimonio|espos|divorcio|pareja|noviazgo/i.test(`${item.title} ${item.topics}`)) {
+          return null;
+        }
+        return { item, score: Number(row.similarity) * 20 };
       })
       .filter(Boolean) as { item: ReturnType<typeof parseShopDoc>; score: number }[];
   }
-  if (!ranked.length) {
-    ranked = items.filter((item) => item.featured).map((item) => ({ item, score: 8 }));
-  }
+  // Sin coincidencias reales: no devolver un pack genérico de "destacadas"
+  // (antes colaba matrimonio / globalismo aunque no vinieran a cuento).
+  if (!ranked.length) return null;
   const picked: ReturnType<typeof parseShopDoc>[] = [];
   const seen = new Map<string, number>();
   for (const row of ranked) {
@@ -1020,7 +1032,7 @@ function namesPaidTeaching(question: string) {
 }
 
 function shopAllowsMetamorfosis(question: string) {
-  return /metamorfosis|renovar (la )?mente|renovaci[oó]n de la mente|pensamiento|imaginaci[oó]n/i.test(String(question || ""));
+  return /metamorfosis|renovar (la )?mente|renovaci[oó]n de la mente|pensamiento|imaginaci[oó]n|transform/i.test(String(question || ""));
 }
 
 async function findVideosByTitle(question: string) {
