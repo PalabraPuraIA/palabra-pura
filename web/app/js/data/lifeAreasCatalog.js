@@ -78,7 +78,7 @@ export const LIFE_AREAS = [
   {
     id: "dones",
     label: "Dones espirituales",
-    keywords: ["dones", "espiritu", "carisma", "ministerio", "servir", "llamado"],
+    keywords: ["dones", "dones espirituales", "carisma", "ministerio", "servir", "llamado", "ungimiento"],
     promise:
       "Dios te ha equipado con dones para edificar a otros en amor. Cada miembro del cuerpo de Cristo tiene un lugar.",
     verses: [
