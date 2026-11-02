@@ -373,6 +373,20 @@ th {
   color: var(--c-white);
   background: var(--g-brand);
 }
+.dash-nav a.dash-nav__chat {
+  margin-left: 2px;
+  color: var(--c-rose);
+}
+.dash-nav a.dash-nav__chat:hover {
+  color: var(--c-white);
+  background: var(--g-brand);
+}
+
+.card__note {
+  margin: 10px 0 0;
+  font-size: var(--dash-meta);
+  color: var(--c-ink-soft);
+}
 
 .badge {
   display: inline-block;

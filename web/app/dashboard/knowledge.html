@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/tokens.css" />
-  <link rel="stylesheet" href="./dashboard.css?v=kb-audio-5" />
+  <link rel="stylesheet" href="./dashboard.css?v=dash-nav-1" />
 </head>
 <body>
   <div class="wrap wrap--wide dash-compact">
@@ -20,15 +20,14 @@
       <div class="bar__actions">
         <button class="btn" type="button" data-refresh>Actualizar</button>
         <button class="btn" type="button" data-logout>Salir</button>
-        <a class="btn btn--primary" href="../">Ir al chat</a>
       </div>
     </header>
 
     <nav class="dash-nav" aria-label="Secciones">
       <a href="./">Consultas</a>
-      <a href="./knowledge.html" aria-current="page">Base de conocimientos</a>
-      <a href="./ingest.html">Agregar video / audio</a>
-      <a href="../">Chat</a>
+      <a href="./knowledge.html" aria-current="page">Conocimiento</a>
+      <a href="./ingest.html">Agregar</a>
+      <a class="dash-nav__chat" href="../">Chat</a>
     </nav>
 
     <section class="stats stats--wide stats--compact">

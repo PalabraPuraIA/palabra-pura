@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/dashboard/dashboard.css?v=dash-polish-1" />
+  <link rel="stylesheet" href="/dashboard/dashboard.css?v=dash-nav-1" />
 </head>
 <body>
   <div class="wrap dash-compact">
@@ -19,18 +19,15 @@
       </div>
       <div class="bar__actions">
         <button class="btn" type="button" data-refresh>Actualizar</button>
-        <a class="btn" href="/dashboard/knowledge.html">Conocimiento</a>
-        <a class="btn" href="/dashboard/ingest.html">Agregar contenido</a>
         <button class="btn" type="button" data-logout>Salir</button>
-        <a class="btn btn--primary" href="/">Ir al chat</a>
       </div>
     </header>
 
     <nav class="dash-nav" aria-label="Secciones">
       <a href="/dashboard/" aria-current="page">Consultas</a>
       <a href="/dashboard/knowledge.html">Conocimiento</a>
-      <a href="/dashboard/ingest.html">Agregar video / audio</a>
-      <a href="/">Chat</a>
+      <a href="/dashboard/ingest.html">Agregar</a>
+      <a class="dash-nav__chat" href="/">Chat</a>
     </nav>
 
     <p class="sub">Resumen de lo que la gente pregunta en el chatbot. Se actualiza con cada consulta nueva.</p>
@@ -53,14 +50,15 @@
     <div class="grid">
       <section class="card">
         <h2>Temas más preguntados</h2>
-        <p class="card__hint">Conteo aproximado por palabras clave de cada pregunta</p>
+        <p class="card__hint">Temas reconocidos. Lo genérico no se grafica, para no tapar el resto.</p>
         <div class="bars" data-topic-bars></div>
+        <p class="card__note" data-topics-other hidden></p>
         <p class="empty" data-topics-empty hidden>Aún no hay suficientes consultas para mostrar temas.</p>
       </section>
 
       <section class="card">
         <h2>Palabras más frecuentes</h2>
-        <p class="card__hint">Promedio de aparición en el historial reciente</p>
+        <p class="card__hint">Otras palabras útiles, sin repetir los temas de la izquierda.</p>
         <ul class="chips" data-terms></ul>
         <p class="empty" data-terms-empty hidden>Sin datos todavía.</p>
       </section>
@@ -93,6 +91,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="/dashboard/dashboard.js?v=panel-login-1"></script>
+  <script type="module" src="/dashboard/dashboard.js?v=dash-nav-1"></script>
 </body>
 </html>

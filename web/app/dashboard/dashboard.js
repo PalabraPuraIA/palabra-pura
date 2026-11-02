@@ -28,6 +28,23 @@ const STOPWORDS = new Set([
   "la", "las", "lo", "los", "me", "mi", "no", "o", "para", "pero", "por", "que",
   "se", "si", "su", "te", "tu", "un", "una", "y", "ya", "yo", "qué", "cómo",
   "dice", "dios", "significa", "puedo", "puede", "hacer", "tengo", "tiene", "ser",
+  "son", "sobre", "estoy", "hola", "tener", "hay", "eso", "esa", "ese", "esto",
+  "aqui", "allí", "alli", "pues", "bien", "mal", "muy", "mas", "más", "todo",
+  "todos", "hace", "porque", "cuando", "donde", "cual", "cuales", "tambien",
+  "entonces", "ahora", "despues", "antes", "entre", "desde", "hasta", "sin",
+  "quiero", "queria", "empiezo", "empezar", "pregunta", "preguntas", "gracias",
+  "buenas", "dias", "tardes", "noches", "blaze", "chat", "ok", "vale",
+]);
+
+const TOPIC_TERMS = new Set([
+  "fe", "confiar", "confianza", "creer", "temor", "miedo", "ansiedad",
+  "orar", "oracion", "reza", "rezo", "clamar",
+  "sanidad", "sanar", "sano", "enfermedad", "milagro", "sintoma", "cura",
+  "palabra", "biblia", "escritura", "versiculo", "leer",
+  "nacer", "nuevo", "salvacion", "salvo", "evangelio", "cruz", "nacimiento",
+  "dones", "espiritu", "espirituales", "carisma", "ministerio",
+  "familia", "matrimonio", "esposo", "esposa", "hijos", "pareja",
+  "testimonio", "restaurar", "restauracion", "perdon",
 ]);
 
 const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
@@ -69,7 +86,7 @@ function normalizeTokens(text) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
-    .filter((t) => t.length > 2 && !STOPWORDS.has(t));
+    .filter((t) => t.length > 2 && !STOPWORDS.has(t) && !TOPIC_TERMS.has(t));
 }
 
 function questionKey(q) {
@@ -366,19 +383,23 @@ function renderRepeated(items) {
 function render(data) {
   document.querySelector("[data-total]").textContent = data.totalQuestions ?? 0;
   document.querySelector("[data-day]").textContent = data.last24h ?? 0;
-  document.querySelector("[data-topics-n]").textContent = (data.topics || []).length;
+  const topics = data.topics || [];
+  const namedTopics = topics.filter((t) => t.id !== "otros");
+  const otherTopic = topics.find((t) => t.id === "otros");
+  document.querySelector("[data-topics-n]").textContent = namedTopics.length;
 
   const bars = document.querySelector("[data-topic-bars]");
   const topicsEmpty = document.querySelector("[data-topics-empty]");
-  const topics = data.topics || [];
-  const max = Math.max(1, ...topics.map((t) => t.count));
+  const topicsOther = document.querySelector("[data-topics-other]");
+  const max = Math.max(1, ...namedTopics.map((t) => t.count));
 
-  if (!topics.length) {
+  if (!namedTopics.length) {
     bars.innerHTML = "";
     topicsEmpty.hidden = false;
+    if (topicsOther) topicsOther.hidden = true;
   } else {
     topicsEmpty.hidden = true;
-    bars.innerHTML = topics
+    bars.innerHTML = namedTopics
       .map((t) => {
         const pct = Math.round((t.count / max) * 100);
         return `<div class="bar-row">
@@ -388,6 +409,14 @@ function render(data) {
         </div>`;
       })
       .join("");
+    if (topicsOther) {
+      if (otherTopic?.count) {
+        topicsOther.hidden = false;
+        topicsOther.textContent = `${otherTopic.count} consultas no encajan en un tema concreto.`;
+      } else {
+        topicsOther.hidden = true;
+      }
+    }
   }
 
   const termsEl = document.querySelector("[data-terms]");
