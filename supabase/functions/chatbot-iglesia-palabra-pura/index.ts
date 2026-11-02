@@ -61,7 +61,7 @@ const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que aco
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
 Contesta SOLO la pregunta actual. Si el pasaje es de otro tema, no lo uses para responder otra cosa.
 Si el contexto NO habla de lo preguntado, responde EXACTAMENTE:
-{"answer": "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado.", "reference": ""}
+{"answer": "Todavía no encuentro material claro sobre eso. ¿Puedes escribir la pregunta de otra forma? Así te ayudo mejor.", "reference": ""}
 PROHIBIDO narrar de que hablaban los pasajes irrelevantes (tabernaculo, Job, genealogias, etc.). No digas "las lecturas de hoy" ni "el texto no aborda".
 Si SI puedes responder con el pasaje, tono amable y claro en 4 a 8 frases. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 PROHIBIDO empezar con saludos ("Hola", "Que alegria", "Que gusto acompanarte", "Bienvenido"). Ve directo a la respuesta.
@@ -70,8 +70,9 @@ Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versi
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 El campo "answer" debe ser SOLO el texto para el usuario, nunca un objeto JSON anidado.
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
-const BIBLE_NOT_FOUND_ANSWER =
-  "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado.";
+const NOT_FOUND_ANSWER =
+  "Todavía no encuentro material claro sobre eso. ¿Puedes escribir la pregunta de otra forma? Así te ayudo mejor.";
+const BIBLE_NOT_FOUND_ANSWER = NOT_FOUND_ANSWER;
 // ---- Helpers ----
 // Normaliza para comparar nombres de libros (minusculas, sin acentos).
 const norm = (s)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -1519,7 +1520,7 @@ Deno.serve(async (req)=>{
     // ========== 2) BIBLIA (solo si el video NO respondio) ==========
     if (!embStr) {
       return json(await attachLifeContext({
-        answer: "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
+        answer: NOT_FOUND_ANSWER,
         suggestions: tips.length ? tips : undefined
       }, searchQ));
     }
@@ -1530,13 +1531,13 @@ Deno.serve(async (req)=>{
     if (chunkErr) {
       console.error("match_bible_chunks:", chunkErr.message);
       return json(await attachLifeContext({
-        answer: "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
+        answer: NOT_FOUND_ANSWER,
         suggestions: tips.length ? tips : undefined
       }, searchQ));
     }
     if (!chunkMatches || chunkMatches.length === 0) {
       return json(await attachLifeContext({
-        answer: "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado:",
+        answer: NOT_FOUND_ANSWER,
         suggestions: tips.length ? tips : undefined
       }, searchQ));
     }
