@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/tokens.css" />
-  <link rel="stylesheet" href="/dashboard/dashboard.css?v=dash-range-1" />
+  <link rel="stylesheet" href="/dashboard/dashboard.css?v=dash-cal-1" />
 </head>
 <body>
   <div class="wrap dash-compact">
@@ -51,13 +51,35 @@
       <div class="card-head card-head--range">
         <div>
           <h2>Qué preguntan</h2>
-          <p class="card__hint">Temas y preguntas del periodo. Empieza en el día de hoy.</p>
+          <p class="card__hint" data-range-hint>Temas y preguntas de hoy.</p>
         </div>
-        <div class="range-filter" data-range-filter role="group" aria-label="Periodo">
-          <button type="button" data-range="today" aria-pressed="true">Hoy</button>
-          <button type="button" data-range="7d">7 días</button>
-          <button type="button" data-range="30d">30 días</button>
-          <button type="button" data-range="all">Todo</button>
+        <div class="range-tools" data-range-tools>
+          <div class="range-filter" data-range-filter role="group" aria-label="Periodo">
+            <button type="button" data-range="today" aria-pressed="true">Hoy</button>
+            <button type="button" data-range="7d">7 días</button>
+            <button type="button" data-range="30d">30 días</button>
+            <button type="button" data-range="all">Todo</button>
+            <span class="range-filter__sep" aria-hidden="true"></span>
+            <button type="button" class="range-cal__btn" data-cal-open aria-expanded="false" aria-haspopup="dialog" aria-pressed="false" title="Elegir fecha">
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <rect x="1.75" y="2.75" width="12.5" height="11.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.35"/>
+                <path d="M1.75 6.4h12.5M5.2 1.5v3M10.8 1.5v3" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/>
+              </svg>
+              <span class="range-cal__label" data-cal-label hidden></span>
+            </button>
+          </div>
+          <div class="cal-pop" data-cal-pop hidden role="dialog" aria-label="Calendario">
+            <div class="cal-pop__head">
+              <button type="button" data-cal-prev aria-label="Mes anterior">‹</button>
+              <p data-cal-month></p>
+              <button type="button" data-cal-next aria-label="Mes siguiente">›</button>
+            </div>
+            <div class="cal-pop__week" aria-hidden="true">
+              <span>lu</span><span>ma</span><span>mi</span><span>ju</span><span>vi</span><span>sá</span><span>do</span>
+            </div>
+            <div class="cal-pop__grid" data-cal-grid></div>
+            <p class="cal-pop__hint">Un día, o dos para un rango.</p>
+          </div>
         </div>
       </div>
       <div class="card--split">
@@ -104,6 +126,6 @@
     <p class="foot" data-generated></p>
   </div>
 
-  <script type="module" src="/dashboard/dashboard.js?v=dash-range-2"></script>
+  <script type="module" src="/dashboard/dashboard.js?v=dash-cal-1"></script>
 </body>
 </html>

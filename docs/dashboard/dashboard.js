@@ -51,11 +51,16 @@ const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
 const PAGE_SIZE = 20;
 const RANGE_MS = 24 * 3600 * 1000;
+const MONTHS_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 let allEvents = [];
 let allRecent = [];
 let page = 0;
 let rangeFilter = "today";
+let customFrom = null;
+let customTo = null;
+let calPending = null;
+let calView = null;
 
 function fmtWhen(iso) {
   try {
@@ -102,14 +107,68 @@ function questionKey(q) {
     .trim();
 }
 
-function bogotaDayStart(date = new Date()) {
-  const day = new Intl.DateTimeFormat("en-CA", {
+function bogotaYmd(date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Bogota",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(date);
-  return new Date(`${day}T00:00:00-05:00`).getTime();
+}
+
+function dayStartFromYmd(ymd) {
+  return new Date(`${ymd}T00:00:00-05:00`).getTime();
+}
+
+function bogotaDayStart(date = new Date()) {
+  return dayStartFromYmd(bogotaYmd(date));
+}
+
+function ymdParts(ymd) {
+  const [y, m, d] = String(ymd).split("-").map(Number);
+  return { y, m, d };
+}
+
+function monthTitle(y, m) {
+  const name = MONTHS_SHORT[m - 1] || "";
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
+}
+
+function fmtDayLabel(ymd) {
+  const { d, m } = ymdParts(ymd);
+  return `${d} ${MONTHS_SHORT[m - 1] || ""}`;
+}
+
+function fmtRangeLabel(from, to) {
+  if (!from || !to) return "";
+  if (from === to) return fmtDayLabel(from);
+  const a = ymdParts(from);
+  const b = ymdParts(to);
+  if (a.m === b.m && a.y === b.y) return `${a.d}–${fmtDayLabel(to)}`;
+  return `${fmtDayLabel(from)} – ${fmtDayLabel(to)}`;
+}
+
+function weekdayMonday0(y, m, d) {
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+}
+
+function daysInMonth(y, m) {
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
+}
+
+function shiftMonth(y, m, delta) {
+  const date = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return { y: date.getUTCFullYear(), m: date.getUTCMonth() + 1 };
+}
+
+function eventDaySet() {
+  const set = new Set();
+  for (const ev of allEvents) {
+    const t = Date.parse(ev.at);
+    if (!Number.isFinite(t)) continue;
+    set.add(bogotaYmd(new Date(t)));
+  }
+  return set;
 }
 
 function rangeStart(range) {
@@ -121,6 +180,14 @@ function rangeStart(range) {
 }
 
 function eventsInRange(events, range) {
+  if (range === "custom" && customFrom && customTo) {
+    const start = dayStartFromYmd(customFrom);
+    const end = dayStartFromYmd(customTo) + RANGE_MS;
+    return events.filter((ev) => {
+      const t = Date.parse(ev.at);
+      return Number.isFinite(t) && t >= start && t < end;
+    });
+  }
   const start = rangeStart(range);
   if (!start) return events;
   return events.filter((ev) => Date.parse(ev.at) >= start);
@@ -409,10 +476,44 @@ function renderRepeated(items) {
   applyOpen(body, open);
 }
 
+function updateRangeHint() {
+  const el = document.querySelector("[data-range-hint]");
+  if (!el) return;
+  if (rangeFilter === "today") {
+    el.textContent = "Temas y preguntas de hoy.";
+  } else if (rangeFilter === "7d") {
+    el.textContent = "Temas y preguntas de los últimos 7 días.";
+  } else if (rangeFilter === "30d") {
+    el.textContent = "Temas y preguntas de los últimos 30 días.";
+  } else if (rangeFilter === "all") {
+    el.textContent = "Temas y preguntas de todo el historial.";
+  } else if (rangeFilter === "custom" && customFrom && customTo) {
+    el.textContent = customFrom === customTo
+      ? `Temas y preguntas del ${fmtDayLabel(customFrom)}.`
+      : `Temas y preguntas del ${fmtRangeLabel(customFrom, customTo)}.`;
+  }
+}
+
 function setRange(next) {
   if (!next || next === rangeFilter) return;
   rangeFilter = next;
+  if (next !== "custom") {
+    customFrom = null;
+    customTo = null;
+    calPending = null;
+    closeCal();
+  }
   syncRangeButtons();
+  updateRangeHint();
+  renderTopicsAndRepeats();
+}
+
+function applyCustom(from, to) {
+  customFrom = from;
+  customTo = to;
+  rangeFilter = "custom";
+  syncRangeButtons();
+  updateRangeHint();
   renderTopicsAndRepeats();
 }
 
@@ -420,6 +521,95 @@ function syncRangeButtons() {
   document.querySelectorAll("[data-range-filter] [data-range]").forEach((btn) => {
     btn.setAttribute("aria-pressed", btn.dataset.range === rangeFilter ? "true" : "false");
   });
+  const calBtn = document.querySelector("[data-cal-open]");
+  const label = document.querySelector("[data-cal-label]");
+  if (calBtn) calBtn.setAttribute("aria-pressed", rangeFilter === "custom" ? "true" : "false");
+  if (label) {
+    if (rangeFilter === "custom" && customFrom && customTo) {
+      label.hidden = false;
+      label.textContent = fmtRangeLabel(customFrom, customTo);
+    } else {
+      label.hidden = true;
+      label.textContent = "";
+    }
+  }
+}
+
+function isCalOpen() {
+  return !document.querySelector("[data-cal-pop]")?.hidden;
+}
+
+function openCal() {
+  const pop = document.querySelector("[data-cal-pop]");
+  const btn = document.querySelector("[data-cal-open]");
+  const today = ymdParts(bogotaYmd());
+  if (customFrom) {
+    const p = ymdParts(customFrom);
+    calView = { y: p.y, m: p.m };
+  } else {
+    calView = { y: today.y, m: today.m };
+  }
+  if (pop) pop.hidden = false;
+  if (btn) btn.setAttribute("aria-expanded", "true");
+  renderCal();
+}
+
+function closeCal() {
+  const pop = document.querySelector("[data-cal-pop]");
+  const btn = document.querySelector("[data-cal-open]");
+  if (pop) pop.hidden = true;
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  calPending = null;
+}
+
+function toggleCal() {
+  if (isCalOpen()) closeCal();
+  else openCal();
+}
+
+function renderCal() {
+  const monthEl = document.querySelector("[data-cal-month]");
+  const grid = document.querySelector("[data-cal-grid]");
+  const nextBtn = document.querySelector("[data-cal-next]");
+  if (!monthEl || !grid) return;
+  const today = bogotaYmd();
+  const todayParts = ymdParts(today);
+  if (!calView) calView = { y: todayParts.y, m: todayParts.m };
+  monthEl.textContent = monthTitle(calView.y, calView.m);
+  if (nextBtn) {
+    nextBtn.disabled = calView.y > todayParts.y || (calView.y === todayParts.y && calView.m >= todayParts.m);
+  }
+  const dots = eventDaySet();
+  const firstPad = weekdayMonday0(calView.y, calView.m, 1);
+  const nDays = daysInMonth(calView.y, calView.m);
+  const cells = [];
+  for (let i = 0; i < firstPad; i += 1) cells.push('<span class="cal-pop__empty"></span>');
+  for (let d = 1; d <= nDays; d += 1) {
+    const ymd = `${calView.y}-${String(calView.m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const classes = ["cal-pop__day"];
+    if (ymd === today) classes.push("is-today");
+    if (customFrom && customTo && ymd >= customFrom && ymd <= customTo) classes.push("is-in");
+    if (ymd === customFrom || ymd === customTo) classes.push("is-pick");
+    if (dots.has(ymd)) classes.push("has-dot");
+    const disabled = ymd > today ? " disabled" : "";
+    cells.push(`<button type="button" class="${classes.join(" ")}" data-ymd="${ymd}"${disabled}>${d}</button>`);
+  }
+  grid.innerHTML = cells.join("");
+}
+
+function pickDay(ymd) {
+  if (!calPending) {
+    calPending = ymd;
+    applyCustom(ymd, ymd);
+    renderCal();
+    return;
+  }
+  const from = calPending <= ymd ? calPending : ymd;
+  const to = calPending <= ymd ? ymd : calPending;
+  calPending = null;
+  applyCustom(from, to);
+  renderCal();
+  closeCal();
 }
 
 function initFilters() {
@@ -430,6 +620,44 @@ function initFilters() {
       event.preventDefault();
       setRange(btn.dataset.range);
     });
+  });
+}
+
+function initCal() {
+  const tools = document.querySelector("[data-range-tools]");
+  if (!tools || tools.dataset.bound === "1") return;
+  tools.dataset.bound = "1";
+  tools.querySelector("[data-cal-open]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    toggleCal();
+  });
+  tools.querySelector("[data-cal-prev]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (!calView) return;
+    calView = shiftMonth(calView.y, calView.m, -1);
+    renderCal();
+  });
+  tools.querySelector("[data-cal-next]")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (!calView) return;
+    const next = shiftMonth(calView.y, calView.m, 1);
+    const today = ymdParts(bogotaYmd());
+    if (next.y > today.y || (next.y === today.y && next.m > today.m)) return;
+    calView = next;
+    renderCal();
+  });
+  tools.querySelector("[data-cal-grid]")?.addEventListener("click", (event) => {
+    const day = event.target.closest("[data-ymd]");
+    if (!day || day.disabled) return;
+    pickDay(day.dataset.ymd);
+  });
+  document.addEventListener("click", (event) => {
+    if (!isCalOpen()) return;
+    if (!tools.contains(event.target)) closeCal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isCalOpen()) closeCal();
   });
 }
 
@@ -483,8 +711,11 @@ function render(data) {
   document.querySelector("[data-topics-n]").textContent = namedTopics.length;
 
   initFilters();
+  initCal();
   syncRangeButtons();
+  updateRangeHint();
   renderTopicsAndRepeats();
+  if (isCalOpen()) renderCal();
 
   const termsEl = document.querySelector("[data-terms]");
   const termsEmpty = document.querySelector("[data-terms-empty]");
@@ -532,6 +763,7 @@ async function refresh() {
 }
 
 initFilters();
+initCal();
 document.querySelector("[data-refresh]").addEventListener("click", refresh);
 document.querySelector("[data-page-prev]").addEventListener("click", () => {
   if (page > 0) {
