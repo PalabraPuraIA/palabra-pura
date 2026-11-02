@@ -397,7 +397,8 @@ async function loadHub() {
   $("[data-docs-n]").textContent = docs.length;
   $("[data-videos-n]").textContent = lastVideos.length;
   $("[data-paid-n]").textContent = lastVideos.filter((v) => v.access_mode === "paid").length;
-  $("[data-queued-n]").textContent = jobs.filter((j) => ["queued", "running"].includes(j.status)).length;
+  const queuedN = $("[data-queued-n]");
+  if (queuedN) queuedN.textContent = jobs.filter((j) => ["queued", "running"].includes(j.status)).length;
   $("[data-generated]").textContent = `Actualizado ${new Date().toLocaleString("es-CO")} · nube Supabase`;
 }
 
@@ -831,7 +832,13 @@ document.querySelectorAll("[data-kb-nav]").forEach((btn) => {
 });
 
 const hashPanel = String(location.hash || "").replace(/^#/, "");
-showKbPanel(["catalog", "facts", "docs", "video", "audio"].includes(hashPanel) ? hashPanel : "catalog");
+if (hashPanel === "video") {
+  location.replace("./ingest.html#youtube");
+} else if (hashPanel === "audio") {
+  location.replace("./ingest.html#file");
+} else {
+  showKbPanel(["catalog", "facts", "docs"].includes(hashPanel) ? hashPanel : "catalog");
+}
 
 loadHub().catch((err) => {
   const empty = $("[data-catalog-empty]");

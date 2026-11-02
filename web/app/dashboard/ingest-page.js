@@ -169,9 +169,9 @@ async function submitYoutube(ev) {
       msg.hidden = false;
       msg.className = "form-msg form-msg--ok";
       const n = job?.fragments_created || data.fragments || 0;
-      msg.textContent = n
-        ? `Listo. ${n} fragmentos en la nube.`
-        : "Indexando en la nube. Mira la cola en un momento.";
+      msg.innerHTML = n
+        ? `Listo. ${n} fragmentos en la nube. <a href="./knowledge.html#catalog">Ver en Biblioteca</a>`
+        : `Indexando en la nube. <a href="./ingest.html#jobs">Ver cola</a>`;
       refreshJobs();
       return;
     }
@@ -235,7 +235,7 @@ async function submitFile(ev) {
       msg.hidden = false;
       msg.className = "form-msg form-msg--ok";
       const n = data.fragments || data.job?.fragments_created || 0;
-      msg.textContent = `Listo. ${n} fragmentos en la nube.`;
+      msg.innerHTML = `Listo. ${n} fragmentos en la nube. <a href="./knowledge.html#catalog">Ver en Biblioteca</a>`;
       refreshJobs();
       return;
     }

@@ -90,6 +90,16 @@ h1 {
   margin: 0 0 22px;
   max-width: 60ch;
 }
+.sub a {
+  color: var(--c-rose);
+  font-weight: 600;
+  text-decoration: none;
+}
+.sub a:hover { text-decoration: underline; }
+.form-msg a {
+  color: inherit;
+  font-weight: 700;
+}
 
 .stats {
   display: grid;
@@ -99,6 +109,9 @@ h1 {
 }
 .stats--wide {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.stats--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .stats--compact {
   gap: 12px;
