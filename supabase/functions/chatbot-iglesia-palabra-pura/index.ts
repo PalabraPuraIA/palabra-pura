@@ -58,13 +58,17 @@ Responde SOLO con el objeto JSON, sin texto adicional.`;
 const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
 Contesta SOLO la pregunta actual. Si el pasaje es de otro tema, no lo uses para responder otra cosa.
-Si el contexto NO habla de lo preguntado, NO digas "el texto compartido no aborda..." ni enumeres los pasajes irrelevantes. Responde con claridad que no hay material claro en esta lectura y deja reference vacia.
-Tono: amable, cercano y claro, en 4 a 8 frases, con el contexto necesario para entender el punto. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
+Si el contexto NO habla de lo preguntado, responde EXACTAMENTE:
+{"answer": "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado.", "reference": ""}
+PROHIBIDO narrar de que hablaban los pasajes irrelevantes (tabernaculo, Job, genealogias, etc.). No digas "las lecturas de hoy" ni "el texto no aborda".
+Si SI puedes responder con el pasaje, tono amable y claro en 4 a 8 frases. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 Si hay conversacion reciente, usala SOLO para seguimientos. Si la pregunta actual cambia de tema, ignora el hilo anterior.
 Si citas un pasaje, indica su referencia en formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ej: "Juan 3:16", "Genesis 1:1-3"), con el nombre del libro tal como aparece en la Reina-Valera Antigua.
 NUNCA inventes el texto del versiculo; solo devuelves la referencia. El texto lo pone el sistema.
 El campo "answer" debe ser SOLO el texto para el usuario, nunca un objeto JSON anidado.
 Responde SOLO con este objeto JSON: {"answer": "tu respuesta", "reference": "Libro C:V o cadena vacia"}`;
+const BIBLE_NOT_FOUND_ANSWER =
+  "Todavía no encuentro material claro sobre eso en las enseñanzas. Puedes abrir el menú y elegir un contenido relacionado.";
 // ---- Helpers ----
 // Normaliza para comparar nombres de libros (minusculas, sin acentos).
 const norm = (s)=>s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -238,7 +242,7 @@ const LIFE_AREAS = [
   { id: "sanidad", label: "Sanidad", keywords: ["sanidad", "sanar", "sano", "enfermedad", "milagro", "sintoma", "cura", "dolor"], promise: "El Señor es tu sanador. En Cristo hay vida, restauración y cuidado para cuerpo y alma según su voluntad bondadosa.", verses: ["Isaías 53:5", "Salmo 103:3", "Santiago 5:15"] },
   { id: "palabra", label: "La Palabra", keywords: ["palabra", "biblia", "escritura", "versiculo", "leer", "estudiar"], promise: "La Palabra de Dios es viva y te edifica. Bajo la gracia, la Escritura te forma y te confirma en la verdad de Cristo.", verses: ["2 Timoteo 3:16-17", "Romanos 15:4", "Salmo 119:105"] },
   { id: "salvacion", label: "Salvación y nuevo nacimiento", keywords: ["nacer de nuevo", "nuevo nacimiento", "nacer", "salvacion", "salvo", "evangelio", "cruz", "convertir"], promise: "La salvación es un regalo por gracia, recibido por fe, no por obras. En Cristo eres hijo de Dios y tienes vida eterna.", verses: ["Efesios 2:8-9", "Juan 3:16", "Romanos 10:9"] },
-  { id: "dones", label: "Dones espirituales", keywords: ["dones", "espiritu", "carisma", "ministerio", "servir", "llamado"], promise: "Dios te ha equipado con dones para edificar a otros en amor. Cada miembro del cuerpo de Cristo tiene un lugar.", verses: ["1 Corintios 12:7", "Romanos 12:6", "Efesios 4:7"] },
+  { id: "dones", label: "Dones espirituales", keywords: ["dones", "dones espirituales", "carisma", "ministerio", "servir", "llamado", "ungimiento"], promise: "Dios te ha equipado con dones para edificar a otros en amor. Cada miembro del cuerpo de Cristo tiene un lugar.", verses: ["1 Corintios 12:7", "Romanos 12:6", "Efesios 4:7"] },
   { id: "familia", label: "Familia y matrimonio", keywords: ["familia", "matrimonio", "esposo", "esposa", "hijos", "pareja", "hogar"], promise: "En Cristo hay gracia para el hogar: amor, perdón y restauración. El Señor camina contigo en las relaciones más cercanas.", verses: ["Efesios 5:25", "Colosenses 3:13", "Proverbios 3:5-6"] },
   { id: "restauracion", label: "Restauración y testimonio", keywords: ["testimonio", "restaurar", "restauracion", "perdon", "victoria", "libertad"], promise: "En Cristo hay nueva creación: lo viejo pasó. Dios puede restaurar lo que parecía perdido y usar tu historia para Su gloria.", verses: ["2 Corintios 5:17", "Joel 2:25", "Romanos 8:1"] },
   { id: "finanzas", label: "Finanzas y provisión", keywords: ["dinero", "finanza", "financiero", "mapa financiero", "deuda", "prosper", "provision", "ofrenda"], promise: "Dios suple tus necesidades según sus riquezas en gloria. Él es tu proveedor y te enseña a administrar con sabiduría.", verses: ["Filipenses 4:19", "Mateo 6:33", "2 Corintios 9:8"] },
@@ -582,7 +586,7 @@ async function answerPaidTeaching(
 }
 
 const SOFT_NOT_FOUND_RE =
-  /todav[ií]a no encuentro|no encuentro material|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n/i;
+  /todav[ií]a no encuentro|no encuentro material|no encontr[eé]|no se encuentra|no hall[oó]|no hayo|no se explica|no alcanza|no tengo material|preguntarlo de otra forma|no contiene lo necesario|no hay (una )?descripci[oó]n|no (aborda|proporcionan?|hablan) (una )?(explicaci[oó]n|clara)|lecturas de hoy|texto(s)? (compartido|recuperado)|pasajes (irrelevantes|recuperados)|tabern[aá]culo|eli[uú]/i;
 
 /** Opciones relacionadas a partir de fragmentos recuperados (para el desplegable). */
 function relatedSuggestions(fragments, limit = 6) {
@@ -1528,19 +1532,21 @@ Deno.serve(async (req)=>{
     // si por algo faltan, caemos a los chunks recuperados.
     const bibleContext = parents && parents.length > 0 ? parents.map((p)=>`Pasaje biblico (contexto ampliado):\n${p.parent_text}`).join("\n\n---\n\n") : chunkMatches.slice(0, 3).map((c)=>c.chunk_text).join("\n\n");
     const bib = await askLLM(SYSTEM_BIBLE, `${prior}Contexto biblico:\n${bibleContext}\n\nPregunta actual: ${question}`);
+    let answer = sanitizeAnswer(bib.answer ?? "");
+    // Si el modelo solo describe que el pasaje era otro tema, no lo mostremos.
+    if (!answer || SOFT_NOT_FOUND_RE.test(answer)) {
+      return json({
+        answer: BIBLE_NOT_FOUND_ANSWER,
+        source: "biblia",
+        suggestions: tips.length ? tips : undefined,
+      });
+    }
     const passage = await resolvePassage(bib.reference);
-    const answer = sanitizeAnswer(bib.answer ?? "");
     const payload = {
       answer,
       passage: passage || undefined,
       source: "biblia"
     };
-    if (SOFT_NOT_FOUND_RE.test(answer) && tips.length) {
-      payload.suggestions = tips;
-      if (!/contenido relacionado|menú|menu/i.test(answer)) {
-        payload.answer = `${answer} Puedes abrir el menú y elegir un contenido relacionado.`;
-      }
-    }
     return json(await attachLifeContext(payload, searchQ));
   } catch (e) {
     console.error(e);
