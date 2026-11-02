@@ -426,10 +426,14 @@ function scoreShopItem(question: string, item: ReturnType<typeof parseShopDoc>) 
 }
 
 function shopOffer(item: ReturnType<typeof parseShopDoc>) {
+  // Preferir la ficha del producto. El add-to-cart solo si no hay otra URL
+  // (así "Ver esta" no llena el carrito con varias enseñanzas a la vez).
+  const viewUrl = item.product || item.cart || "";
   return {
     title: item.title,
-    url: item.cart || item.product || "",
-    label: "Ver esta",
+    url: viewUrl,
+    cartUrl: item.cart || "",
+    label: item.product ? "Ver esta" : "Agregar al carrito",
     hint: item.description.slice(0, 180),
     kind: "tienda",
   };
@@ -483,7 +487,7 @@ async function recommendShopTeachings(question: string, searchQ: string, embStr:
     if (/metamorfosis/i.test(row.item.title) && !shopAllowsMetamorfosis(question)) continue;
     seen.set(key, picked.length);
     picked.push(row.item);
-    if (picked.length >= 4) break;
+    if (picked.length >= 2) break;
   }
   if (!picked.length) return null;
   const offers = picked.map(shopOffer);
@@ -498,7 +502,7 @@ async function recommendShopTeachings(question: string, searchQ: string, embStr:
     ? `Estas enseñanzas de la iglesia encajan con lo que preguntas:`
     : `Estas son algunas enseñanzas de la iglesia que te pueden servir para profundizar:`;
   return attachLifeContext({
-    answer: `${intro}\n\n${lines.join("\n\n")}\n\nPuedes ver solo una, o abrirlas todas juntas en el carrito.`,
+    answer: `${intro}\n\n${lines.join("\n\n")}\n\nPuedes abrir la que te interese. El carrito de la tienda solo se llena si tú agregas una.`,
     source: "oferta",
     offer: offers[0],
     offers,

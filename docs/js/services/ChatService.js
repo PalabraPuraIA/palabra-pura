@@ -242,6 +242,7 @@ export class ChatService {
       ? {
           title: data.offer.title || data.video?.title || "Esta enseñanza",
           url: String(data.offer.url || "").trim(),
+          cartUrl: String(data.offer.cartUrl || "").trim(),
           label: data.offer.label || (data.offer.kind === "tienda" ? "Ver esta" : "Ver en el carrito"),
           hint: data.offer.hint || "",
           kind: data.offer.kind || "",
@@ -268,6 +269,7 @@ export class ChatService {
         ? data.offers.map((item) => ({
             title: item.title || offer?.title || "Esta enseñanza",
             url: String(item.url || "").trim(),
+            cartUrl: String(item.cartUrl || "").trim(),
             label: item.label || (item.kind === "tienda" ? "Ver esta" : "Ver en el carrito"),
             hint: item.hint || "",
             kind: item.kind || offer?.kind || "",

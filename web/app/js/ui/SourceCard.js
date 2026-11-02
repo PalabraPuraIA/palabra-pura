@@ -12,7 +12,7 @@ import {
   getPreferredBibleVersion,
   versionIdFromLabel,
 } from "../utils/bibleVersion.js";
-import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-8";
+import { isShopRecommendation, renderShopOfferPanel } from "./shopCart.js?v=paid-cta-9";
 import { excerptIsNearSponsorIntro, stripSponsorIntro } from "../utils/sponsorIntro.js?v=paid-cta-8";
 
 const PLAY_ICON = `<svg viewBox="0 0 24 24" fill="none"><path d="M9 8.5v7l6-3.5-6-3.5Z" fill="currentColor"/></svg>`;
@@ -228,7 +228,7 @@ export function renderSourceCard({ passage, passages, video, excerpt, source, of
           : source === "dato"
             ? `<p class="source__origin">Dato verificado de la base de conocimientos del ministerio.</p>`
             : source === "oferta" && isShopRecommendation(offer, offers)
-              ? `<p class="source__origin">Recomendaciones de la tienda de la iglesia. Puedes ver una o abrirlas todas.</p>`
+              ? `<p class="source__origin">Recomendaciones de la tienda. Abre solo la que te interese.</p>`
               : source === "oferta"
               ? `<p class="source__origin">Respuesta breve; para más información abre la enseñanza en la tienda de la iglesia.</p>`
               : "";

@@ -8,7 +8,7 @@
 import { createEl, scrollToBottom } from "../utils/dom.js";
 import { escapeHtml } from "../utils/format.js";
 import { renderSourceCard } from "./SourceCard.js?v=sources-1";
-import { isShopRecommendation } from "./shopCart.js?v=paid-cta-8";
+import { isShopRecommendation } from "./shopCart.js?v=paid-cta-9";
 
 /** Logo animado de Blaze junto a cada respuesta. */
 function blazeAvatar(modifier = "") {
@@ -133,7 +133,7 @@ export class ChatView {
     const answerLabel = isOfferOnly ? "Explicación" : isVideo ? "En pocas palabras" : "Explicación";
     const answerHint =
       isShopRec
-        ? `<p class="msg__hint">Puedes ver una sola o abrirlas todas juntas en el carrito.</p>`
+        ? `<p class="msg__hint">Elige la que te interese. El carrito solo se llena si tú agregas una.</p>`
         : hasPaidCta
         ? `<p class="msg__hint">Respuesta breve. Para más información, abre la enseñanza completa en el carrito.</p>`
         : isVideo && (response.excerpt || hasVerses)

@@ -1,7 +1,7 @@
 /**
- * Enlaces al carrito de la tienda de la iglesia.
- * WooCommerce solo acepta un add-to-cart por visita, así que
- * "Ver todas" abre una ventana y agrega cada enseñanza en secuencia.
+ * Enlaces a la tienda de la iglesia.
+ * "Ver esta" abre la ficha (o un solo add-to-cart).
+ * Ya no hay "Ver todas" que llene el carrito con varias de golpe.
  */
 
 import { escapeHtml } from "../utils/format.js";
@@ -23,16 +23,23 @@ export function cartUrlForId(id) {
 export function normalizeOffers(offer, offers) {
   const list = Array.isArray(offers) && offers.length ? offers : offer ? [offer] : [];
   return list
-    .filter((item) => item && (item.url || item.title))
+    .filter((item) => item && (item.url || item.title || item.cartUrl))
     .map((item) => {
-      const id = cartProductId(item.url);
+      const cartId = cartProductId(item.cartUrl || item.url);
+      const rawUrl = String(item.url || "").trim();
+      const isAddToCart = /add-to-cart=/i.test(rawUrl);
+      // Si hay ficha de producto, úsala para "ver". El add-to-cart queda aparte.
+      const viewUrl = !isAddToCart && rawUrl
+        ? rawUrl
+        : item.product || rawUrl || (cartId ? cartUrlForId(cartId) : "");
       return {
         title: item.title || "Esta enseñanza",
-        url: item.url || (id ? cartUrlForId(id) : ""),
-        label: item.label || (item.kind === "tienda" ? "Ver esta" : "Ver en el carrito"),
+        url: viewUrl,
+        cartUrl: item.cartUrl || (cartId ? cartUrlForId(cartId) : ""),
+        label: item.label || (isAddToCart && !item.product ? "Agregar al carrito" : "Ver esta"),
         hint: item.hint || "",
         kind: item.kind || "",
-        id,
+        id: cartId,
       };
     });
 }
@@ -43,7 +50,7 @@ export function isShopRecommendation(offer, offers) {
 }
 
 /**
- * Panel compacto: una fila por enseñanza + "Ver todas" si hay varias.
+ * Panel: una fila por enseñanza. Sin botón de agregar todas.
  * @param {object} [offer]
  * @param {object[]} [offers]
  * @param {{ variant?: "chat" | "player" }} [opts]
@@ -53,10 +60,9 @@ export function renderShopOfferPanel(offer, offers, { variant = "chat" } = {}) {
   if (!list.length) return "";
 
   const shop = isShopRecommendation(offer, offers);
-  const ids = list.map((item) => item.id).filter(Boolean);
   const intro = shop
-    ? "Elige una, o ábrellas todas juntas en el carrito."
-    : "Para más información, abre esta enseñanza en el carrito de la iglesia.";
+    ? "Elige la que te interese. Solo se agrega al carrito si tú lo decides."
+    : "Para más información, abre esta enseñanza en la tienda de la iglesia.";
 
   const rows = list
     .map((item) => {
@@ -76,11 +82,6 @@ export function renderShopOfferPanel(offer, offers, { variant = "chat" } = {}) {
     })
     .join("");
 
-  const allBtn =
-    ids.length > 1
-      ? `<button type="button" class="source__cta source__cta--all" data-cart-all="${escapeHtml(ids.join(","))}">Ver todas</button>`
-      : "";
-
   const cls =
     variant === "player"
       ? "player__shop-panel"
@@ -91,30 +92,16 @@ export function renderShopOfferPanel(offer, offers, { variant = "chat" } = {}) {
       <h3 class="source__panel-title">En la tienda</h3>
       <p class="source__shop-intro">${intro}</p>
       <ul class="source__shop-list">${rows}</ul>
-      ${allBtn ? `<div class="source__shop-all">${allBtn}</div>` : ""}
     </section>`;
 }
 
-/** Agrega uno o varios productos al carrito de la iglesia. */
+/** Agrega un solo producto al carrito de la iglesia (ya no en lote). */
 export function openChurchCart(rawIds) {
   const ids = (Array.isArray(rawIds) ? rawIds : String(rawIds || "").split(","))
     .map((id) => String(id).trim())
     .filter((id) => /^\d+$/.test(id));
   if (!ids.length) return false;
-
-  // WooCommerce solo toma un ID por visita. Abrimos una pestaña
-  // y vamos agregando en esa misma ventana, sin salir del chat.
-  const first = window.open(cartUrlForId(ids[0]), CART_WINDOW);
-  if (!first) return false;
-  if (ids.length === 1) return true;
-
-  let step = 1;
-  const tick = () => {
-    const next = step < ids.length ? cartUrlForId(ids[step]) : CHURCH_CART;
-    window.open(next, CART_WINDOW);
-    step += 1;
-    if (step <= ids.length) window.setTimeout(tick, 1400);
-  };
-  window.setTimeout(tick, 1400);
+  // Solo el primero: evitar llenar el carrito con varias enseñanzas.
+  window.open(cartUrlForId(ids[0]), CART_WINDOW);
   return true;
 }

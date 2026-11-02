@@ -20,7 +20,7 @@ import { Composer } from "./ui/Composer.js?v=composer-mobile-2";
 import { ExampleChips } from "./ui/ExampleChips.js?v=chat-shell-1";
 import { ConnectModal } from "./ui/ConnectModal.js";
 import { VideoPlayer } from "./ui/VideoPlayer.js?v=paid-cta-8";
-import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-8";
+import { openChurchCart } from "./ui/shopCart.js?v=paid-cta-9";
 import { ArticlesPanel } from "./ui/ArticlesPanel.js?v=hold-open-1";
 import { AnalyticsService } from "./services/AnalyticsService.js?v=rate-life-1";
 import { HistoryNav } from "./ui/HistoryNav.js?v=fit-2";
