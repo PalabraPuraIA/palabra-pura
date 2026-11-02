@@ -18,13 +18,15 @@ function fragmentKey(row) {
 }
 
 /**
- * Filtra por umbral; si nadie pasa, degrada a los mejores topN (evita respuesta vacía).
+ * Filtra por umbral. Solo deja un margen estrecho por debajo:
+ * más abajo el fragmento suele ser otro tema y la respuesta se desvía.
  */
-export function filterBySimilarity(rows, minSimilarity = MIN_SIMILARITY, fallbackTop = 3) {
+export function filterBySimilarity(rows, minSimilarity = MIN_SIMILARITY, fallbackTop = 2) {
   const list = Array.isArray(rows) ? rows : [];
   const passed = list.filter((row) => Number(row.similarity) >= minSimilarity);
   if (passed.length) return passed;
-  return list.slice(0, fallbackTop);
+  const near = list.filter((row) => Number(row.similarity) >= minSimilarity - 0.06);
+  return near.slice(0, fallbackTop);
 }
 
 /**

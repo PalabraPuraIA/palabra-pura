@@ -32,10 +32,11 @@ const SYSTEM_VIDEO = `Eres Blaze, guia calida de la Iglesia Palabra Pura que aco
 Responde UNICAMENTE con base en las transcripciones de video que se te entregan.
 Tono: amable, cercano y claro. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 Si hay conversacion reciente, interpreta seguimientos y pronombres (eso, y eso, por que, explicalo) con ese hilo. No ignores la pregunta actual.
+Responde SOLO lo que la persona pregunto en "Pregunta actual". No cambies de tema ni contestes otra cosa que aparezca en el audio.
 Si el audio solo menciona palabras parecidas por casualidad pero NO ensena sobre lo preguntado, responde EXACTAMENTE con: {"found": false}
 Si solo hay una MENCION BREVE del tema sin ensenanza sustancial que responda la pregunta, responde EXACTAMENTE con: {"found": false}
-Mencionar palabras clave NO basta.
-Si las transcripciones NO contienen lo necesario para responder la pregunta, responde EXACTAMENTE con: {"found": false}
+Mencionar palabras clave NO basta. Un fragmento de otro tema (aunque sea cercano) es {"found": false}.
+Si las transcripciones NO contienen lo necesario para responder ESA pregunta, responde EXACTAMENTE con: {"found": false}
 Si SI puedes responder con base en los videos, responde con:
 {"found": true, "answer": "tu respuesta en 4 a 8 frases, con el contexto de la ensenanza para que se entienda el punto (por que lo dice, a que se refiere, que concluye). No resumas de mas ni inventes", "reference": "referencia biblica si en el contexto se menciona un pasaje, o cadena vacia", "evidence": {"fragment": 1, "start_sentence": 1, "end_sentence": 3}}
 Para "reference" usa el formato exacto "Libro Capitulo:Versiculo" o "Libro Capitulo:Versiculo-Versiculo" (ejemplos: "Juan 3:16", "Genesis 1:1-3"). Usa el nombre del libro tal como aparece en la Biblia Reina-Valera Antigua.
@@ -55,6 +56,7 @@ Responde SOLO con el objeto JSON, sin texto adicional.`;
 // Segunda etapa: contexto biblico ampliado (capitulo completo via parent-child).
 const SYSTEM_BIBLE = `Eres Blaze, guia calida de la Iglesia Palabra Pura que acompana a personas que empiezan en la fe.
 Responde con base en el pasaje biblico (contexto ampliado) que se te entrega.
+Contesta SOLO la pregunta actual. Si el pasaje es de otro tema, no lo uses para responder otra cosa.
 Si el contexto NO habla de lo preguntado, NO digas "el texto compartido no aborda..." ni enumeres los pasajes irrelevantes. Responde con claridad que no hay material claro en esta lectura y deja reference vacia.
 Tono: amable, cercano y claro, en 4 a 8 frases, con el contexto necesario para entender el punto. PROHIBIDO usar "humilde", "humildad", "humildemente" o "con humildad te digo".
 Si hay conversacion reciente, interpreta seguimientos y pronombres con ese hilo. No ignores la pregunta actual.
@@ -185,9 +187,10 @@ function looksLikeFollowUp(question: string) {
   const q = String(question ?? "").trim();
   if (!q) return false;
   if (isStandaloneAsk(q)) return false;
-  if (q.length <= 32) return true;
-  return /^(y |entonces |pero |ok |vale |si |sí |no |tambien|también|por que|por qué|y que|y qué)/i.test(q)
-    || /\b(eso|esa|ese|eso mismo|aquello|lo anterior|dijiste|mencionaste|antes|seguimiento)\b/i.test(q);
+  // Una pregunta corta y nueva no es seguimiento. Solo hilos explícitos
+  // ("y eso", "por qué", "explícame eso") se mezclan con el turno anterior.
+  return /^(y |entonces |pero |tambien |también |por que\b|por qué\b|y que |y qué |explicame eso|explícame eso|y eso)/i.test(q)
+    || /\b(eso mismo|lo anterior|dijiste|mencionaste)\b/i.test(q);
 }
 function retrievalQuestion(question: string, history: { role: string; content: string }[]) {
   const q = String(question ?? "").trim();
@@ -800,10 +803,13 @@ async function resolvePassage(reference) {
     versions,
   };
 }
-function filterBySimilarity(rows, minSimilarity = MIN_SIMILARITY, fallbackTop = 3) {
+function filterBySimilarity(rows, minSimilarity = MIN_SIMILARITY) {
   const list = Array.isArray(rows) ? rows : [];
   const passed = list.filter((row) => Number(row.similarity) >= minSimilarity);
-  return passed.length ? passed : list.slice(0, fallbackTop);
+  if (passed.length) return passed;
+  // Solo un margen estrecho: por debajo de esto el fragmento suele ser otro tema.
+  const near = list.filter((row) => Number(row.similarity) >= minSimilarity - 0.06);
+  return near.slice(0, 2);
 }
 
 async function expandAdjacent(seeds, radius = 1, max = CONTEXT_MAX) {
@@ -1225,8 +1231,12 @@ Deno.serve(async (req)=>{
         }
       }
       if (!vid.found) {
-        const fb = fallbackFromFragments(fragMatches);
-        if (fb.found) vid = fb;
+        const best = Number(fragMatches[0]?.similarity);
+        // El extracto literal solo si el fragmento sí es cercano. Si no, mejor decir que no hay material.
+        if (Number.isFinite(best) && best >= 0.72) {
+          const fb = fallbackFromFragments(fragMatches);
+          if (fb.found) vid = fb;
+        }
       }
       // Si el LLM pudo responder con los videos, terminamos aqui.
       if (vid.found) {
@@ -1331,7 +1341,7 @@ Deno.serve(async (req)=>{
     console.error(e);
     try {
       if (asked) {
-        const rescue = await searchFragmentsByText(asked);
+        const rescue = (await searchFragmentsByText(asked)).filter((row) => Number(row.similarity) >= 0.9);
         if (rescue.length) {
           const fb = fallbackFromFragments(rescue);
           if (fb.found) {

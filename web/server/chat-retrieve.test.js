@@ -18,7 +18,7 @@ test("filters below similarity threshold", () => {
   assert.deepEqual(filtered.map((r) => r.id), [1, 3]);
 });
 
-test("falls back to top hits when nothing passes threshold", () => {
+test("keeps only a narrow band below the threshold", () => {
   const rows = [
     { id: 1, similarity: 0.6 },
     { id: 2, similarity: 0.55 },
@@ -26,7 +26,7 @@ test("falls back to top hits when nothing passes threshold", () => {
     { id: 4, similarity: 0.4 },
   ];
   const filtered = filterBySimilarity(rows, MIN_SIMILARITY, 3);
-  assert.deepEqual(filtered.map((r) => r.id), [1, 2, 3]);
+  assert.deepEqual(filtered.map((r) => r.id), [1]);
 });
 
 test("boosts fragments that appear in both vector and FTS", () => {
