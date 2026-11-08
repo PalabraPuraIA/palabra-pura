@@ -3,50 +3,7 @@ import { apiUrl, setToken, getToken } from "./auth-client.js";
 import { config } from "./config.js";
 
 const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
-const GOOGLE_SESSION_KEY = "pp_google_session";
-const DEVICE_KEY = "pp_device_id";
-const MAX_GOOGLE_EMAILS = 2;
-
-/** Id estable del navegador para limitar correos distintos de Google. */
-function getDeviceId() {
-  try {
-    let id = localStorage.getItem(DEVICE_KEY);
-    if (id && id.length >= 8) return id.slice(0, 64);
-    id =
-      typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID().replace(/-/g, "")
-        : `d${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
-    localStorage.setItem(DEVICE_KEY, id);
-    return id;
-  } catch {
-    return `d${Date.now().toString(36)}fallback`;
-  }
-}
-
-/**
- * Guarda el usuario en app_user y valida el tope de correos por dispositivo.
- * @returns {Promise<{ok: boolean, error?: string}>}
- */
-async function registerGoogleUser(supabase, user) {
-  const name =
-    user?.user_metadata?.full_name || user?.user_metadata?.name || "";
-  const { data, error } = await supabase.rpc("register_google_login", {
-    p_device_id: getDeviceId(),
-    p_name: name,
-  });
-  if (error) {
-    console.warn("[login] register_google_login", error.message);
-    // Si la migración aún no está en la nube, no bloqueamos el chat.
-    if (/register_google_login|schema cache|does not exist/i.test(error.message || "")) {
-      return { ok: true, skipped: true };
-    }
-    return { ok: false, error: error.message };
-  }
-  if (data && data.ok === false) {
-    return { ok: false, error: data.error || "register_failed", limit: data.limit };
-  }
-  return { ok: true, data };
-}
+const AUTH_SESSION_KEY = "pp_auth_session";
 
 /** Misma clave que stack/docker-compose.yml (ADMIN_PASSWORD). */
 const PANEL_USER = "admin";
@@ -125,7 +82,6 @@ async function tryRemoteLogin(username, password) {
 const form = document.querySelector("[data-login-form]");
 const msg = document.querySelector("[data-msg]");
 const submit = document.querySelector("[data-submit]");
-const googleBtn = document.querySelector("[data-google-login]");
 
 function showMsg(text, ok = false) {
   msg.hidden = false;
@@ -149,7 +105,7 @@ function supabaseClient() {
 function rememberAuthUser(user) {
   try {
     localStorage.setItem(
-      GOOGLE_SESSION_KEY,
+      AUTH_SESSION_KEY,
       JSON.stringify({
         email: user?.email || "",
         name: user?.user_metadata?.full_name || user?.user_metadata?.name || "",
@@ -184,52 +140,10 @@ const supabase = supabaseClient();
 if (supabase) {
   const { data } = await supabase.auth.getSession();
   if (data?.session?.user) {
-    const reg = await registerGoogleUser(supabase, data.session.user);
-    if (!reg.ok) {
-      await supabase.auth.signOut().catch(() => {});
-      try {
-        localStorage.removeItem(GOOGLE_SESSION_KEY);
-      } catch {
-        /* ignore */
-      }
-      showMsg(
-        reg.error === "too_many_accounts"
-          ? `Este dispositivo ya usó ${reg.limit || MAX_GOOGLE_EMAILS} correos distintos. Entra con uno de los que ya registraste.`
-          : "No se pudo validar tu cuenta de Google. Intenta de nuevo.",
-      );
-    } else {
-      rememberAuthUser(data.session.user);
-      location.href = chatHome();
-    }
+    rememberAuthUser(data.session.user);
+    location.href = chatHome();
   }
 }
-
-googleBtn?.addEventListener("click", async () => {
-  msg.hidden = true;
-  if (!supabase) {
-    showMsg("Falta la configuración de Supabase para Google.");
-    return;
-  }
-  googleBtn.disabled = true;
-  try {
-    const redirectTo = new URL("./login.html", location.href).href;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: { prompt: "select_account" },
-      },
-    });
-    if (error) throw error;
-  } catch (err) {
-    showMsg(
-      err?.message?.includes("provider is not enabled")
-        ? "Activa el proveedor Google en Supabase (Authentication → Providers) y agrega esta URL de redirección."
-        : err?.message || String(err),
-    );
-    googleBtn.disabled = false;
-  }
-});
 
 // Ya logueado → panel. En Pages el túnel no tiene que estar vivo.
 if (getToken()) {
