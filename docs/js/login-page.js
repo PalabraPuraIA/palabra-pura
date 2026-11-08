@@ -1,9 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { apiUrl, setToken, getToken } from "./auth-client.js";
-import { config } from "./config.js";
 
 const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
-const AUTH_SESSION_KEY = "pp_auth_session";
 
 /** Misma clave que stack/docker-compose.yml (ADMIN_PASSWORD). */
 const PANEL_USER = "admin";
@@ -82,70 +79,15 @@ async function tryRemoteLogin(username, password) {
 const form = document.querySelector("[data-login-form]");
 const msg = document.querySelector("[data-msg]");
 const submit = document.querySelector("[data-submit]");
+const chatLink = document.querySelector("[data-chat-link]");
 
-function showMsg(text, ok = false) {
-  msg.hidden = false;
-  msg.className = `login-msg ${ok ? "login-msg--ok" : "login-msg--err"}`;
-  msg.textContent = text;
-}
-
-function supabaseClient() {
-  const url = String(config.supabaseUrl || "").replace(/\/+$/, "");
-  const key = String(config.publishableKey || "");
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: {
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: "pkce",
-    },
-  });
-}
-
-function rememberAuthUser(user) {
-  try {
-    localStorage.setItem(
-      AUTH_SESSION_KEY,
-      JSON.stringify({
-        email: user?.email || "",
-        name: user?.user_metadata?.full_name || user?.user_metadata?.name || "",
-        at: Date.now(),
-      }),
-    );
-  } catch {
-    /* ignore */
-  }
-}
-
-function chatHome() {
-  return ON_PAGES ? new URL("./", location.href).href : "/";
-}
-
-function friendlyAuthError(err) {
-  const message = String(err?.message || err || "");
-  if (/already registered|already been registered/i.test(message)) {
-    return "Ese correo ya tiene cuenta. Entra con tu contraseña.";
-  }
-  if (/invalid login/i.test(message)) return "Correo o contraseña incorrectos.";
-  if (/email not confirmed/i.test(message)) return "Confirma tu correo y vuelve a entrar.";
-  if (/provider is not enabled|signup is disabled|Email logins are disabled/i.test(message)) {
-    return "Activa el proveedor Email en Supabase (Authentication → Providers).";
-  }
-  return message || "No se pudo entrar.";
+if (chatLink) {
+  chatLink.href = ON_PAGES ? new URL("./", location.href).href : "/";
 }
 
 await resolveApiBase();
 
-const supabase = supabaseClient();
-if (supabase) {
-  const { data } = await supabase.auth.getSession();
-  if (data?.session?.user) {
-    rememberAuthUser(data.session.user);
-    location.href = chatHome();
-  }
-}
-
-// Ya logueado → panel. En Pages el túnel no tiene que estar vivo.
+// Ya logueado → panel.
 if (getToken()) {
   if (ON_PAGES || String(getToken()).startsWith("pp-panel.")) {
     location.href = nextTarget();
@@ -161,61 +103,6 @@ if (getToken()) {
     }
   }
 }
-
-const emailForm = document.querySelector("[data-email-form]");
-const emailSignin = document.querySelector("[data-email-signin]");
-const emailSignup = document.querySelector("[data-email-signup]");
-
-async function emailAuth(mode) {
-  if (!emailForm) return;
-  const fd = new FormData(emailForm);
-  const email = String(fd.get("email") || "").trim();
-  const password = String(fd.get("password") || "");
-  if (!email || !password) {
-    showMsg("Escribe tu correo y una contraseña.");
-    return;
-  }
-  if (password.length < 6) {
-    showMsg("La contraseña debe tener al menos 6 caracteres.");
-    return;
-  }
-  if (!supabase) {
-    showMsg("Falta la configuración de Supabase.");
-    return;
-  }
-  if (emailSignin) emailSignin.disabled = true;
-  if (emailSignup) emailSignup.disabled = true;
-  try {
-    if (mode === "signup") {
-      const { data, error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      if (data.session?.user) {
-        rememberAuthUser(data.session.user);
-        location.href = chatHome();
-        return;
-      }
-      showMsg("Cuenta creada. Revisa tu correo para confirmarla y luego entra.", true);
-      return;
-    }
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    if (data.session?.user) {
-      rememberAuthUser(data.session.user);
-      location.href = chatHome();
-    }
-  } catch (err) {
-    showMsg(friendlyAuthError(err));
-  } finally {
-    if (emailSignin) emailSignin.disabled = false;
-    if (emailSignup) emailSignup.disabled = false;
-  }
-}
-
-emailForm?.addEventListener("submit", (event) => {
-  event.preventDefault();
-  emailAuth("signin");
-});
-emailSignup?.addEventListener("click", () => emailAuth("signup"));
 
 form.addEventListener("submit", async (ev) => {
   ev.preventDefault();
@@ -249,6 +136,6 @@ form.addEventListener("submit", async (ev) => {
     msg.textContent = err.message || String(err);
   } finally {
     submit.disabled = false;
-    submit.textContent = "Entrar";
+    submit.textContent = "Entrar al panel";
   }
 });
