@@ -195,8 +195,9 @@ export class ChatService {
       headers.Authorization = `Bearer ${config.publishableKey}`;
     }
 
+    // El POST debe responder ya (pending o respuesta rápida). Cloudflare corta ~100s.
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), POST_TIMEOUT_MS);
+    const timer = setTimeout(() => ctrl.abort(), 90000);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -209,10 +210,43 @@ export class ChatService {
         signal: ctrl.signal,
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
+      const data = await response.json();
+      if (data?.pending && data?.jobId) {
+        return this.#pollJob(endpoint, data.jobId);
+      }
+      return data;
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  /**
+   * Ollama en CPU tarda más que el túnel: polling corto a /api/chat/job/:id.
+   */
+  async #pollJob(chatEndpoint, jobId) {
+    const base = String(chatEndpoint).replace(/\/api\/chat\/?$/, "");
+    const jobUrl = `${base}/api/chat/job/${encodeURIComponent(jobId)}`;
+    const deadline = Date.now() + POST_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 25000);
+      try {
+        const response = await fetch(jobUrl, {
+          method: "GET",
+          cache: "no-store",
+          signal: ctrl.signal,
+        });
+        if (response.status === 404) throw new Error("job-not-found");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!data?.pending) return data;
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    throw new Error("job-timeout");
   }
 
   #remember(question, response) {

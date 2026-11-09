@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import multer from "multer";
 
-import { chatMode, handleChat, handleChatStatus, handleLifeAreas } from "./chat.js";
+import { chatMode, handleChat, handleChatJob, handleChatStatus, handleLifeAreas } from "./chat.js";
 import { handleKnowledgeFeedback } from "./knowledge.js";
 import {
   handleKnowledgeList,
@@ -477,6 +477,7 @@ app.post("/api/chat", (req, res, next) => {
 
   Promise.resolve(handleChat(req, res)).catch(next);
 });
+app.get("/api/chat/job/:id", (req, res, next) => { Promise.resolve(handleChatJob(req, res)).catch(next); });
 app.get("/api/chat/status", handleChatStatus);
 app.get("/api/life-areas", handleLifeAreas);
 app.post("/api/knowledge/feedback", handleKnowledgeFeedback);

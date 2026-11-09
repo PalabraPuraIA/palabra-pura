@@ -761,6 +761,26 @@ async function searchFallback(question) {
   }
 }
 
+
+import { randomUUID } from "node:crypto";
+
+/** Cola en memoria: el túnel Cloudflare corta ~100s; Ollama en CPU tarda más. */
+const chatJobs = new Map();
+
+function ollamaAsyncEnabled() {
+  return (
+    Boolean(process.env.OLLAMA_BASE_URL) &&
+    String(process.env.OLLAMA_ONLY || "true").toLowerCase() !== "false"
+  );
+}
+
+function pruneJobs() {
+  const now = Date.now();
+  for (const [id, job] of chatJobs) {
+    if (now - (job.createdAt || 0) > 30 * 60 * 1000) chatJobs.delete(id);
+  }
+}
+
 /** Handler de Express para POST /api/chat. */
 export async function handleChat(req, res) {
   const question = String(req.body?.question ?? "").trim();
@@ -793,6 +813,68 @@ export async function handleChat(req, res) {
   try {
     const factHit = await findFact(question);
     if (factHit) return res.json({ ...factHit, mode: "dato" });
+
+    // Saludos / respuestas rápidas siguen síncronas.
+    const greeting = await answerGreeting(question);
+    if (greeting) return res.json(normalizePayload({ ...greeting, mode }));
+
+    if (ollamaAsyncEnabled()) {
+      pruneJobs();
+      const jobId = randomUUID();
+      chatJobs.set(jobId, { status: "pending", createdAt: Date.now() });
+      res.json({
+        pending: true,
+        jobId,
+        answer: "Estoy buscando en las enseñanzas con la IA local. Puede tardar uno o dos minutos…",
+        mode: "pending",
+      });
+
+      setImmediate(async () => {
+        try {
+          let payload = await answerFor(mode, question, history);
+          if (mode === "proxy" && UPSTREAM_FAILED.test(payload?.answer ?? "")) {
+            const rescued = await searchFallback(question);
+            payload = rescued ? { ...rescued, mode: "busqueda" } : { ...NOT_FOUND, mode: "busqueda" };
+          } else {
+            payload = { ...payload, mode };
+          }
+          payload = normalizePayload(payload);
+          if (payload?.source === "video" && payload.video?.youtube_id && !payload.offer) {
+            const paid = await paidOfferFor(payload.video.youtube_id);
+            if (paid) payload = withPaidOffer(payload, paid);
+          }
+          if (payload?.source !== "video" && payload?.source !== "dato" && payload?.source !== "oferta") {
+            payload = await enrichPassagesFromAnswer(payload, resolvePassage);
+          }
+          payload = await enrichWithRelatedPassages(payload, question);
+          if (payload?.transcript) delete payload.transcript;
+          if (payload?.spokenRefs) delete payload.spokenRefs;
+          if (payload?.matchedByTitle) delete payload.matchedByTitle;
+          if (payload?.answer) payload.answer = sanitizeAnswer(payload.answer);
+          if (looksLikeNotFound(payload) || (!payload?.video && !payload?.passage && !payload?.passages?.length)) {
+            payload = await withSuggestions(payload, question);
+          }
+          chatJobs.set(jobId, { status: "done", createdAt: Date.now(), payload });
+        } catch (err) {
+          console.error("[chat] async", err.message);
+          const rescued = await searchFallback(question).catch(() => null);
+          chatJobs.set(jobId, {
+            status: "done",
+            createdAt: Date.now(),
+            payload: normalizePayload(
+              rescued
+                ? { ...rescued, mode: "busqueda" }
+                : {
+                    answer:
+                      "La IA local tardó demasiado en este servidor. Intenta de nuevo en un momento.",
+                    mode: "error",
+                  },
+            ),
+          });
+        }
+      });
+      return;
+    }
 
     let payload = await answerFor(mode, question, history);
 
@@ -856,12 +938,41 @@ export async function handleChat(req, res) {
   }
 }
 
+
+/** GET /api/chat/job/:id — resultado de un chat async (Ollama). */
+export async function handleChatJob(req, res) {
+  res.set("Cache-Control", "no-store");
+  const job = chatJobs.get(String(req.params.id || ""));
+  if (!job) {
+    return res.status(404).json({ pending: false, answer: "No encontré esa consulta. Vuelve a preguntar." });
+  }
+  if (job.status === "pending") {
+    return res.json({ pending: true, jobId: req.params.id, answer: "Siguiendo con la IA local…" });
+  }
+  return res.json(job.payload || { answer: "Sin respuesta." });
+}
+
 /** Diagnóstico rápido: modo activo y si la base responde. */
 export async function handleChatStatus(_req, res) {
   const mode = chatMode();
+  const ollamaOnly =
+    String(process.env.OLLAMA_ONLY || "true").toLowerCase() !== "false" &&
+    Boolean(process.env.OLLAMA_BASE_URL);
   const status = {
     mode,
     hasDb: Boolean(dbConfig()),
+    writer: ollamaOnly
+      ? "ollama"
+      : process.env.DOLA_API_KEY || process.env.BYTEPLUS_API_KEY
+        ? "dola"
+        : process.env.GROQ_API_KEY
+          ? "groq"
+          : "none",
+    writerModel: ollamaOnly
+      ? process.env.OLLAMA_CHAT_MODEL || "qwen2.5:3b"
+      : null,
+    ollamaOnly,
+    ollamaUrl: process.env.OLLAMA_BASE_URL || null,
     hasGeminiKey: geminiApiKeys().length > 0,
     geminiKeys: geminiApiKeys().length,
     hasGroqKey: Boolean(process.env.GROQ_API_KEY),
