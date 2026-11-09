@@ -32,7 +32,31 @@ Actualizado: noviembre 2026 (tras cablear `knowledge-hub` y `analytics/rate`).
 | GET | `/api/auth/me` | Sí |
 | POST | `/api/auth/logout` | Sí |
 
-Ya **no** hay fallback de contraseñas hardcodeadas en el front: solo responde el API.
+Login contra `panel_user` (migración `20261109_panel_rbac.sql`). Si no hay usuarios, el primer login hace bootstrap del Superadmin con `ADMIN_USER` / `ADMIN_PASSWORD`.
+
+## 2b. API Express — RBAC panel (usuarios / roles / permisos)
+
+Requiere cookie/Bearer + permiso indicado.
+
+| Método | Ruta | Permiso |
+|--------|------|---------|
+| GET | `/api/panel/users` | `users:read` |
+| GET | `/api/panel/users/stats` | `users:read` |
+| GET | `/api/panel/users/:id` | `users:read` |
+| POST | `/api/panel/users` | `users:write` |
+| PATCH | `/api/panel/users/:id` | `users:write` |
+| DELETE | `/api/panel/users/:id` | `users:write` |
+| GET | `/api/panel/roles` | `roles:read` |
+| GET | `/api/panel/roles/:id` | `roles:read` |
+| POST | `/api/panel/roles` | `roles:write` |
+| PATCH | `/api/panel/roles/:id` | `roles:write` |
+| DELETE | `/api/panel/roles/:id` | `roles:write` |
+| GET | `/api/panel/permissions` | `permissions:read` |
+| POST | `/api/panel/permissions` | `permissions:write` |
+| PATCH | `/api/panel/permissions/:id` | `permissions:write` |
+| DELETE | `/api/panel/permissions/:id` | `permissions:write` |
+
+Roles sistema semilla: **Superadmin** (todo), **Editor** (conocimiento + enseñanzas), **Viewer** (solo lectura).
 
 ## 3. API Express — knowledge / facts / corpus / hub
 

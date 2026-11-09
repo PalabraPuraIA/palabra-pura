@@ -38,10 +38,27 @@ import {
   handleLogin,
   handleLogout,
   handleMe,
-  requireAuth,
   requireAuthPage,
+  requirePermission,
 } from "./auth.js";
 import { handleKnowledgeHub } from "./knowledge-hub.js";
+import {
+  handleListPermissions,
+  handleCreatePermission,
+  handleUpdatePermission,
+  handleDeletePermission,
+  handleListRoles,
+  handleGetRole,
+  handleCreateRole,
+  handleUpdateRole,
+  handleDeleteRole,
+  handleListUsers,
+  handleGetUser,
+  handleCreateUser,
+  handleUpdateUser,
+  handleDeleteUser,
+  handleUserStats,
+} from "./panel-rbac.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 80);
@@ -417,6 +434,25 @@ app.post("/api/auth/login", handleLogin);
 app.post("/api/auth/logout", handleLogout);
 app.get("/api/auth/me", handleMe);
 
+// RBAC: usuarios, roles y permisos del panel.
+app.get("/api/panel/users/stats", requirePermission("users:read"), handleUserStats);
+app.get("/api/panel/users", requirePermission("users:read"), handleListUsers);
+app.get("/api/panel/users/:id", requirePermission("users:read"), handleGetUser);
+app.post("/api/panel/users", requirePermission("users:write"), handleCreateUser);
+app.patch("/api/panel/users/:id", requirePermission("users:write"), handleUpdateUser);
+app.delete("/api/panel/users/:id", requirePermission("users:write"), handleDeleteUser);
+
+app.get("/api/panel/roles", requirePermission("roles:read"), handleListRoles);
+app.get("/api/panel/roles/:id", requirePermission("roles:read"), handleGetRole);
+app.post("/api/panel/roles", requirePermission("roles:write"), handleCreateRole);
+app.patch("/api/panel/roles/:id", requirePermission("roles:write"), handleUpdateRole);
+app.delete("/api/panel/roles/:id", requirePermission("roles:write"), handleDeleteRole);
+
+app.get("/api/panel/permissions", requirePermission("permissions:read"), handleListPermissions);
+app.post("/api/panel/permissions", requirePermission("permissions:write"), handleCreatePermission);
+app.patch("/api/panel/permissions/:id", requirePermission("permissions:write"), handleUpdatePermission);
+app.delete("/api/panel/permissions/:id", requirePermission("permissions:write"), handleDeletePermission);
+
 // Cerebro del chat en el mismo contenedor que la página.
 // Guarda pregunta + respuesta antes de enviarla al cliente (dashboard desplegable).
 app.post("/api/chat", (req, res, next) => {
@@ -445,15 +481,15 @@ app.get("/api/chat/status", handleChatStatus);
 app.get("/api/life-areas", handleLifeAreas);
 app.post("/api/knowledge/feedback", handleKnowledgeFeedback);
 
-app.get("/api/knowledge", requireAuth, handleKnowledgeList);
-app.patch("/api/knowledge/:id", requireAuth, handleKnowledgePatch);
-app.delete("/api/knowledge/:id", requireAuth, handleKnowledgeDelete);
-app.post("/api/knowledge-hub", requireAuth, handleKnowledgeHub);
-app.get("/api/facts", requireAuth, handleFactsList);
-app.post("/api/facts", requireAuth, handleFactCreate);
-app.patch("/api/facts/:id", requireAuth, handleFactPatch);
-app.delete("/api/facts/:id", requireAuth, handleFactDelete);
-app.get("/api/corpus", requireAuth, handleCorpusStats);
+app.get("/api/knowledge", requirePermission("knowledge:read"), handleKnowledgeList);
+app.patch("/api/knowledge/:id", requirePermission("knowledge:write"), handleKnowledgePatch);
+app.delete("/api/knowledge/:id", requirePermission("knowledge:write"), handleKnowledgeDelete);
+app.post("/api/knowledge-hub", requirePermission("knowledge:write"), handleKnowledgeHub);
+app.get("/api/facts", requirePermission("knowledge:read"), handleFactsList);
+app.post("/api/facts", requirePermission("knowledge:write"), handleFactCreate);
+app.patch("/api/facts/:id", requirePermission("knowledge:write"), handleFactPatch);
+app.delete("/api/facts/:id", requirePermission("knowledge:write"), handleFactDelete);
+app.get("/api/corpus", requirePermission("corpus:read"), handleCorpusStats);
 
 const upload = multer({
   dest: path.join(DATA_DIR, "ingest-tmp"),
@@ -461,9 +497,9 @@ const upload = multer({
 });
 fs.mkdirSync(path.join(DATA_DIR, "ingest-tmp"), { recursive: true });
 
-app.get("/api/ingest/jobs", requireAuth, handleIngestList);
-app.get("/api/ingest/jobs/:id", requireAuth, handleIngestGet);
-app.post("/api/ingest", requireAuth, upload.single("file"), handleIngestCreate);
+app.get("/api/ingest/jobs", requirePermission("ingest:read"), handleIngestList);
+app.get("/api/ingest/jobs/:id", requirePermission("ingest:read"), handleIngestGet);
+app.post("/api/ingest", requirePermission("ingest:write"), upload.single("file"), handleIngestCreate);
 
 /** Current public Cloudflare quick-tunnel URLs (updated by tunnel-watchdog). */
 app.get("/api/public-url", (_req, res) => {
@@ -564,7 +600,7 @@ app.post("/api/analytics/event", async (req, res) => {
   res.status(201).json({ ok: true, id: event.id, topics: event.topics });
 });
 
-app.get("/api/analytics/summary", requireAuth, async (_req, res) => {
+app.get("/api/analytics/summary", requirePermission("analytics:read"), async (_req, res) => {
   try {
     const events = await readConversationEvents();
     if (events?.length) {
