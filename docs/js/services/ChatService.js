@@ -1,8 +1,8 @@
 /**
  * ChatService.js — Única capa que habla con el backend.
  *
- * - En el server/contenedor: /api/chat local.
- * - En GitHub Pages: server Fintek (Ollama). Gemini/Supabase chat desconectado.
+ * - En el server/contenedor: /api/chat local primero.
+ * - En GitHub Pages: Supabase nube primero; server de reserva.
  */
 
 import { config, isConnected } from "../config.js";
@@ -14,9 +14,8 @@ const NETWORK_ERROR_MESSAGE =
   "No pude conectar con el chatbot. Revisa que la URL sea correcta y que la función esté desplegada, " +
   "y vuelve a intentarlo.";
 const UPSTREAM_FAIL = /tuve un problema para responder/i;
-/** Ollama en CPU puede tardar varios minutos. */
-const POST_TIMEOUT_MS = 600000;
-const RETRIES = 1;
+const POST_TIMEOUT_MS = 50000;
+const RETRIES = 2;
 
 const MAX_HISTORY = 12;
 const SESSION_KEY = "pp-chat-session";
@@ -138,10 +137,13 @@ export class ChatService {
     if (!isConnected()) return this.#askDemo(question);
 
     const backend = await resolveBackend();
-    const configured =
-      config.endpoint && /^https?:\/\//i.test(config.endpoint) && !/supabase\.co/.test(config.endpoint)
+    const cloudCandidate =
+      config.fallbackEndpoint ||
+      (config.endpoint && /supabase\.co/.test(config.endpoint)
         ? config.endpoint
-        : null;
+        : null) ||
+      `${String(config.supabaseUrl || "").replace(/\/+$/, "")}/functions/v1/chatbot-iglesia-palabra-pura`;
+    const cloud = cloudCandidate && /supabase\.co/.test(cloudCandidate) ? cloudCandidate : null;
 
     const local =
       backend.mode === "server"
@@ -152,12 +154,14 @@ export class ChatService {
             ? "/api/chat"
             : null;
 
-    // Solo Fintek / same-origin. Sin Edge Function Gemini.
+    // Pages: nube → local. Contenedor: local → nube.
     const endpoints = [];
-    if (local) endpoints.push(local);
-    if (configured && !endpoints.includes(configured)) endpoints.push(configured);
-    if (!isGitHubPages() && !endpoints.includes("/api/chat")) {
-      endpoints.push("/api/chat");
+    if (isGitHubPages()) {
+      if (cloud) endpoints.push(cloud);
+      if (local && !endpoints.includes(local)) endpoints.push(local);
+    } else {
+      if (local) endpoints.push(local);
+      if (cloud && !endpoints.includes(cloud)) endpoints.push(cloud);
     }
 
     for (let attempt = 0; attempt <= RETRIES; attempt++) {
@@ -195,9 +199,8 @@ export class ChatService {
       headers.Authorization = `Bearer ${config.publishableKey}`;
     }
 
-    // El POST debe responder ya (pending o respuesta rápida). Cloudflare corta ~100s.
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 90000);
+    const timer = setTimeout(() => ctrl.abort(), POST_TIMEOUT_MS);
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -210,43 +213,10 @@ export class ChatService {
         signal: ctrl.signal,
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      if (data?.pending && data?.jobId) {
-        return this.#pollJob(endpoint, data.jobId);
-      }
-      return data;
+      return response.json();
     } finally {
       clearTimeout(timer);
     }
-  }
-
-  /**
-   * Ollama en CPU tarda más que el túnel: polling corto a /api/chat/job/:id.
-   */
-  async #pollJob(chatEndpoint, jobId) {
-    const base = String(chatEndpoint).replace(/\/api\/chat\/?$/, "");
-    const jobUrl = `${base}/api/chat/job/${encodeURIComponent(jobId)}`;
-    const deadline = Date.now() + POST_TIMEOUT_MS;
-
-    while (Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 25000);
-      try {
-        const response = await fetch(jobUrl, {
-          method: "GET",
-          cache: "no-store",
-          signal: ctrl.signal,
-        });
-        if (response.status === 404) throw new Error("job-not-found");
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        if (!data?.pending) return data;
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-    throw new Error("job-timeout");
   }
 
   #remember(question, response) {

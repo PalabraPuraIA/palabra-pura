@@ -1,8 +1,8 @@
 /**
  * backend.js — Elige el backend activo.
  *
- * - GitHub Pages y contenedor: server Fintek (Ollama local).
- * - Chat Gemini/Supabase desconectado en esta prueba.
+ * - En GitHub Pages: Supabase nube primero; server/túnel de reserva.
+ * - En el contenedor Fintek (same-origin): server local primero; nube de reserva.
  */
 
 import { config } from "../config.js";
@@ -178,26 +178,15 @@ export async function resolveBackend({ force = false } = {}) {
     return cached;
   }
 
-  // Preferir siempre Fintek si responde. Sin caer a Gemini.
-  if (localChat) {
+  // Pages (o local caído): nube primero.
+  const cloudOk = await probeCloud();
+  if (cloudOk || !localChat) {
     cached = {
       at: now,
-      mode: "server",
+      mode: "supabase",
       serverBase: localBase,
-      chatEndpoint: localChat,
-      reserveChatEndpoint: null,
-    };
-    return cached;
-  }
-
-  const configured = normalizeBase(config.serverBaseUrl || config.fintekBaseUrl);
-  if (configured && (await probeHealth(configured))) {
-    cached = {
-      at: now,
-      mode: "server",
-      serverBase: configured,
-      chatEndpoint: `${configured}/api/chat`,
-      reserveChatEndpoint: null,
+      chatEndpoint: cloud,
+      reserveChatEndpoint: localChat,
     };
     return cached;
   }
@@ -205,9 +194,9 @@ export async function resolveBackend({ force = false } = {}) {
   cached = {
     at: now,
     mode: "server",
-    serverBase: configured || null,
-    chatEndpoint: configured ? `${configured}/api/chat` : "",
-    reserveChatEndpoint: null,
+    serverBase: localBase,
+    chatEndpoint: localChat,
+    reserveChatEndpoint: cloud,
   };
   return cached;
 }

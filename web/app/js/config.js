@@ -1,31 +1,32 @@
 /**
  * config.js — Configuración central de la aplicación.
  *
- * Prueba experimental: GitHub Pages → server Fintek (Ollama local).
- * Chat Gemini / Edge Function desconectado.
- * El hostname trycloudflare puede cambiar; docs/public-url.json lo refleja.
+ * Entornos:
+ * - Server Fintek / Docker (:8088): same-origin → /api/chat
+ * - GitHub Pages: Edge Function Supabase (chat). El panel admin necesita
+ *   el túnel Fintek vía public-url.json (no hardcodear trycloudflare).
  */
 
 const isGitHubPages =
   typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
 
-/** Proyecto Supabase (analytics / REST; no chat). */
+/** Proyecto Supabase canónico (Palabra Pura). */
 export const SUPABASE_PROJECT = "jkffgudzlcemapxprbws";
 export const SUPABASE_URL = `https://${SUPABASE_PROJECT}.supabase.co`;
 export const SUPABASE_CHAT_FN = `${SUPABASE_URL}/functions/v1/chatbot-iglesia-palabra-pura`;
 
-/** Túnel actual hacia server-fintek (también en public-url.json). */
-const FINTEK_TUNNEL = "https://showing-leads-aim-angeles.trycloudflare.com";
-
 export const config = {
-  fintekBaseUrl: isGitHubPages ? FINTEK_TUNNEL : "",
-  serverBaseUrl: isGitHubPages ? FINTEK_TUNNEL : "",
+  /**
+   * Base del API Fintek cuando el front está en Pages.
+   * Vacío a propósito: se resuelve en runtime con ./public-url.json
+   * (watchdog del túnel). Solo usa un valor fijo en emergencias locales.
+   */
+  fintekBaseUrl: "",
+  serverBaseUrl: "",
 
-  /** Chat: Fintek local. En Docker, same-origin. */
-  endpoint: isGitHubPages ? `${FINTEK_TUNNEL}/api/chat` : "/api/chat",
+  endpoint: isGitHubPages ? SUPABASE_CHAT_FN : "/api/chat",
 
-  /** Sin fallback a Gemini. */
-  fallbackEndpoint: "",
+  fallbackEndpoint: SUPABASE_CHAT_FN,
 
   publishableKey: "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW",
 
