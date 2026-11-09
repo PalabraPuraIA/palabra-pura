@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "status": "up",
+  "baseUrl": "https://showing-leads-aim-angeles.trycloudflare.com",
+  "chatUrl": "https://showing-leads-aim-angeles.trycloudflare.com/",
+  "dashboardUrl": "https://showing-leads-aim-angeles.trycloudflare.com/dashboard/",
+  "stableChatUrl": "https://palabrapuraia.github.io/palabra-pura/",
+  "stableDashboardUrl": "https://palabrapuraia.github.io/palabra-pura/dashboard/",
+  "note": "Pages chat -> Fintek local AI (Ollama). Gemini chat desconectado.",
+  "updatedAt": "2026-11-09T22:48:47Z"
+}

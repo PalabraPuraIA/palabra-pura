@@ -1,8 +1,8 @@
 /**
  * ChatService.js — Única capa que habla con el backend.
  *
- * - En el server/contenedor: /api/chat local primero.
- * - En GitHub Pages: Supabase nube primero; server de reserva.
+ * - En el server/contenedor: /api/chat local.
+ * - En GitHub Pages: server Fintek (Ollama). Gemini/Supabase chat desconectado.
  */
 
 import { config, isConnected } from "../config.js";
@@ -14,8 +14,9 @@ const NETWORK_ERROR_MESSAGE =
   "No pude conectar con el chatbot. Revisa que la URL sea correcta y que la función esté desplegada, " +
   "y vuelve a intentarlo.";
 const UPSTREAM_FAIL = /tuve un problema para responder/i;
-const POST_TIMEOUT_MS = 50000;
-const RETRIES = 2;
+/** Ollama en CPU puede tardar varios minutos. */
+const POST_TIMEOUT_MS = 600000;
+const RETRIES = 1;
 
 const MAX_HISTORY = 12;
 const SESSION_KEY = "pp-chat-session";
@@ -137,13 +138,10 @@ export class ChatService {
     if (!isConnected()) return this.#askDemo(question);
 
     const backend = await resolveBackend();
-    const cloudCandidate =
-      config.fallbackEndpoint ||
-      (config.endpoint && /supabase\.co/.test(config.endpoint)
+    const configured =
+      config.endpoint && /^https?:\/\//i.test(config.endpoint) && !/supabase\.co/.test(config.endpoint)
         ? config.endpoint
-        : null) ||
-      `${String(config.supabaseUrl || "").replace(/\/+$/, "")}/functions/v1/chatbot-iglesia-palabra-pura`;
-    const cloud = cloudCandidate && /supabase\.co/.test(cloudCandidate) ? cloudCandidate : null;
+        : null;
 
     const local =
       backend.mode === "server"
@@ -154,14 +152,12 @@ export class ChatService {
             ? "/api/chat"
             : null;
 
-    // Pages: nube → local. Contenedor: local → nube.
+    // Solo Fintek / same-origin. Sin Edge Function Gemini.
     const endpoints = [];
-    if (isGitHubPages()) {
-      if (cloud) endpoints.push(cloud);
-      if (local && !endpoints.includes(local)) endpoints.push(local);
-    } else {
-      if (local) endpoints.push(local);
-      if (cloud && !endpoints.includes(cloud)) endpoints.push(cloud);
+    if (local) endpoints.push(local);
+    if (configured && !endpoints.includes(configured)) endpoints.push(configured);
+    if (!isGitHubPages() && !endpoints.includes("/api/chat")) {
+      endpoints.push("/api/chat");
     }
 
     for (let attempt = 0; attempt <= RETRIES; attempt++) {
