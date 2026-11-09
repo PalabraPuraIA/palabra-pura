@@ -1,31 +1,36 @@
 /**
  * config.js — Configuración central de la aplicación.
  *
- * - En el server Fintek (:8088): same-origin /api/chat (Postgres local).
- * - En GitHub Pages: Edge Function Supabase (misma nube).
- * Ambos deben verse igual; la info coincide cuando el server está en proxy
- * a la misma Edge, o cuando Pages usa el túnel hacia el server.
+ * Entornos:
+ * - Server Fintek / Docker (:8088): same-origin → /api/chat
+ * - GitHub Pages: Edge Function Supabase (chat). El panel admin necesita
+ *   el túnel Fintek vía public-url.json (no hardcodear trycloudflare).
  */
 
 const isGitHubPages =
   typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
 
+/** Proyecto Supabase canónico (Palabra Pura). */
+export const SUPABASE_PROJECT = "jkffgudzlcemapxprbws";
+export const SUPABASE_URL = `https://${SUPABASE_PROJECT}.supabase.co`;
+export const SUPABASE_CHAT_FN = `${SUPABASE_URL}/functions/v1/chatbot-iglesia-palabra-pura`;
+
 export const config = {
-  fintekBaseUrl: isGitHubPages
-    ? "https://herbs-thomson-promo-painting.trycloudflare.com"
-    : "",
+  /**
+   * Base del API Fintek cuando el front está en Pages.
+   * Vacío a propósito: se resuelve en runtime con ./public-url.json
+   * (watchdog del túnel). Solo usa un valor fijo en emergencias locales.
+   */
+  fintekBaseUrl: "",
   serverBaseUrl: "",
 
-  endpoint: isGitHubPages
-    ? "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura"
-    : "/api/chat",
+  endpoint: isGitHubPages ? SUPABASE_CHAT_FN : "/api/chat",
 
-  fallbackEndpoint:
-    "https://jkffgudzlcemapxprbws.supabase.co/functions/v1/chatbot-iglesia-palabra-pura",
+  fallbackEndpoint: SUPABASE_CHAT_FN,
 
   publishableKey: "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW",
 
-  supabaseUrl: "https://jkffgudzlcemapxprbws.supabase.co",
+  supabaseUrl: SUPABASE_URL,
 
   exampleQuestions: [
     "¿Qué significa nacer de nuevo?",

@@ -1,4 +1,4 @@
-import "./admin-boot.js?v=panel-login-1";
+import { adminFetch } from "./admin-boot.js?v=panel-login-1";
 
 const SUPABASE_URL = "https://jkffgudzlcemapxprbws.supabase.co";
 const SUPABASE_ANON = "sb_publishable_WVH-EXfKrrBn9P8US9OA0w_Py4FSmzW";
@@ -35,16 +35,25 @@ function escapeHtml(value) {
 }
 
 async function hub(action, extra = {}) {
-  const headers = { "Content-Type": "application/json" };
+  const body = JSON.stringify({ action, ...extra });
+  let res;
   if (ON_PAGES) {
-    headers.Authorization = `Bearer ${SUPABASE_ANON}`;
-    headers.apikey = SUPABASE_ANON;
+    res = await fetch(HUB, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_ANON}`,
+        apikey: SUPABASE_ANON,
+      },
+      body,
+    });
+  } else {
+    res = await adminFetch(HUB, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    });
   }
-  const res = await fetch(HUB, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ action, ...extra }),
-  });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
     throw new Error(data.error || `Error ${res.status}`);

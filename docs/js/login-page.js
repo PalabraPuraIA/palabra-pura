@@ -2,47 +2,39 @@ import { apiUrl, setToken, getToken } from "./auth-client.js";
 
 const ON_PAGES = typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
 
-/** Misma clave que stack/docker-compose.yml (ADMIN_PASSWORD). */
-const PANEL_USER = "admin";
-const PANEL_PASSWORDS = ["Palabra123*", "palabra"];
-
-function panelCredentialsOk(username, password) {
-  return username === PANEL_USER && PANEL_PASSWORDS.includes(password);
-}
-
-function issuePanelToken() {
-  setToken(`pp-panel.${Date.now()}`);
-}
-
-// En GitHub Pages, el API vive en el túnel Fintek (si config lo define).
+/** En Pages, resuelve el API Fintek vía public-url.json (túnel vivo). */
 async function resolveApiBase() {
   if (!ON_PAGES) return;
-  let base = "";
+  let origin = "";
+
   try {
-    const mod = await import("./config.js");
-    base = mod.config?.fintekBaseUrl || mod.config?.serverBaseUrl || "";
+    const res = await fetch(new URL("./public-url.json", location.href).href, {
+      cache: "no-store",
+    });
+    const data = await res.json();
+    const candidate = data?.baseUrl || data?.chatUrl || data?.dashboardUrl || "";
+    if (candidate) origin = new URL(candidate, location.href).origin;
   } catch {
-    /* config puede fallar; seguimos con public-url */
+    /* ignore */
   }
-  if (!base) {
+
+  if (!origin) {
     try {
-      const res = await fetch(new URL("./public-url.json", location.href).href, {
-        cache: "no-store",
-      });
-      const data = await res.json();
-      base = data?.baseUrl || "";
+      const mod = await import("./config.js");
+      const fallback = mod.config?.fintekBaseUrl || mod.config?.serverBaseUrl || "";
+      if (fallback) origin = new URL(fallback, location.href).origin;
     } catch {
       /* ignore */
     }
   }
-  if (base) window.__PP_API_BASE__ = String(base).replace(/\/+$/, "");
+
+  if (origin) window.__PP_API_BASE__ = origin.replace(/\/+$/, "");
 }
 
 function nextTarget() {
   const params = new URLSearchParams(location.search);
   const fallback = ON_PAGES ? new URL("./dashboard/", location.href).href : "/dashboard/";
   let next = params.get("next") || fallback;
-  // Evitar open redirect
   if (next.includes("://") && !next.includes(location.host) && !/github\.io/.test(next)) {
     return fallback;
   }
@@ -64,16 +56,18 @@ async function tryRemoteLogin(username, password) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, password }),
-    signal: AbortSignal.timeout(6000),
+    signal: AbortSignal.timeout(8000),
   });
   const data = await res.json().catch(() => ({}));
   if (res.ok && data.ok && data.token) return data.token;
-  if (res.status === 401) {
-    const err = new Error(data.error || "Usuario o contraseña incorrectos");
-    err.rejected = true;
-    throw err;
-  }
-  return null;
+  const err = new Error(
+    data.error ||
+      (res.status === 401
+        ? "Usuario o contraseña incorrectos"
+        : `No se pudo conectar al servidor (${res.status})`),
+  );
+  err.rejected = true;
+  throw err;
 }
 
 const form = document.querySelector("[data-login-form]");
@@ -87,14 +81,15 @@ if (chatLink) {
 
 await resolveApiBase();
 
-// Ya logueado → panel.
-if (getToken()) {
-  if (ON_PAGES || String(getToken()).startsWith("pp-panel.")) {
+// Sesión previa: solo tokens reales del API (no pp-panel.* legado).
+const existing = getToken();
+if (existing && !String(existing).startsWith("pp-panel.")) {
+  if (ON_PAGES) {
     location.href = nextTarget();
   } else {
     try {
       const res = await fetch(apiUrl("/api/auth/me"), {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${existing}` },
         cache: "no-store",
       });
       if (res.ok) location.href = nextTarget();
@@ -113,23 +108,9 @@ form.addEventListener("submit", async (ev) => {
   submit.disabled = true;
   submit.textContent = "Entrando…";
   try {
-    let token = null;
-    try {
-      token = await tryRemoteLogin(username, password);
-    } catch (err) {
-      if (err.rejected) throw err;
-    }
-    if (token) {
-      setToken(token);
-      location.href = nextTarget();
-      return;
-    }
-    if (panelCredentialsOk(username, password)) {
-      issuePanelToken();
-      location.href = nextTarget();
-      return;
-    }
-    throw new Error("Usuario o contraseña incorrectos");
+    const token = await tryRemoteLogin(username, password);
+    setToken(token);
+    location.href = nextTarget();
   } catch (err) {
     msg.hidden = false;
     msg.className = "login-msg login-msg--err";

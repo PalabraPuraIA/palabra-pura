@@ -32,6 +32,7 @@ import {
   migrateLegacyEvents,
   readConversationEvents,
   recordConversation,
+  rateConversation,
 } from "./conversation-store.js";
 import {
   handleLogin,
@@ -40,6 +41,7 @@ import {
   requireAuth,
   requireAuthPage,
 } from "./auth.js";
+import { handleKnowledgeHub } from "./knowledge-hub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 80);
@@ -446,6 +448,7 @@ app.post("/api/knowledge/feedback", handleKnowledgeFeedback);
 app.get("/api/knowledge", requireAuth, handleKnowledgeList);
 app.patch("/api/knowledge/:id", requireAuth, handleKnowledgePatch);
 app.delete("/api/knowledge/:id", requireAuth, handleKnowledgeDelete);
+app.post("/api/knowledge-hub", requireAuth, handleKnowledgeHub);
 app.get("/api/facts", requireAuth, handleFactsList);
 app.post("/api/facts", requireAuth, handleFactCreate);
 app.patch("/api/facts/:id", requireAuth, handleFactPatch);
@@ -496,6 +499,25 @@ app.get("/api/articles", async (req, res) => {
   } catch (err) {
     console.error("[articles]", err);
     res.status(502).json({ ok: false, error: "articles unavailable", articles: [] });
+  }
+});
+
+app.post("/api/analytics/rate", async (req, res) => {
+  const id = String(req.body?.id || req.body?.interaction_id || "").trim();
+  const vote = req.body?.vote === "not_useful" ? "not_useful" : "useful";
+  const question = String(req.body?.question || "").trim().slice(0, 500) || null;
+  if (!id) {
+    return res.status(400).json({ ok: false, error: "id required" });
+  }
+  try {
+    const saved = await rateConversation(id, vote, question);
+    if (!saved) {
+      return res.status(503).json({ ok: false, error: "ratings unavailable" });
+    }
+    res.json({ ok: true, id: saved, vote });
+  } catch (err) {
+    console.warn("[analytics] rate", err.message);
+    res.status(500).json({ ok: false, error: err.message || "rate failed" });
   }
 });
 
