@@ -14,7 +14,7 @@ import {
 import { preloadTlaBible } from "./utils/tlaPassage.js";
 
 import { ChatService } from "./services/ChatService.js?v=tla-1";
-import { ArticleService } from "./services/ArticleService.js";
+import { ArticleService } from "./services/ArticleService.js?v=chat-unblock-1";
 import { ChatView } from "./ui/ChatView.js?v=no-results-1";
 import { Composer } from "./ui/Composer.js?v=ios-kb-1";
 import { ExampleChips } from "./ui/ExampleChips.js?v=chat-shell-1";
@@ -279,11 +279,12 @@ class App {
     this.#view.showTyping();
     this.#articlesPanel.showLoading();
 
+    // Artículos en paralelo, pero NUNCA bloquean la respuesta del chat
+    // (si WP/túnel cuelga, el usuario no se queda viendo los tres puntos).
+    const articlesPromise = this.#articles.recommend(question).catch(() => []);
+
     try {
-      const [response, articles] = await Promise.all([
-        this.#service.ask(question),
-        this.#articles.recommend(question).catch(() => []),
-      ]);
+      const response = await this.#service.ask(question);
 
       this.#view.hideTyping();
       const interactionId =
@@ -306,9 +307,12 @@ class App {
         this.#player.clear();
       }
 
-      this.#articlesPanel.render(articles, question);
       this.#media.reveal({
         hasVideo: Boolean(response?.video?.youtube_id || response?.offer || response?.offers?.length),
+      });
+
+      articlesPromise.then((articles) => {
+        this.#articlesPanel.render(articles, question);
       });
     } catch (error) {
       console.warn("[App] ask", error);

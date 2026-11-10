@@ -129,13 +129,20 @@ async function fetchWpPosts(search, perPage = 6) {
   url.searchParams.set("orderby", "relevance");
   url.searchParams.set("_fields", "id,date,title,link,excerpt");
 
-  const response = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  if (!response.ok) throw new Error(`WP HTTP ${response.status}`);
-  const data = await response.json();
-  return Array.isArray(data) ? data.map(mapWpPost) : [];
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+    if (!response.ok) throw new Error(`WP HTTP ${response.status}`);
+    const data = await response.json();
+    return Array.isArray(data) ? data.map(mapWpPost) : [];
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function recommendFromWordpress(question, limit) {
@@ -194,10 +201,18 @@ async function recommendFromProxy(question, limit, serverBase = null) {
         return u.toString();
       })();
 
-  const response = await fetch(finalUrl, {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  let response;
+  try {
+    response = await fetch(finalUrl, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: ctrl.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
   const data = await response.json();
