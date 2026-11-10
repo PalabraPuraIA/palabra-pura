@@ -358,7 +358,12 @@ function renderRecentCard(record) {
 }
 
 async function loadFromLocal() {
-  const res = await adminFetch("/api/analytics/summary", { cache: "no-store" });
+  // skipAuthRedirect: en Pages un 401 del túnel no debe expulsar al login;
+  // el historial se lee de Supabase como respaldo.
+  const res = await adminFetch("/api/analytics/summary", {
+    cache: "no-store",
+    skipAuthRedirect: true,
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -399,11 +404,21 @@ async function loadFromSupabase() {
 }
 
 async function loadEvents() {
+  const onPages =
+    typeof location !== "undefined" && /github\.io$/i.test(location.hostname);
+  // En GitHub Pages el histórico canónico está en Supabase (chat de Gemini).
+  if (onPages) {
+    try {
+      return await loadFromSupabase();
+    } catch {
+      /* si falla la nube, intenta el túnel Fintek */
+    }
+  }
   try {
     const data = await loadFromLocal();
     if (Array.isArray(data?.recent) && data.recent.length) return data.recent;
   } catch {
-    /* Pages usa la nube */
+    /* server sin analytics / sin auth */
   }
   return loadFromSupabase();
 }
