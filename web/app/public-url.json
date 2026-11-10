@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "status": "up",
+  "baseUrl": "https://showing-leads-aim-angeles.trycloudflare.com",
+  "chatUrl": "https://showing-leads-aim-angeles.trycloudflare.com/",
+  "dashboardUrl": "https://showing-leads-aim-angeles.trycloudflare.com/dashboard/",
+  "stableChatUrl": "https://palabrapuraia.github.io/palabra-pura/",
+  "stableDashboardUrl": "https://palabrapuraia.github.io/palabra-pura/dashboard/",
+  "note": "Pages chat usa Gemini (Supabase). Este túnel es reserva/admin del server Fintek.",
+  "updatedAt": "2026-11-10T16:00:00Z"
+}
